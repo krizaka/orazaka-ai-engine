@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.orazaka</groupId>
+        <artifactId>orazaka-ai-engine</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>orazaka-business</artifactId>
+    <name>orazaka-business</name>
+    <description>Business persona prompts and PromptOps content resolver — pure library module</description>
+
+    <dependencies>
+        <!-- Core inbound ports (AiClient, …) invoked by the App Factory; brings reactor (Flux). -->
+        <dependency>
+            <groupId>com.orazaka</groupId>
+            <artifactId>orazaka-core</artifactId>
+        </dependency>
+        <!-- Tier-1 Studio contract + the SDK that satisfies its ports. business depends on the
+             PORT, never on orazaka-studio-service (another context's Tier-3, SEAM-002). -->
+        <dependency>
+            <groupId>com.orazaka</groupId>
+            <artifactId>orazaka-studio-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.orazaka</groupId>
+            <artifactId>orazaka-studio-client</artifactId>
+        </dependency>
+
+        <!-- Spring Context for ResourceLoader (no web starters) -->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-context</artifactId>
+        </dependency>
+
+        <!-- Logging -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
+
+        <!-- Spring Boot auto-configuration -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-autoconfigure</artifactId>
+        </dependency>
+
+        <!-- Testing -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.orazaka</groupId>
+            <artifactId>orazaka-test-support</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.tngtech.archunit</groupId>
+            <artifactId>archunit-junit5</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+</project>

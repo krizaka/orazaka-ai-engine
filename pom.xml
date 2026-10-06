@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- The relativePath resolves inside the Orazaka workspace (krizaka/orazaka); a standalone
+         clone falls back to the orazaka-parent published on GitHub Packages. -->
+    <parent>
+        <groupId>com.orazaka</groupId>
+        <artifactId>orazaka-parent</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+        <relativePath>../orazaka-build/orazaka-parent/pom.xml</relativePath>
+    </parent>
+
+    <artifactId>orazaka-ai-engine</artifactId>
+    <packaging>pom</packaging>
+    <name>orazaka-ai-engine</name>
+    <description>The Orazaka cognitive SDK: AiClient &amp; provider mesh (core), the interceptor pipeline, tools (MCP · RAG · sandbox), use-case orchestration (business), application persistence and asset encryption.</description>
+
+    <url>https://github.com/krizaka/orazaka-ai-engine</url>
+
+    <scm>
+        <url>https://github.com/krizaka/orazaka-ai-engine</url>
+        <connection>scm:git:https://github.com/krizaka/orazaka-ai-engine.git</connection>
+        <developerConnection>scm:git:git@github.com:krizaka/orazaka-ai-engine.git</developerConnection>
+    </scm>
+
+    <properties>
+        <!-- GitHub Packages repository the modules below are published to (orazaka-parent). -->
+        <orazaka.repository>orazaka-ai-engine</orazaka.repository>
+    </properties>
+
+    <modules>
+        <module>orazaka-assets</module>
+        <module>orazaka-persistence-app</module>
+        <module>orazaka-core</module>
+        <module>orazaka-interceptors</module>
+        <module>orazaka-tools</module>
+        <module>orazaka-persistence-bridge</module>
+        <module>orazaka-business</module>
+    </modules>
+</project>

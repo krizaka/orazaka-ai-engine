@@ -13,9 +13,9 @@ import org.springframework.stereotype.Component;
  *
  * <p>Resolves a {@link ChatModel} <b>on demand from the DB</b>, replacing the static
  * {@code @Primary} model beans in the former {@code AiModelConfiguration}. Given a model name (the
- * user's {@code user_model_prefs} choice, or a category's catalog default), it resolves the
- * provider endpoint via {@link ModelEndpointResolver} and builds an OpenAI-compatible client via
- * the {@link UniversalProxyChatProvider}. No Spring Boot starter / autoconfiguration is involved.
+ * request's chosen model, or a category's catalog default), it resolves the provider endpoint via
+ * {@link ModelEndpointResolver} and builds an OpenAI-compatible client via the {@link
+ * UniversalProxyChatProvider}. No Spring Boot starter / autoconfiguration is involved.
  *
  * <p>Built clients are cached per {@code (base-url, model)}. Because providers/models live in the
  * DB, an admin edit takes effect with no redeploy — call {@link #evictAll()} after such an edit (or

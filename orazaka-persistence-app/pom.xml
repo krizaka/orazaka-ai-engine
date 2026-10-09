@@ -40,7 +40,7 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>
         </dependency>
-        <!-- Was transitive via orazaka-identity → persistence-identity until phase-0g
+        <!-- Was transitive via krizaka-users-core → persistence-identity until phase-0g
              decoupled the modules; this module's Testcontainers ITs need it directly. -->
         <dependency>
             <groupId>org.postgresql</groupId>

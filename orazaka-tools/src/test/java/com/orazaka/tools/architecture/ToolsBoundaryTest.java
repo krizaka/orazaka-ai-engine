@@ -39,7 +39,7 @@ class ToolsBoundaryTest {
         .resideInAPackage(PKG_TOOLS)
         .should()
         .dependOnClassesThat()
-        .resideInAPackage("com.orazaka.identity..")
+        .resideInAPackage("com.krizaka.users..")
         .because("Tools are identity-blind — absolute ban on importing identity types [ERR-102]")
         .check(toolsClasses);
   }

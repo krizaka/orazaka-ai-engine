@@ -36,8 +36,7 @@ class BusinessBoundaryTest {
   @Test
   @DisplayName("[ERR-102] Business must not depend on identity")
   void businessIsIdentityBlind() {
-    assertNoDependencyOn(
-        businessClasses, PKG, "com.orazaka.identity", "Business is identity-blind");
+    assertNoDependencyOn(businessClasses, PKG, "com.krizaka.users", "Business is identity-blind");
   }
 
   @Test

@@ -38,7 +38,7 @@ class InterceptorsBoundaryTest {
   @DisplayName("[ERR-102] Interceptors must not depend on identity")
   void interceptorsAreIdentityBlind() {
     assertNoDependencyOn(
-        interceptorClasses, PKG, "com.orazaka.identity", "Interceptors are identity-blind");
+        interceptorClasses, PKG, "com.krizaka.users", "Interceptors are identity-blind");
   }
 
   @Test

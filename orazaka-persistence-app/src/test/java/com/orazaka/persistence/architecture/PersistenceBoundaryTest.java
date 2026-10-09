@@ -62,7 +62,7 @@ class PersistenceBoundaryTest {
         .resideInAPackage("com.orazaka.persistence..")
         .should()
         .dependOnClassesThat()
-        .resideInAPackage("com.orazaka.identity..")
+        .resideInAPackage("com.krizaka.users..")
         .because("Persistence must remain decoupled from identity domains")
         .check(persistenceClasses);
   }

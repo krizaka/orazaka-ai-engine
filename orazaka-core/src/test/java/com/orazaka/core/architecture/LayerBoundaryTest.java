@@ -50,7 +50,7 @@ class LayerBoundaryTest {
         .resideInAPackage(PKG_CORE)
         .should()
         .dependOnClassesThat()
-        .resideInAPackage("com.orazaka.identity..")
+        .resideInAPackage("com.krizaka.users..")
         .because("orazaka-core must remain completely identity-blind [Section 1.A]")
         .check(coreClasses);
   }

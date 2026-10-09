@@ -10,7 +10,7 @@
 
 - **Role:** The Orazaka cognitive SDK: AiClient & provider mesh (core), the interceptor pipeline, tools (MCP · RAG · sandbox), use-case orchestration (business), application persistence and asset encryption.
 - **Layer:** Orazaka AI engine
-- **Depends on:** orazaka-build, orazaka-contracts, orazaka-billing, orazaka-studio — never on another repository's Tier-3 implementation (AGENTS.md §2, [SEAM-002]).
+- **Depends on:** orazaka-build, orazaka-contracts, krizaka-billing, orazaka-studio — never on another repository's Tier-3 implementation (AGENTS.md §2, [SEAM-002]).
 - **Workspace path:** `orazaka-libs/orazaka-ai-engine`
 
 ## Definition of done

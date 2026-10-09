@@ -27,8 +27,8 @@
         <!-- Tier-1 billing contract: the entitlement gate speaks the shared ports and DTOs, never
              the billing service's implementation. Shared freely per AGENTS.md §2 sharing tiers. -->
         <dependency>
-            <groupId>com.krizaka.orazaka</groupId>
-            <artifactId>orazaka-billing-api</artifactId>
+            <groupId>com.krizaka</groupId>
+            <artifactId>krizaka-billing-api</artifactId>
         </dependency>
         <dependency>
             <groupId>com.krizaka.orazaka</groupId>

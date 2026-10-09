@@ -9,9 +9,9 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
-import com.orazaka.billing.domain.model.BillableUnit;
-import com.orazaka.billing.domain.model.ConsumptionReport;
-import com.orazaka.billing.domain.port.CreditAuthorizationClient;
+import com.krizaka.billing.domain.model.BillableUnit;
+import com.krizaka.billing.domain.model.ConsumptionReport;
+import com.krizaka.billing.domain.port.CreditAuthorizationClient;
 import com.orazaka.core.domain.event.ChatCompletedEvent;
 import com.orazaka.core.domain.model.Context;
 import com.orazaka.core.domain.model.chat.InternalChatRequest;

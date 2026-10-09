@@ -1,8 +1,8 @@
 package com.orazaka.interceptor.governance;
 
-import com.orazaka.billing.domain.port.CreditAuthorizationClient;
-import com.orazaka.billing.domain.port.EntitlementProvider;
-import com.orazaka.billing.domain.port.UnmeteredTurnRepository;
+import com.krizaka.billing.domain.port.CreditAuthorizationClient;
+import com.krizaka.billing.domain.port.EntitlementProvider;
+import com.krizaka.billing.domain.port.UnmeteredTurnRepository;
 import com.orazaka.interceptor.governance.persistence.InterceptorPolicyRepository;
 import com.orazaka.interceptor.governance.persistence.InterceptorPolicyStore;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -37,7 +37,7 @@ class GovernanceAutoConfiguration {
   /**
    * The billing gate, wired wherever the billing ports are present.
    *
-   * <p>Conditional on the beans rather than on {@code orazaka.billing.enabled}: with billing off
+   * <p>Conditional on the beans rather than on {@code krizaka.billing.enabled}: with billing off
    * the ports resolve to their Null Objects and the interceptor is a pass-through costing two
    * method calls. That keeps the pipeline's shape identical either way, so turning billing on
    * cannot change which interceptors run — only what they answer.

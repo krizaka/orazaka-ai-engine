@@ -8,10 +8,10 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.orazaka.billing.domain.model.CreditHoldResponse;
-import com.orazaka.billing.domain.model.EntitlementSnapshot;
-import com.orazaka.billing.domain.port.CreditAuthorizationClient;
-import com.orazaka.billing.domain.port.EntitlementProvider;
+import com.krizaka.billing.domain.model.CreditHoldResponse;
+import com.krizaka.billing.domain.model.EntitlementSnapshot;
+import com.krizaka.billing.domain.port.CreditAuthorizationClient;
+import com.krizaka.billing.domain.port.EntitlementProvider;
 import com.orazaka.core.application.engine.Engine;
 import com.orazaka.core.application.interceptor.PromptContextInterceptor;
 import com.orazaka.core.application.pipeline.DynamicPipelineExecutor;
@@ -213,7 +213,7 @@ class MediaTurnControlsTest {
             new EntitlementInterceptor(
                 entitlements,
                 credits,
-                mock(com.orazaka.billing.domain.port.UnmeteredTurnRepository.class)),
+                mock(com.krizaka.billing.domain.port.UnmeteredTurnRepository.class)),
             refiner);
     // Phase 1 holds the two guards and Phase 2 the gate and an AI-dependent stage — the order the
     // seed and PipelineRegistry give them in a running service.

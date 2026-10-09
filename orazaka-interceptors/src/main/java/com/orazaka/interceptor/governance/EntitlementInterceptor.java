@@ -1,14 +1,14 @@
 package com.orazaka.interceptor.governance;
 
-import com.orazaka.billing.domain.exception.InsufficientCreditsException;
-import com.orazaka.billing.domain.model.BillableCapability;
-import com.orazaka.billing.domain.model.CreditHoldCommand;
-import com.orazaka.billing.domain.model.CreditHoldResponse;
-import com.orazaka.billing.domain.model.EntitlementSnapshot;
-import com.orazaka.billing.domain.model.UnmeteredTurn;
-import com.orazaka.billing.domain.port.CreditAuthorizationClient;
-import com.orazaka.billing.domain.port.EntitlementProvider;
-import com.orazaka.billing.domain.port.UnmeteredTurnRepository;
+import com.krizaka.billing.domain.exception.InsufficientCreditsException;
+import com.krizaka.billing.domain.model.BillableCapability;
+import com.krizaka.billing.domain.model.CreditHoldCommand;
+import com.krizaka.billing.domain.model.CreditHoldResponse;
+import com.krizaka.billing.domain.model.EntitlementSnapshot;
+import com.krizaka.billing.domain.model.UnmeteredTurn;
+import com.krizaka.billing.domain.port.CreditAuthorizationClient;
+import com.krizaka.billing.domain.port.EntitlementProvider;
+import com.krizaka.billing.domain.port.UnmeteredTurnRepository;
 import com.orazaka.core.application.interceptor.PromptContextInterceptor;
 import com.orazaka.core.application.pipeline.PipelineShortCircuitException;
 import com.orazaka.core.domain.model.PromptContext;

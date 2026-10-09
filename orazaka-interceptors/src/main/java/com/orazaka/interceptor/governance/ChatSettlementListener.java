@@ -1,7 +1,7 @@
 package com.orazaka.interceptor.governance;
 
-import com.orazaka.billing.domain.model.ConsumptionReport;
-import com.orazaka.billing.domain.port.CreditAuthorizationClient;
+import com.krizaka.billing.domain.model.ConsumptionReport;
+import com.krizaka.billing.domain.port.CreditAuthorizationClient;
 import com.orazaka.core.domain.event.ChatCompletedEvent;
 import com.orazaka.core.domain.model.chat.TokenUsage;
 import java.util.Objects;

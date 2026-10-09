@@ -19,7 +19,7 @@
         PlatformMcpServerProvider, UserMcpServerProvider, ValidationPipelineRepository) by delegating to
         the orazaka-persistence-app-api inbound ports. Bundled by every service that runs the cognitive
         pipeline in-process (conversation-service, job-service, …) so the shared core beans wire without
-        each service re-implementing the same DB adapters. Discovered via the hosts' com.orazaka
+        each service re-implementing the same DB adapters. Discovered via the hosts' com.krizaka.orazaka
         component scan — no HTTP surface, no entrypoint.
     </description>
 

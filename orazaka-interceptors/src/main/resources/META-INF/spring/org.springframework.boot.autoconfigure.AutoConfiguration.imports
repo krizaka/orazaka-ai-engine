@@ -1,7 +1,7 @@
-com.orazaka.interceptor.context.ContextAutoConfiguration
-com.orazaka.interceptor.enrichment.EnrichmentAutoConfiguration
-com.orazaka.interceptor.tooling.ToolingAutoConfiguration
-com.orazaka.interceptor.translation.TranslationAutoConfiguration
-com.orazaka.interceptor.validation.ValidationAutoConfiguration
-com.orazaka.interceptor.reformulation.ReformulationAutoConfiguration
-com.orazaka.interceptor.governance.GovernanceAutoConfiguration
+com.krizaka.orazaka.interceptor.context.ContextAutoConfiguration
+com.krizaka.orazaka.interceptor.enrichment.EnrichmentAutoConfiguration
+com.krizaka.orazaka.interceptor.tooling.ToolingAutoConfiguration
+com.krizaka.orazaka.interceptor.translation.TranslationAutoConfiguration
+com.krizaka.orazaka.interceptor.validation.ValidationAutoConfiguration
+com.krizaka.orazaka.interceptor.reformulation.ReformulationAutoConfiguration
+com.krizaka.orazaka.interceptor.governance.GovernanceAutoConfiguration

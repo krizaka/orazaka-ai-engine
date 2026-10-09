@@ -42,7 +42,7 @@ Hosts: [orazaka-conversation-service](https://github.com/krizaka/orazaka-convers
 
 ```xml
 <dependency>
-    <groupId>com.orazaka</groupId>
+    <groupId>com.krizaka.orazaka</groupId>
     <artifactId>orazaka-core</artifactId>
     <version>1.0.0-SNAPSHOT</version>
 </dependency>

@@ -1,5 +1,6 @@
 package com.orazaka.core.infrastructure.adapter.knowledge;
 
+import com.krizaka.security.token.ServiceTokenProvider;
 import com.orazaka.core.domain.ports.outbound.KnowledgeService;
 import java.util.HashMap;
 import java.util.Map;

@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.orazaka</groupId>
+        <groupId>com.krizaka.orazaka</groupId>
         <artifactId>orazaka-ai-engine</artifactId>
         <version>1.0.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
@@ -16,18 +16,23 @@
     <description>Orazaka Decoupled Application Persistence &amp; Infrastructure State Management</description>
 
     <dependencies>
+        <!-- Krizaka platform kit: the outbox relay this context's store feeds. -->
+        <dependency>
+            <groupId>com.krizaka</groupId>
+            <artifactId>krizaka-messaging</artifactId>
+        </dependency>
 
         <!-- Tier-1 contract this module implements: inbound ports + DTOs.
              Consumers that only need the contract depend on the -api directly. -->
         <dependency>
-            <groupId>com.orazaka</groupId>
+            <groupId>com.krizaka.orazaka</groupId>
             <artifactId>orazaka-persistence-app-api</artifactId>
         </dependency>
 
         <!-- Tier-1 job-plane contract: this module owns orazaka_capabilities, so it hosts the
              authoritative CapabilityRoutingClient (ADR-037 S1). Contract only, zero impl deps. -->
         <dependency>
-            <groupId>com.orazaka</groupId>
+            <groupId>com.krizaka.orazaka</groupId>
             <artifactId>orazaka-jobs-api</artifactId>
         </dependency>
 
@@ -35,7 +40,7 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>
         </dependency>
-        <!-- Was transitive via orazaka-identity → persistence-identity until phase-0g
+        <!-- Was transitive via krizaka-users-core → persistence-identity until phase-0g
              decoupled the modules; this module's Testcontainers ITs need it directly. -->
         <dependency>
             <groupId>org.postgresql</groupId>
@@ -72,7 +77,7 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>com.orazaka</groupId>
+            <groupId>com.krizaka.orazaka</groupId>
             <artifactId>orazaka-test-support</artifactId>
         </dependency>
         <dependency>

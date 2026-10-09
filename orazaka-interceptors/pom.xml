@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.orazaka</groupId>
+        <groupId>com.krizaka.orazaka</groupId>
         <artifactId>orazaka-ai-engine</artifactId>
         <version>1.0.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
@@ -20,18 +20,18 @@
     <dependencies>
         <!-- Core (the PromptContextInterceptor SPI lives here) -->
         <dependency>
-            <groupId>com.orazaka</groupId>
+            <groupId>com.krizaka.orazaka</groupId>
             <artifactId>orazaka-core</artifactId>
         </dependency>
 
         <!-- Tier-1 billing contract: the entitlement gate speaks the shared ports and DTOs, never
              the billing service's implementation. Shared freely per AGENTS.md §2 sharing tiers. -->
         <dependency>
-            <groupId>com.orazaka</groupId>
-            <artifactId>orazaka-billing-api</artifactId>
+            <groupId>com.krizaka</groupId>
+            <artifactId>krizaka-billing-api</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.orazaka</groupId>
+            <groupId>com.krizaka.orazaka</groupId>
             <artifactId>orazaka-jobs-api</artifactId>
         </dependency>
 
@@ -119,7 +119,7 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>com.orazaka</groupId>
+            <groupId>com.krizaka.orazaka</groupId>
             <artifactId>orazaka-test-support</artifactId>
             <scope>test</scope>
         </dependency>

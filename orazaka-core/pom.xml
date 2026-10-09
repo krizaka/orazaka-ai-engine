@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.orazaka</groupId>
+        <groupId>com.krizaka.orazaka</groupId>
         <artifactId>orazaka-ai-engine</artifactId>
         <version>1.0.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
@@ -16,6 +16,11 @@
     <description>Orazaka AI Orchestration Engine</description>
 
     <dependencies>
+        <!-- Krizaka platform kit: session-JWT security baseline and service-to-service tokens. -->
+        <dependency>
+            <groupId>com.krizaka</groupId>
+            <artifactId>krizaka-security</artifactId>
+        </dependency>
         <!-- Spring AI Modular Components -->
         <dependency>
             <groupId>org.springframework.ai</groupId>
@@ -101,7 +106,7 @@
 
         <!-- Internal Dependencies -->
         <dependency>
-            <groupId>com.orazaka</groupId>
+            <groupId>com.krizaka.orazaka</groupId>
             <artifactId>orazaka-persistence-app-api</artifactId>
         </dependency>
         <!-- DataAccessException — the DB-agnostic persistence exception ChatMemoryStoreImpl catches
@@ -144,7 +149,7 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>com.orazaka</groupId>
+            <groupId>com.krizaka.orazaka</groupId>
             <artifactId>orazaka-test-support</artifactId>
         </dependency>
         <dependency>
@@ -162,13 +167,13 @@
                 <configuration>
                     <excludes>
                         <!-- Spring wiring-only classes — no business logic to test -->
-                        <exclude>com/orazaka/core/config/**/*.class</exclude>
-                        <exclude>com/orazaka/core/execution/ModelFactory.class</exclude>
-                        <exclude>com/orazaka/core/infrastructure/**/*.class</exclude>
-                        <exclude>com/orazaka/core/pipeline/BackgroundScheduler.class</exclude>
-                        <exclude>com/orazaka/core/pipeline/execution/JobListener.class</exclude>
-                        <exclude>com/orazaka/core/pipeline/execution/EngineStreamBridge.class</exclude>
-                        <exclude>com/orazaka/core/pipeline/interceptors/security/SecurityContextUtil.class</exclude>
+                        <exclude>com/krizaka/orazaka/core/config/**/*.class</exclude>
+                        <exclude>com/krizaka/orazaka/core/execution/ModelFactory.class</exclude>
+                        <exclude>com/krizaka/orazaka/core/infrastructure/**/*.class</exclude>
+                        <exclude>com/krizaka/orazaka/core/pipeline/BackgroundScheduler.class</exclude>
+                        <exclude>com/krizaka/orazaka/core/pipeline/execution/JobListener.class</exclude>
+                        <exclude>com/krizaka/orazaka/core/pipeline/execution/EngineStreamBridge.class</exclude>
+                        <exclude>com/krizaka/orazaka/core/pipeline/interceptors/security/SecurityContextUtil.class</exclude>
                     </excludes>
                 </configuration>
                 <executions>

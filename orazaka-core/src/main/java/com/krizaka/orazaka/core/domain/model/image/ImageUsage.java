@@ -12,14 +12,12 @@ package com.krizaka.orazaka.core.domain.model.image;
  * parameters are unknown is <b>unmeasured</b>, which releases the hold, and is a different fact
  * from one that consumed nothing.
  *
- * <p><b>Where each number comes from, and which one is a promise rather than an observation.</b>
- * {@code images}, {@code width} and {@code height} are decided by the adapter and sent to the
- * provider, so they are facts about the request. {@code steps} is <i>not</i> in the request: {@code
- * sd-server} takes it as a launch flag, so the meter reports the count the deployment was
- * configured with ({@code IMAGE_GEN_STEPS}, read by both the CLI that launches the server and the
- * adapter that meters it). One env var, two readers — and if they ever diverge, the bill is wrong
- * with nothing to say so. That is the weakest link in this capability's metering and ADR-047
- * records it as such.
+ * <p><b>Where each number comes from.</b> {@code images}, {@code width} and {@code height} are
+ * measured on the image the provider returned. {@code steps} is the count the adapter sent with the
+ * request — the caller's, else the catalogued model's, else the deployment's — so it is a fact
+ * about what the server was asked to run. It used to be read from {@code IMAGE_GEN_STEPS}, the
+ * variable the CLI also passed to {@code sd-server --steps}: one env var, two readers, and a bill
+ * that was wrong the day they diverged (ADR-047). Sending the count closes that coupling.
  *
  * @param images images produced by the request
  * @param steps denoising steps per image

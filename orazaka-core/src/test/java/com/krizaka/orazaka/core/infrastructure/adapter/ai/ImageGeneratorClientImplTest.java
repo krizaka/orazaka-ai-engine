@@ -6,9 +6,11 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.krizaka.orazaka.core.domain.model.Context;
+import com.krizaka.orazaka.core.domain.model.image.ImageDirection;
 import com.krizaka.orazaka.core.domain.model.image.ImageRequest;
 import com.krizaka.orazaka.core.domain.model.image.ImageUsage;
 import com.krizaka.orazaka.core.infrastructure.config.CoreProperties;
+import com.krizaka.orazaka.persistence.domain.model.CatalogModelDto;
 import com.krizaka.orazaka.persistence.domain.ports.inbound.CatalogModelManager;
 import com.sun.net.httpserver.HttpServer;
 import java.awt.image.BufferedImage;
@@ -21,6 +23,7 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.imageio.ImageIO;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -34,13 +37,15 @@ import org.junit.jupiter.api.Test;
  * another. The bill must follow the image that came back. A test that built an {@code ImageUsage}
  * by hand would pass whichever the adapter used — which is the whole lesson of ADR-062.
  *
- * <p>{@code steps} is the one input no image carries: {@code sd-server} takes it at launch. It is
- * read from configuration, and {@code ImageStepsBindingTest} pins that the configuration is the one
- * the launcher reads. That remains the weakest link, and ADR-062 §5 says so.
+ * <p>{@code steps} is the one input no image carries. The adapter now <i>sends</i> it on every
+ * request (the {@code <sd_cpp_extra_args>} block of stable-diffusion.cpp), so the count billed is
+ * the count the server was asked to run — the caller's, else the catalogue's, else the
+ * deployment's.
  */
 class ImageGeneratorClientImplTest {
 
   private HttpServer provider;
+  private final AtomicReference<String> received = new AtomicReference<>();
 
   @AfterEach
   void stop() {
@@ -54,6 +59,8 @@ class ImageGeneratorClientImplTest {
     provider.createContext(
         "/",
         exchange -> {
+          received.set(
+              new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
           byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
           exchange.getResponseHeaders().add("Content-Type", "application/json");
           exchange.sendResponseHeaders(200, bytes.length);
@@ -72,6 +79,11 @@ class ImageGeneratorClientImplTest {
   }
 
   private static ImageGeneratorClientImpl client(String baseUrl, int steps) {
+    return client(baseUrl, steps, List.of());
+  }
+
+  private static ImageGeneratorClientImpl client(
+      String baseUrl, int steps, List<CatalogModelDto> catalogued) {
     CoreProperties properties =
         new CoreProperties(
             "ollama",
@@ -95,7 +107,7 @@ class ImageGeneratorClientImplTest {
             null);
     CatalogModelManager catalog = mock(CatalogModelManager.class);
     when(catalog.getDefaultModelByCategory(anyString())).thenReturn(Optional.empty());
-    when(catalog.getModelsByCategory(anyString())).thenReturn(List.of());
+    when(catalog.getModelsByCategory(anyString())).thenReturn(catalogued);
     when(catalog.getProviderBaseUrl(anyString())).thenReturn(null);
     return new ImageGeneratorClientImpl(properties, catalog);
   }
@@ -133,5 +145,69 @@ class ImageGeneratorClientImplTest {
     ImageUsage usage = client(baseUrl, 20).generateImage(askFor(512, 512)).usage();
 
     assertThat(usage.reported()).isFalse();
+  }
+
+  @Test
+  @DisplayName(
+      "the size, the seed, the negative prompt and the steps reach stable-diffusion.cpp, and the meter bills the steps sent")
+  void directionReachesTheServerAndTheMeter() throws IOException {
+    String baseUrl =
+        serve("{\"created\":1700000000,\"data\":[{\"b64_json\":\"" + png(1024, 1280) + "\"}]}");
+    ImageRequest request =
+        new ImageRequest(
+            "a tea glass on a wooden table",
+            1024,
+            1280,
+            "stable-diffusion",
+            Map.of(),
+            Context.anonymous(),
+            new ImageDirection("text, logo", 4242L, 6));
+
+    ImageUsage usage = client(baseUrl, 20).generateImage(request).usage();
+
+    assertThat(received.get())
+        .contains("\"size\":\"1024x1280\"")
+        .contains("<sd_cpp_extra_args>")
+        .contains("\\\"seed\\\":4242")
+        .contains("\\\"negative_prompt\\\":\\\"text, logo\\\"")
+        .contains("\\\"sample_steps\\\":6");
+    assertThat(usage.steps())
+        .as("billed a step count the server was not asked to run")
+        .isEqualTo(6);
+  }
+
+  @Test
+  @DisplayName(
+      "without a requested count, a catalogued model runs — and is billed — at its own step count")
+  void aCataloguedModelRunsAtItsOwnStepCount() throws IOException {
+    String baseUrl =
+        serve("{\"created\":1700000000,\"data\":[{\"b64_json\":\"" + png(1024, 1024) + "\"}]}");
+    CatalogModelDto turbo =
+        new CatalogModelDto(
+            1,
+            "z-image-turbo",
+            "Z-Image Turbo",
+            "image",
+            null,
+            true,
+            "localai-image",
+            8,
+            null,
+            null);
+
+    ImageUsage usage =
+        client(baseUrl, 20, List.of(turbo))
+            .generateImage(
+                new ImageRequest(
+                    "a lighthouse at dusk",
+                    1024,
+                    1024,
+                    "z-image-turbo",
+                    Map.of(),
+                    Context.anonymous()))
+            .usage();
+
+    assertThat(received.get()).contains("\\\"sample_steps\\\":8").doesNotContain("seed");
+    assertThat(usage.steps()).isEqualTo(8);
   }
 }

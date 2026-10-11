@@ -32,4 +32,17 @@ class ImageRequestTest {
     assertThrows(
         NullPointerException.class, () -> new ImageRequest(null, null, null, null, null, ctx));
   }
+
+  @Test
+  void sixArgumentRequest_leavesTheDirectionToTheRecipe() {
+    var request = new ImageRequest("prompt", null, null, null, null, ctx);
+    assertEquals(ImageDirection.none(), request.direction());
+  }
+
+  @Test
+  void directionIsCarried() {
+    var direction = new ImageDirection("text", 7L, 8);
+    var request = new ImageRequest("prompt", 1024, 1280, null, null, ctx, direction);
+    assertEquals(direction, request.direction());
+  }
 }

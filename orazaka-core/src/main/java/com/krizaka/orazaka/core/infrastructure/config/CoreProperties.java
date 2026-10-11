@@ -125,10 +125,9 @@ public record CoreProperties(
   /**
    * Image generation configuration.
    *
-   * <p>{@code steps} is the denoising-step count the deployment runs at. It is not a request
-   * parameter — {@code sd-server} takes it as a launch flag — so this value and the CLI's {@code
-   * --steps} must come from the same {@code IMAGE_GEN_STEPS} env var. It is here because it is what
-   * {@code IMAGE_STEP} prices the generation on (ADR-047).
+   * <p>{@code steps} is the deployment's step count for a model the catalogue gives none ({@code
+   * orazaka_models.max_steps}) when the caller asked for none. The adapter sends the count it chose
+   * with every request, so the server runs — and {@code IMAGE_STEP} prices — that count (ADR-047).
    */
   public record ImageGenerationConfig(
       String provider,

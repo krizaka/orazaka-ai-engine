@@ -1,6 +1,7 @@
 package com.krizaka.orazaka.core.infrastructure.adapter.ai;
 
 import com.krizaka.orazaka.core.domain.model.MediaCategory;
+import com.krizaka.orazaka.core.domain.model.image.ImageDirection;
 import com.krizaka.orazaka.core.domain.model.image.ImageRequest;
 import com.krizaka.orazaka.core.domain.model.image.ImageResponse;
 import com.krizaka.orazaka.core.domain.model.image.ImageUsage;
@@ -12,8 +13,10 @@ import com.krizaka.orazaka.persistence.domain.model.CatalogModelDto;
 import com.krizaka.orazaka.persistence.domain.ports.inbound.CatalogModelManager;
 import java.time.Duration;
 import java.util.Base64;
-import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.image.ImageGeneration;
@@ -22,9 +25,17 @@ import org.springframework.ai.image.ImagePrompt;
 import org.springframework.ai.openai.OpenAiImageModel;
 import org.springframework.ai.openai.OpenAiImageOptions;
 import org.springframework.stereotype.Component;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Adapter implementation of {@link ImageGeneratorClient} wrapping Spring AI's {@link ImageModel}.
+ *
+ * <p>It speaks the <b>stable-diffusion.cpp dialect</b> of the OpenAI images API — the one image
+ * backend the platform runs ({@code sd-server}, Metal). The size travels in the standard {@code
+ * size} field; the step count, the seed and the negative prompt travel in the {@code
+ * <sd_cpp_extra_args>} block the server strips from the prompt before it samples. Guidance and
+ * sampler are the model's recipe and are stated by the server at launch ({@code orazaka models
+ * image}), never per request.
  */
 @Component
 class ImageGeneratorClientImpl implements ImageGeneratorClient {
@@ -37,6 +48,8 @@ class ImageGeneratorClientImpl implements ImageGeneratorClient {
 
   /** stable-diffusion.cpp's own default, used when the deployment did not state one. */
   private static final int DEFAULT_STEPS = 20;
+
+  private static final JsonMapper EXTRA_ARGS_JSON = JsonMapper.builder().build();
 
   private final CoreProperties properties;
   private final CatalogModelManager catalogModelManager;
@@ -60,21 +73,27 @@ class ImageGeneratorClientImpl implements ImageGeneratorClient {
     int width = request.width() != null ? request.width() : 512;
 
     String activeModel = resolveModel(request.model());
-    String providerName = resolveProviderName(activeModel);
+    Optional<CatalogModelDto> entry = catalogEntry(activeModel);
+    String providerName = entry.map(CatalogModelDto::providerName).orElse("localai-image");
     String baseUrl = resolveBaseUrl(providerName);
     String apiKey = resolveApiKey();
+    int steps = resolveSteps(request.direction(), entry);
 
     logger.info(
-        "ImageGeneratorClientImpl: Dynamically resolving provider baseUrl: {} for model: {}",
-        baseUrl,
-        activeModel);
+        "ImageGeneratorClientImpl: model {} at {}x{}, {} steps, via {}",
+        activeModel,
+        width,
+        height,
+        steps,
+        baseUrl);
 
     ImageModel dynamicImageModel = buildImageModel(baseUrl, apiKey, activeModel, height, width);
 
     OpenAiImageOptions executionOptions =
         OpenAiImageOptions.builder().model(activeModel).n(1).height(height).width(width).build();
 
-    var response = dynamicImageModel.call(new ImagePrompt(request.prompt(), executionOptions));
+    String prompt = request.prompt() + extraArgs(request.direction(), steps);
+    var response = dynamicImageModel.call(new ImagePrompt(prompt, executionOptions));
     var generation = response.getResult();
     byte[] imageData = extractImageData(generation);
     String url = extractUrl(generation);
@@ -82,7 +101,29 @@ class ImageGeneratorClientImpl implements ImageGeneratorClient {
     if (imageData.length > 0 && url == null) {
       url = buildImageDataUrl(imageData);
     }
-    return new ImageResponse(imageData, url, "png", measuredUsage(imageData));
+    return new ImageResponse(imageData, url, "png", measuredUsage(imageData, steps));
+  }
+
+  /**
+   * The {@code <sd_cpp_extra_args>} block: what the OpenAI images API has no field for.
+   *
+   * <p>The step count is <b>always</b> sent, so the count the meter reports is the count the server
+   * was told to run — a fact about this request, not a guess about how the server was launched.
+   * That closes the coupling ADR-047 recorded as this capability's weakest link (one env var, two
+   * readers). The seed and the negative prompt are sent only when the caller gave them.
+   */
+  static String extraArgs(ImageDirection direction, int steps) {
+    Map<String, Object> args = new LinkedHashMap<>();
+    if (direction.seed() != null) {
+      args.put("seed", direction.seed());
+    }
+    if (direction.negativePrompt() != null) {
+      args.put("negative_prompt", direction.negativePrompt());
+    }
+    args.put("sample_params", Map.of("sample_steps", steps));
+    return "<sd_cpp_extra_args>"
+        + EXTRA_ARGS_JSON.writeValueAsString(args)
+        + "</sd_cpp_extra_args>";
   }
 
   /**
@@ -95,11 +136,11 @@ class ImageGeneratorClientImpl implements ImageGeneratorClient {
    * billed a full one (ADR-062 §5). Now an image that cannot be decoded is unmeasured, and an
    * unmeasured generation releases its hold rather than being billed a guess.
    *
-   * <p>{@code steps} is the input no image carries: sd-server takes it at launch, so it is still
-   * read from configuration — the one quantity here that is a declaration rather than a
-   * measurement.
+   * <p>{@code steps} is the input no image carries. It is the count this adapter sent in the
+   * request ({@link #extraArgs}), so it is a fact about what the server was asked to run rather
+   * than a reading of how it was launched.
    */
-  private ImageUsage measuredUsage(byte[] imageData) {
+  private ImageUsage measuredUsage(byte[] imageData, int steps) {
     if (imageData.length == 0) {
       return ImageUsage.none();
     }
@@ -109,7 +150,7 @@ class ImageGeneratorClientImpl implements ImageGeneratorClient {
       if (decoded == null) {
         return ImageUsage.none();
       }
-      return new ImageUsage(SINGLE_IMAGE, resolveSteps(), decoded.getWidth(), decoded.getHeight());
+      return new ImageUsage(SINGLE_IMAGE, steps, decoded.getWidth(), decoded.getHeight());
     } catch (java.io.IOException unreadable) {
       logger.warn("Generated image could not be decoded; the generation is unmeasured", unreadable);
       return ImageUsage.none();
@@ -117,14 +158,18 @@ class ImageGeneratorClientImpl implements ImageGeneratorClient {
   }
 
   /**
-   * The denoising-step count this deployment runs at.
-   *
-   * <p>Not a request parameter: {@code sd-server} takes {@code --steps} at launch, so the honest
-   * source is the configuration both the launcher and this meter read. Falling back to
-   * stable-diffusion.cpp's own default keeps an unconfigured deployment billed at what it actually
-   * runs, rather than unbilled.
+   * The denoising-step count to ask for: the caller's, else the model's own (the catalogue's {@code
+   * max_steps} — a distilled model is trained for its count and degrades away from it), else the
+   * deployment's {@code orazaka.core.image.generation.steps}, else stable-diffusion.cpp's default.
    */
-  private int resolveSteps() {
+  private int resolveSteps(ImageDirection direction, Optional<CatalogModelDto> entry) {
+    if (direction.steps() != null) {
+      return direction.steps();
+    }
+    Integer catalogued = entry.map(CatalogModelDto::maxSteps).orElse(null);
+    if (catalogued != null && catalogued > 0) {
+      return catalogued;
+    }
     if (properties.image() != null
         && properties.image().generation() != null
         && properties.image().generation().steps() != null
@@ -144,15 +189,10 @@ class ImageGeneratorClientImpl implements ImageGeneratorClient {
         .orElse("stable-diffusion");
   }
 
-  private String resolveProviderName(String activeModel) {
-    List<CatalogModelDto> models =
-        catalogModelManager.getModelsByCategory(MediaCategory.IMAGE.value());
-    for (CatalogModelDto m : models) {
-      if (m.modelName().equalsIgnoreCase(activeModel)) {
-        return m.providerName();
-      }
-    }
-    return "localai-image";
+  private Optional<CatalogModelDto> catalogEntry(String activeModel) {
+    return catalogModelManager.getModelsByCategory(MediaCategory.IMAGE.value()).stream()
+        .filter(m -> m.modelName().equalsIgnoreCase(activeModel))
+        .findFirst();
   }
 
   private String resolveBaseUrl(String providerName) {

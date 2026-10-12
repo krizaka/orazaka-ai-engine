@@ -39,7 +39,7 @@
         <dependency>
             <groupId>com.google.jimfs</groupId>
             <artifactId>jimfs</artifactId>
-            <version>1.3.0</version>
+            <version>1.3.2</version>
         </dependency>
         <!-- Spring Boot 4 removed spring-boot-starter-aop (GA); AspectJ weaver is BOM-managed
              and AopAutoConfiguration (core) enables @Aspect proxying when it is present. -->

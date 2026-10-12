@@ -255,9 +255,12 @@ public abstract sealed class AbstractEngine permits Engine {
    * @throws CoreException If no TextToSpeechModel is registered for the active provider.
    */
   public byte[] generateSpeech(AudioRequest request) {
-    OpenAiAudioSpeechOptions options =
-        OpenAiAudioSpeechOptions.builder().model(request.model()).build();
-    var response = ttsModel.call(new TextToSpeechPrompt(request.prompt(), options));
+    OpenAiAudioSpeechOptions.Builder options =
+        OpenAiAudioSpeechOptions.builder().model(request.model());
+    if (request.responseFormat() != null) {
+      options.responseFormat(request.responseFormat());
+    }
+    var response = ttsModel.call(new TextToSpeechPrompt(request.prompt(), options.build()));
     return response.getResult().getOutput();
   }
 }

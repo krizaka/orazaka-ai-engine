@@ -133,4 +133,28 @@ public class CatalogModelEntity {
   public void setDescription(String description) {
     this.description = description;
   }
+
+  /** The locale a speech voice speaks, declared (ADR-076); null for everything else. */
+  @Column(name = "locale")
+  private String locale;
+
+  /** Whether this voice is its locale's default (ADR-076). */
+  @Column(name = "locale_default", nullable = false)
+  private Boolean localeDefault = false;
+
+  public String getLocale() {
+    return locale;
+  }
+
+  public void setLocale(String locale) {
+    this.locale = locale;
+  }
+
+  public Boolean getLocaleDefault() {
+    return localeDefault;
+  }
+
+  public void setLocaleDefault(Boolean localeDefault) {
+    this.localeDefault = localeDefault;
+  }
 }

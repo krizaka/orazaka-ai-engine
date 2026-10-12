@@ -33,4 +33,31 @@ public interface CatalogModelRepository extends JpaRepository<CatalogModelEntity
    * @return Optional containing the default CatalogModelEntity if found.
    */
   Optional<CatalogModelEntity> findByCategoryAndIsDefaultTrue(String category);
+
+  /**
+   * The default voice a category declares for one locale (ADR-076).
+   *
+   * @param category the category ({@code speech})
+   * @param locale the declared locale, exactly
+   * @return the locale's default voice
+   */
+  Optional<CatalogModelEntity> findByCategoryAndLocaleAndLocaleDefaultTrue(
+      String category, String locale);
+
+  /**
+   * Every locale default a category declares, for the same-language fallback (ADR-076).
+   *
+   * @param category the category ({@code speech})
+   * @return the defaults, in locale order so the fallback is deterministic
+   */
+  List<CatalogModelEntity> findByCategoryAndLocaleDefaultTrueOrderByLocaleAsc(String category);
+
+  /**
+   * One model of a category by name.
+   *
+   * @param category the category
+   * @param modelName the model's name
+   * @return the model
+   */
+  Optional<CatalogModelEntity> findByCategoryAndModelName(String category, String modelName);
 }

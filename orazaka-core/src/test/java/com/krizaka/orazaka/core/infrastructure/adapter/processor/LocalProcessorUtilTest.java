@@ -53,14 +53,14 @@ class LocalProcessorUtilTest {
   }
 
   @Test
-  void resolveWhisperModel_containsWhisper_normalizesToWhisper1() {
+  void resolveWhisperModel_namedWhisper_isServedAsNamed() {
     assertEquals(
-        "whisper-1", LocalProcessorUtil.resolveWhisperModel("Whisper-Large-v3", "fallback"));
+        "Whisper-Large-v3", LocalProcessorUtil.resolveWhisperModel("Whisper-Large-v3", "fallback"));
   }
 
   @Test
-  void resolveWhisperModel_defaultContainsWhisper_normalizesToWhisper1() {
-    assertEquals("whisper-1", LocalProcessorUtil.resolveWhisperModel(null, "whisper-large"));
+  void resolveWhisperModel_whisperDefault_isServedAsNamed() {
+    assertEquals("whisper-large", LocalProcessorUtil.resolveWhisperModel(null, "whisper-large"));
   }
 
   @Test

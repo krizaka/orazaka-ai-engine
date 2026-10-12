@@ -36,4 +36,15 @@ class AudioRequestTest {
     var request = new AudioRequest("prompt", null, null, null, ctx);
     assertEquals("tts-1", request.model());
   }
+
+  @Test
+  void declaredFormat_isRead_andAbsentMeansTheEngineDefault() {
+    var wav = new AudioRequest("p", null, null, Map.of(AudioRequest.RESPONSE_FORMAT, "wav"), ctx);
+    assertEquals("wav", wav.responseFormat());
+    assertEquals(null, new AudioRequest("p", null, null, null, ctx).responseFormat());
+    assertEquals(
+        null,
+        new AudioRequest("p", null, null, Map.of(AudioRequest.RESPONSE_FORMAT, " "), ctx)
+            .responseFormat());
+  }
 }

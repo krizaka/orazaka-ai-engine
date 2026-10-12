@@ -19,18 +19,18 @@ final class LocalProcessorUtil {
   }
 
   /**
-   * Resolves the Whisper model name, normalizing any variant containing "whisper" to "whisper-1".
+   * Resolves the transcription model: the request's, else the configured default — <b>as named</b>.
+   *
+   * <p>This used to rewrite every name containing "whisper" to {@code whisper-1}, so the
+   * catalogue's {@code whisper-base} — the default it prices and reports — was served by whatever
+   * LocalAI calls {@code whisper-1}, a tiny model that mangles French. The name the catalogue
+   * declares is the model that runs (ADR-076); a host serves it under that name (infra/localai/).
    *
    * @param requestModel explicit model from the request (may be null).
    * @param defaultModel the configured default model.
    * @return the resolved model name.
    */
   static String resolveWhisperModel(String requestModel, String defaultModel) {
-    String finalModel =
-        requestModel != null && !requestModel.isBlank() ? requestModel : defaultModel;
-    if (finalModel != null && finalModel.toLowerCase().contains("whisper")) {
-      return "whisper-1";
-    }
-    return finalModel;
+    return requestModel != null && !requestModel.isBlank() ? requestModel : defaultModel;
   }
 }

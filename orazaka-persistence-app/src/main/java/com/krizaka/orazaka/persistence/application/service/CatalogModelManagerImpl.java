@@ -76,6 +76,17 @@ class CatalogModelManagerImpl implements CatalogModelManager {
     }
 
     CatalogModelEntity entity = toEntity(dto);
+    // The DTO does not carry a voice's locale (ADR-076: it is read through SpeechVoiceManager), so
+    // an edit made through this port keeps the one the row declares instead of erasing it.
+    if (dto.id() != null) {
+      repository
+          .findById(dto.id())
+          .ifPresent(
+              stored -> {
+                entity.setLocale(stored.getLocale());
+                entity.setLocaleDefault(stored.getLocaleDefault());
+              });
+    }
     CatalogModelEntity saved = repository.save(entity);
     return toDto(saved);
   }

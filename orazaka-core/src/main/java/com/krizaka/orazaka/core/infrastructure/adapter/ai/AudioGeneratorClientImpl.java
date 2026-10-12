@@ -23,6 +23,8 @@ class AudioGeneratorClientImpl implements AudioGeneratorClient {
   @Override
   public AudioResponse generateAudio(AudioRequest request) {
     byte[] data = engine.generateSpeech(request);
-    return new AudioResponse(data, "mp3");
+    // The format the caller declared is the format it gets; mp3 stays the engine's default.
+    return new AudioResponse(
+        data, request.responseFormat() == null ? "mp3" : request.responseFormat());
   }
 }

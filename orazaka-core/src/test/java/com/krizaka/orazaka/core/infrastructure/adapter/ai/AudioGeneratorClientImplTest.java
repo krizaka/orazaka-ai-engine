@@ -39,4 +39,20 @@ class AudioGeneratorClientImplTest {
     assertThat(response.audioData()).isEqualTo(mockAudio);
     assertThat(response.format()).isEqualTo("mp3");
   }
+
+  @Test
+  void theDeclaredFormatIsTheFormatReturned() {
+    Engine engine = mock(Engine.class);
+    AudioRequest request =
+        new AudioRequest(
+            "bonjour",
+            null,
+            "piper-fr-siwis-medium",
+            java.util.Map.of(AudioRequest.RESPONSE_FORMAT, "wav"),
+            com.krizaka.orazaka.core.domain.model.Context.anonymous());
+    when(engine.generateSpeech(request)).thenReturn(new byte[] {1});
+
+    assertThat(new AudioGeneratorClientImpl(engine).generateAudio(request).format())
+        .isEqualTo("wav");
+  }
 }

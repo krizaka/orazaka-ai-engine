@@ -15,9 +15,9 @@ import org.springframework.stereotype.Component;
  * <p>Reads {@code orazaka_models} (model → {@code provider_name}, {@code is_default} per category)
  * and {@code ai_providers} (provider → base-url) through the {@link CatalogModelManager} inbound
  * port, so {@code orazaka-core}'s {@link DynamicModelRouter} stays free of any persistence import.
- * The api-key is {@code "not-required"} here: the Universal Proxy targets the OpenAI-compatible
- * <b>local</b> providers (Ollama/LocalAI); commercial per-user keys flow through the engine's
- * {@code ModelFactory} path instead.
+ * The endpoint carries the provider's own key ({@code ai_providers.api_key}): none for a local
+ * provider (Ollama/LocalAI), the deployment's key for a hosted OpenAI-compatible one (serverless
+ * inference). Commercial per-user keys still flow through the engine's {@code ModelFactory} path.
  */
 @Component
 class CatalogModelEndpointResolver implements ModelEndpointResolver {
@@ -49,6 +49,11 @@ class CatalogModelEndpointResolver implements ModelEndpointResolver {
     if (baseUrl == null || baseUrl.isBlank()) {
       return Optional.empty();
     }
-    return Optional.of(new ModelEndpoint(model.providerName(), baseUrl, null, model.modelName()));
+    return Optional.of(
+        new ModelEndpoint(
+            model.providerName(),
+            baseUrl,
+            catalog.getProviderApiKey(model.providerName()),
+            model.modelName()));
   }
 }

@@ -115,6 +115,15 @@ class CatalogModelManagerImpl implements CatalogModelManager {
         .orElse(null);
   }
 
+  @Override
+  @Transactional(readOnly = true)
+  public String getProviderApiKey(String providerName) {
+    return providerRepository
+        .findByName(providerName)
+        .map(AiProviderEntity::getApiKey)
+        .orElse(null);
+  }
+
   private static CatalogModelDto toDto(CatalogModelEntity entity) {
     if (entity == null) {
       return null;

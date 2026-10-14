@@ -150,4 +150,19 @@ class CatalogModelManagerImplTest {
 
     assertEquals("url", url);
   }
+
+  @Test
+  @DisplayName("getProviderApiKey returns the provider's key, null for an unknown provider")
+  void getProviderApiKey() {
+    AiProviderEntity provider = new AiProviderEntity();
+    provider.setName("do-inference");
+    provider.setBaseUrl("https://inference.do-ai.run");
+    provider.setApiKey("sk-test");
+
+    when(providerRepository.findByName("do-inference")).thenReturn(Optional.of(provider));
+    when(providerRepository.findByName("nope")).thenReturn(Optional.empty());
+
+    assertEquals("sk-test", manager.getProviderApiKey("do-inference"));
+    assertNull(manager.getProviderApiKey("nope"));
+  }
 }

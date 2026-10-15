@@ -14,6 +14,7 @@ import java.util.Map;
 import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -34,6 +35,7 @@ class EmbeddingClientImpl implements EmbeddingClient {
   private final ModelEndpointResolver endpoints;
   private final RestClient.Builder restClientBuilder;
 
+  @Autowired
   EmbeddingClientImpl(ModelEndpointResolver endpoints) {
     this(
         endpoints,

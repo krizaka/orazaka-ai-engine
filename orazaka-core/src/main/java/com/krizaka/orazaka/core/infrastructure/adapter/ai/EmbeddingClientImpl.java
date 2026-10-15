@@ -6,6 +6,7 @@ import com.krizaka.orazaka.core.domain.model.embedding.EmbeddingException;
 import com.krizaka.orazaka.core.domain.model.embedding.EmbeddingResult;
 import com.krizaka.orazaka.core.domain.ports.outbound.EmbeddingClient;
 import com.krizaka.orazaka.core.domain.ports.outbound.ModelEndpointResolver;
+import com.krizaka.orazaka.core.infrastructure.spend.SpendGuard;
 import java.net.http.HttpClient;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -35,17 +36,28 @@ class EmbeddingClientImpl implements EmbeddingClient {
   private final ModelEndpointResolver endpoints;
   private final RestClient.Builder restClientBuilder;
 
+  private final SpendGuard spendGuard;
+
   @Autowired
-  EmbeddingClientImpl(ModelEndpointResolver endpoints) {
+  EmbeddingClientImpl(ModelEndpointResolver endpoints, SpendGuard spendGuard) {
     this(
         endpoints,
         RestClient.builder()
             .requestFactory(
                 new JdkClientHttpRequestFactory(
-                    HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build())));
+                    HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build())),
+        spendGuard);
   }
 
   EmbeddingClientImpl(ModelEndpointResolver endpoints, RestClient.Builder restClientBuilder) {
+    this(endpoints, restClientBuilder, SpendGuard.unlimited());
+  }
+
+  EmbeddingClientImpl(
+      ModelEndpointResolver endpoints,
+      RestClient.Builder restClientBuilder,
+      SpendGuard spendGuard) {
+    this.spendGuard = Objects.requireNonNull(spendGuard, "SpendGuard cannot be null");
     this.endpoints = Objects.requireNonNull(endpoints, "ModelEndpointResolver cannot be null");
     this.restClientBuilder = Objects.requireNonNull(restClientBuilder, "builder cannot be null");
   }
@@ -74,6 +86,7 @@ class EmbeddingClientImpl implements EmbeddingClient {
                 : endpoints.resolve(model))
             .orElseThrow(() -> new EmbeddingException("no embedding model is configured"));
 
+    spendGuard.authorize(SpendGuard.Kind.EMBEDDING, endpoint);
     Response response;
     try {
       response =

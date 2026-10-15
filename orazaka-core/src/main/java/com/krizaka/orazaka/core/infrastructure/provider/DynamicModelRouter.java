@@ -2,10 +2,13 @@ package com.krizaka.orazaka.core.infrastructure.provider;
 
 import com.krizaka.orazaka.core.domain.model.ModelEndpoint;
 import com.krizaka.orazaka.core.domain.ports.outbound.ModelEndpointResolver;
+import com.krizaka.orazaka.core.infrastructure.spend.GuardedChatModel;
+import com.krizaka.orazaka.core.infrastructure.spend.SpendGuard;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
@@ -31,9 +34,18 @@ public class DynamicModelRouter {
   private final UniversalProxyChatProvider proxy;
   private final Map<String, ChatModel> cache = new ConcurrentHashMap<>();
 
+  private final SpendGuard spendGuard;
+
   public DynamicModelRouter(ModelEndpointResolver resolver, UniversalProxyChatProvider proxy) {
+    this(resolver, proxy, SpendGuard.unlimited());
+  }
+
+  @Autowired
+  public DynamicModelRouter(
+      ModelEndpointResolver resolver, UniversalProxyChatProvider proxy, SpendGuard spendGuard) {
     this.resolver = Objects.requireNonNull(resolver, "ModelEndpointResolver cannot be null");
     this.proxy = Objects.requireNonNull(proxy, "UniversalProxyChatProvider cannot be null");
+    this.spendGuard = Objects.requireNonNull(spendGuard, "SpendGuard cannot be null");
   }
 
   /** Builds (or returns a cached) {@link ChatModel} for the given model name. */
@@ -84,6 +96,10 @@ public class DynamicModelRouter {
     String key = endpoint.baseUrl() + "::" + endpoint.modelName();
     return cache.computeIfAbsent(
         key,
-        ignored -> proxy.chatModel(endpoint.baseUrl(), endpoint.apiKey(), endpoint.modelName()));
+        ignored ->
+            new GuardedChatModel(
+                proxy.chatModel(endpoint.baseUrl(), endpoint.apiKey(), endpoint.modelName()),
+                endpoint,
+                spendGuard));
   }
 }

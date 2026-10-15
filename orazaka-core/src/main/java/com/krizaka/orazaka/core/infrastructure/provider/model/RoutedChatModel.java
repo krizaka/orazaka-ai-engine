@@ -37,19 +37,42 @@ public class RoutedChatModel implements ChatModel {
 
   @Override
   public ChatResponse call(Prompt prompt) {
-    return resolve(prompt).call(toOpenAiPrompt(prompt));
+    return resolve(prompt).call(outgoing(prompt));
   }
 
   @Override
   public Flux<ChatResponse> stream(Prompt prompt) {
-    return resolve(prompt).stream(toOpenAiPrompt(prompt));
+    return resolve(prompt).stream(outgoing(prompt));
   }
 
   private ChatModel resolve(Prompt prompt) {
-    String model = prompt.getOptions() != null ? prompt.getOptions().getModel() : null;
-    return (model != null && !model.isBlank())
-        ? router.chatModel(model)
+    return requestedModel(prompt) != null
+        ? router.chatModel(requestedModel(prompt))
         : router.defaultChatModel(MediaCategory.CHAT.value());
+  }
+
+  private static String requestedModel(Prompt prompt) {
+    String model = prompt.getOptions() != null ? prompt.getOptions().getModel() : null;
+    return model != null && !model.isBlank() ? model : null;
+  }
+
+  /**
+   * The prompt sent on the wire. A request without a model takes the catalogue default, named
+   * explicitly: converted options left without a model would carry Spring AI's own default ({@code
+   * OpenAiChatOptions.builder()} fills {@code gpt-5-mini}) to whatever provider serves the default
+   * — a 403 from a hosted provider that does not serve it.
+   */
+  private Prompt outgoing(Prompt prompt) {
+    Prompt converted = toOpenAiPrompt(prompt);
+    if (requestedModel(prompt) != null) {
+      return converted;
+    }
+    String model = router.defaultModelName(MediaCategory.CHAT.value());
+    OpenAiChatOptions options =
+        converted.getOptions() instanceof OpenAiChatOptions openAi
+            ? openAi.mutate().model(model).build()
+            : OpenAiChatOptions.builder().model(model).build();
+    return new Prompt(converted.getInstructions(), options);
   }
 
   /**

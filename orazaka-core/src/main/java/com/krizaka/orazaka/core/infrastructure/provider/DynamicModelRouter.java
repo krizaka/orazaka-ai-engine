@@ -56,6 +56,17 @@ public class DynamicModelRouter {
                         "No default model endpoint resolved for category: " + category)));
   }
 
+  /** The name of a category's default model (catalogue {@code is_default}). */
+  public String defaultModelName(String category) {
+    return resolver
+        .resolveDefault(category)
+        .map(ModelEndpoint::modelName)
+        .orElseThrow(
+            () ->
+                new IllegalStateException(
+                    "No default model endpoint resolved for category: " + category));
+  }
+
   /** Clears the client cache — call after an admin edits providers/models in the DB. */
   public void evictAll() {
     cache.clear();

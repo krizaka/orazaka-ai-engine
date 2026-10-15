@@ -1,8 +1,12 @@
 package com.krizaka.orazaka.assets.infrastructure.config;
 
 import com.krizaka.orazaka.assets.application.service.EncryptedAssetService;
+import com.krizaka.orazaka.assets.domain.port.DurableAssetStore;
 import com.krizaka.orazaka.assets.domain.port.MasterKeyProvider;
 import com.krizaka.orazaka.assets.infrastructure.adapter.FileMasterKeyProvider;
+import com.krizaka.orazaka.assets.infrastructure.storage.BunnyAssetStore;
+import com.krizaka.orazaka.assets.infrastructure.storage.DirectoryAssetStore;
+import com.krizaka.orazaka.assets.infrastructure.storage.NoDurableAssetStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -18,7 +22,7 @@ import org.springframework.context.annotation.Bean;
  * the same code path as the one that matters (ADR-054 §3).
  */
 @AutoConfiguration
-@EnableConfigurationProperties(AssetEncryptionProperties.class)
+@EnableConfigurationProperties({AssetEncryptionProperties.class, MediaStorageProperties.class})
 public class AssetEncryptionConfiguration {
 
   private static final Logger logger = LoggerFactory.getLogger(AssetEncryptionConfiguration.class);
@@ -56,5 +60,24 @@ public class AssetEncryptionConfiguration {
               + " migration only — a permanent tolerance is a permanent door (ADR-054 §5).");
     }
     return new EncryptedAssetService(masterKeyProvider, properties.blockSize());
+  }
+
+  /**
+   * The durable second copy chosen by {@code MEDIA_STORAGE_PROVIDER}; local disk only by default.
+   *
+   * @param properties the provider and its coordinates
+   * @return the store
+   */
+  @Bean
+  @ConditionalOnMissingBean(DurableAssetStore.class)
+  public DurableAssetStore durableAssetStore(MediaStorageProperties properties) {
+    return switch (properties.provider()) {
+      case "bunny" -> {
+        logger.info("Assets are kept durably in the Bunny zone {} (private)", properties.zone());
+        yield new BunnyAssetStore(properties.endpoint(), properties.zone(), properties.apiKey());
+      }
+      case "directory" -> new DirectoryAssetStore(java.nio.file.Path.of(properties.directory()));
+      default -> new NoDurableAssetStore();
+    };
   }
 }

@@ -103,12 +103,33 @@ class ImageGeneratorClientImpl implements ImageGeneratorClient {
     var generation = response.getResult();
     byte[] imageData = extractImageData(generation);
     String url = extractUrl(generation);
+    requireRealImage(imageData, url);
 
     if (imageData.length > 0 && url == null) {
       url = buildImageDataUrl(imageData);
     }
     return new ImageResponse(
         imageData, url, "png", measuredUsage(imageData, diffusionCpp ? steps : 1));
+  }
+
+  /** A picture of a real size: a 1x1 PNG is 70 bytes, a 512x512 one is tens of kilobytes. */
+  static final int MIN_IMAGE_BYTES = 256;
+
+  /**
+   * Refuses what is not a picture: no bytes and no URL, or a few bytes (a probe or placeholder
+   * image). A run must fail by name rather than seal such a file as its output [§12 Zero-Fallback].
+   *
+   * @throws IllegalStateException when the engine returned nothing that is a picture
+   */
+  static void requireRealImage(byte[] imageData, String url) {
+    int size = imageData == null ? 0 : imageData.length;
+    if (size == 0 && url == null) {
+      throw new IllegalStateException("the image engine returned no image");
+    }
+    if (size > 0 && size < MIN_IMAGE_BYTES) {
+      throw new IllegalStateException(
+          "the image engine returned an image of " + size + " bytes — not a picture");
+    }
   }
 
   /**

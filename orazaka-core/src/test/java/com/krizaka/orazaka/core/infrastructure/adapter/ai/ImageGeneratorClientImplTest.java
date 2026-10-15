@@ -284,4 +284,27 @@ class ImageGeneratorClientImplTest {
     client(baseUrl, 20, catalogued, "not-required").generateImage(request);
     assertThat(authorization.get()).isEqualTo("Bearer not-required");
   }
+
+  @org.junit.jupiter.api.Test
+  void requireRealImage_refusesAOnePixelPlaceholder() {
+    byte[] onePixel = new byte[70]; // what a 1x1 transparent PNG weighs
+    IllegalStateException refused =
+        org.junit.jupiter.api.Assertions.assertThrows(
+            IllegalStateException.class,
+            () -> ImageGeneratorClientImpl.requireRealImage(onePixel, null));
+    org.junit.jupiter.api.Assertions.assertTrue(refused.getMessage().contains("70 bytes"));
+  }
+
+  @org.junit.jupiter.api.Test
+  void requireRealImage_refusesNothingAtAll() {
+    org.junit.jupiter.api.Assertions.assertThrows(
+        IllegalStateException.class,
+        () -> ImageGeneratorClientImpl.requireRealImage(new byte[0], null));
+  }
+
+  @org.junit.jupiter.api.Test
+  void requireRealImage_acceptsAPictureOrAHostedUrl() {
+    ImageGeneratorClientImpl.requireRealImage(new byte[200_000], null);
+    ImageGeneratorClientImpl.requireRealImage(new byte[0], "https://cdn.example/x.png");
+  }
 }

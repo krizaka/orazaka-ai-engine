@@ -1,17 +1,19 @@
 package com.krizaka.orazaka.core.infrastructure.config;
 
-import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.image.Image;
-import org.springframework.ai.image.ImageGeneration;
 import org.springframework.ai.image.ImageModel;
 import org.springframework.ai.image.ImagePrompt;
 import org.springframework.ai.image.ImageResponse;
 
 /**
- * Decorator for {@link ImageModel} that catches communication exceptions and returns a fallback 1x1
- * transparent PNG data URL to ensure the client playground remains stable.
+ * Decorator for {@link ImageModel} that turns an engine failure into a clear one.
+ *
+ * <p>It used to catch every runtime exception and return a 1x1 transparent PNG so the playground
+ * "stayed stable". That sealed a placeholder as the run's output and reported SUCCEEDED: a timeout
+ * (an engine busy with another request), a refused connection (a relay with no GPU behind it) and a
+ * 500 all looked like a finished run with an empty picture. §12 Zero-Fallback: a run either has its
+ * image or fails, by name — nothing here fabricates one.
  */
 public class SafeImageModel implements ImageModel {
 
@@ -28,14 +30,9 @@ public class SafeImageModel implements ImageModel {
     try {
       return delegate.call(prompt);
     } catch (RuntimeException e) {
-      logger.error(
-          "SafeImageModel: Image generation call failed, returning transparent fallback", e);
-      // Fallback 1x1 transparent PNG representation
-      Image image =
-          new Image(
-              null,
-              "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGBgAAAABQABpfZFQAAAAABJRU5ErkJggg==");
-      return new ImageResponse(List.of(new ImageGeneration(image)));
+      logger.error("Image generation call failed: {}", e.toString());
+      throw new IllegalStateException(
+          "the image engine did not return an image: " + e.getMessage(), e);
     }
   }
 }

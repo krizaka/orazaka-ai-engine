@@ -58,12 +58,12 @@ class ChatGeneratorClientImpl implements ChatGeneratorClient {
       return null;
     }
     String provider = (String) settings.get("provider");
-    if (provider == null) {
-      return null;
-    }
     String model = (String) settings.get("model");
     Double temperature =
         settings.get("temperature") instanceof Number num ? num.doubleValue() : null;
+    if (provider == null) {
+      return buildModelOptions(model, temperature);
+    }
 
     if ("ollama".equalsIgnoreCase(provider)) {
       return buildOllamaOptions(model, temperature);
@@ -71,7 +71,20 @@ class ChatGeneratorClientImpl implements ChatGeneratorClient {
     if ("openai".equalsIgnoreCase(provider)) {
       return buildOpenAiOptions(model, temperature);
     }
-    return null;
+    return buildModelOptions(model, temperature);
+  }
+
+  /**
+   * A model named without (or with another) provider: kept as is. The catalogue binds every model
+   * to its provider (RoutedChatModel routes by model), so the name is all routing needs.
+   */
+  private static ChatOptions buildModelOptions(String model, Double temperature) {
+    if (model == null || model.isBlank()) {
+      return null;
+    }
+    var builder = ChatOptions.builder().model(model);
+    if (temperature != null) builder.temperature(temperature);
+    return builder.build();
   }
 
   private static ChatOptions buildOllamaOptions(String model, Double temperature) {

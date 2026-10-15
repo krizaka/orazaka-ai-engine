@@ -76,8 +76,9 @@ class ImageGeneratorClientImpl implements ImageGeneratorClient {
     Optional<CatalogModelDto> entry = catalogEntry(activeModel);
     String providerName = entry.map(CatalogModelDto::providerName).orElse("localai-image");
     String baseUrl = resolveBaseUrl(providerName);
-    String apiKey = resolveApiKey();
+    String apiKey = resolveApiKey(providerName);
     int steps = resolveSteps(request.direction(), entry);
+    boolean diffusionCpp = takesDiffusionArgs(request.direction(), entry);
 
     logger.info(
         "ImageGeneratorClientImpl: model {} at {}x{}, {} steps, via {}",
@@ -92,7 +93,12 @@ class ImageGeneratorClientImpl implements ImageGeneratorClient {
     OpenAiImageOptions executionOptions =
         OpenAiImageOptions.builder().model(activeModel).n(1).height(height).width(width).build();
 
-    String prompt = request.prompt() + extraArgs(request.direction(), steps);
+    // A hosted model (DigitalOcean's Stable Diffusion 3.5, OpenAI's image models) has no
+    // `<sd_cpp_extra_args>`: sent to it the block
+    // would be drawn into the picture as text. It is sent only to a model that declares its steps
+    // (a diffusion.cpp engine).
+    String prompt =
+        diffusionCpp ? request.prompt() + extraArgs(request.direction(), steps) : request.prompt();
     var response = dynamicImageModel.call(new ImagePrompt(prompt, executionOptions));
     var generation = response.getResult();
     byte[] imageData = extractImageData(generation);
@@ -101,7 +107,8 @@ class ImageGeneratorClientImpl implements ImageGeneratorClient {
     if (imageData.length > 0 && url == null) {
       url = buildImageDataUrl(imageData);
     }
-    return new ImageResponse(imageData, url, "png", measuredUsage(imageData, steps));
+    return new ImageResponse(
+        imageData, url, "png", measuredUsage(imageData, diffusionCpp ? steps : 1));
   }
 
   /**
@@ -215,6 +222,29 @@ class ImageGeneratorClientImpl implements ImageGeneratorClient {
       return properties.image().generation().baseUrl();
     }
     return null;
+  }
+
+  /**
+   * Whether this model is a diffusion.cpp engine that takes steps, a seed and a negative prompt in
+   * the prompt's {@code <sd_cpp_extra_args>} block: one the catalogue does not describe (the
+   * deployment default), one that declares its steps, or a request that asks for steps itself. A
+   * catalogued model with no steps is a hosted one, which gets the prompt as it is.
+   */
+  static boolean takesDiffusionArgs(ImageDirection direction, Optional<CatalogModelDto> entry) {
+    if (entry.isEmpty() || direction.steps() != null) {
+      return true;
+    }
+    Integer declared = entry.get().maxSteps();
+    return declared != null && declared > 0;
+  }
+
+  /** The key of the model's provider (the catalogue's, per provider), else the deployment's. */
+  private String resolveApiKey(String providerName) {
+    String providerKey = catalogModelManager.getProviderApiKey(providerName);
+    if (providerKey != null && !providerKey.isBlank() && !"not-required".equals(providerKey)) {
+      return providerKey;
+    }
+    return resolveApiKey();
   }
 
   private String resolveApiKey() {

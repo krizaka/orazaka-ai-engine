@@ -46,6 +46,7 @@ class ImageGeneratorClientImplTest {
 
   private HttpServer provider;
   private final AtomicReference<String> received = new AtomicReference<>();
+  private final AtomicReference<String> authorization = new AtomicReference<>();
 
   @AfterEach
   void stop() {
@@ -59,6 +60,7 @@ class ImageGeneratorClientImplTest {
     provider.createContext(
         "/",
         exchange -> {
+          authorization.set(exchange.getRequestHeaders().getFirst("Authorization"));
           received.set(
               new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
           byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
@@ -84,6 +86,11 @@ class ImageGeneratorClientImplTest {
 
   private static ImageGeneratorClientImpl client(
       String baseUrl, int steps, List<CatalogModelDto> catalogued) {
+    return client(baseUrl, steps, catalogued, null);
+  }
+
+  private static ImageGeneratorClientImpl client(
+      String baseUrl, int steps, List<CatalogModelDto> catalogued, String providerKey) {
     CoreProperties properties =
         new CoreProperties(
             "ollama",
@@ -109,6 +116,7 @@ class ImageGeneratorClientImplTest {
     when(catalog.getDefaultModelByCategory(anyString())).thenReturn(Optional.empty());
     when(catalog.getModelsByCategory(anyString())).thenReturn(catalogued);
     when(catalog.getProviderBaseUrl(anyString())).thenReturn(null);
+    when(catalog.getProviderApiKey(anyString())).thenReturn(providerKey);
     return new ImageGeneratorClientImpl(properties, catalog);
   }
 
@@ -209,5 +217,71 @@ class ImageGeneratorClientImplTest {
 
     assertThat(received.get()).contains("\\\"sample_steps\\\":8").doesNotContain("seed");
     assertThat(usage.steps()).isEqualTo(8);
+  }
+
+  private static CatalogModelDto hosted(String name, Integer maxSteps) {
+    return new CatalogModelDto(
+        1, name, name, "image", null, false, "do-inference", maxSteps, null, null);
+  }
+
+  @Test
+  @DisplayName(
+      "a hosted model (no declared steps) gets the prompt as it is — no <sd_cpp_extra_args> drawn into the picture")
+  void aHostedModelGetsThePromptWithoutTheDiffusionCppBlock() throws IOException {
+    String baseUrl =
+        serve("{\"created\":1700000000,\"data\":[{\"b64_json\":\"" + png(512, 512) + "\"}]}");
+    var catalogued = List.of(hosted("stable-diffusion-3.5-large", null));
+    var request =
+        new ImageRequest(
+            "a lighthouse at dusk",
+            512,
+            512,
+            "stable-diffusion-3.5-large",
+            Map.of(),
+            Context.anonymous());
+
+    ImageUsage usage = client(baseUrl, 20, catalogued).generateImage(request).usage();
+
+    assertThat(received.get()).contains("a lighthouse at dusk").doesNotContain("sd_cpp_extra_args");
+    assertThat(usage.steps()).as("a model without steps is metered as one step").isEqualTo(1);
+  }
+
+  @Test
+  @DisplayName(
+      "a diffusion.cpp model (declared steps) still gets its steps in the prompt's extra-args block")
+  void aModelThatDeclaresStepsStillGetsTheBlock() throws IOException {
+    String baseUrl =
+        serve("{\"created\":1700000000,\"data\":[{\"b64_json\":\"" + png(512, 512) + "\"}]}");
+    var catalogued = List.of(hosted("flux-2-klein-4b", 4));
+    var request =
+        new ImageRequest(
+            "a lighthouse at dusk", 512, 512, "flux-2-klein-4b", Map.of(), Context.anonymous());
+
+    ImageUsage usage = client(baseUrl, 20, catalogued).generateImage(request).usage();
+
+    assertThat(received.get()).contains("sd_cpp_extra_args").contains("\\\"sample_steps\\\":4");
+    assertThat(usage.steps()).isEqualTo(4);
+  }
+
+  @Test
+  @DisplayName("the key of the model's provider is the one sent; without one, the deployment's")
+  void theProvidersKeyIsSent() throws IOException {
+    String baseUrl =
+        serve("{\"created\":1700000000,\"data\":[{\"b64_json\":\"" + png(512, 512) + "\"}]}");
+    var catalogued = List.of(hosted("stable-diffusion-3.5-large", null));
+    var request =
+        new ImageRequest(
+            "a lighthouse at dusk",
+            512,
+            512,
+            "stable-diffusion-3.5-large",
+            Map.of(),
+            Context.anonymous());
+
+    client(baseUrl, 20, catalogued, "provider-secret").generateImage(request);
+    assertThat(authorization.get()).isEqualTo("Bearer provider-secret");
+
+    client(baseUrl, 20, catalogued, "not-required").generateImage(request);
+    assertThat(authorization.get()).isEqualTo("Bearer not-required");
   }
 }

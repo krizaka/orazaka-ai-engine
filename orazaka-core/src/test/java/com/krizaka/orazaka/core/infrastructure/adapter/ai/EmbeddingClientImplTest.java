@@ -136,4 +136,17 @@ class EmbeddingClientImplTest {
       return "embedding".equals(category) ? endpoint : Optional.empty();
     }
   }
+
+  @Test
+  void aSpentBudgetRefusesAPaidEmbeddingWith429AndNeverCallsTheProvider() {
+    var guard =
+        new com.krizaka.orazaka.core.infrastructure.spend.SpendGuard(0.0, 0.01, 0.0002, 0.6);
+    var paid = new ModelEndpoint("do-inference", "https://127.0.0.2.invalid", "k", "bge-m3");
+    var client =
+        new EmbeddingClientImpl(new FixedResolver(Optional.of(paid)), RestClient.builder(), guard);
+    org.assertj.core.api.Assertions.assertThatThrownBy(() -> client.embed(List.of("hello"), null))
+        .isInstanceOf(
+            com.krizaka.orazaka.core.infrastructure.spend.SpendBudgetExceededException.class);
+    assertThat(body.get()).isNull();
+  }
 }

@@ -27,6 +27,9 @@ public enum MediaCategory {
   /** Text-to-speech synthesis. */
   SPEECH("speech"),
 
+  /** Text embeddings (semantic search, recommendations). */
+  EMBEDDING("embedding"),
+
   /** UI theme accent configuration (dynamic catalog). */
   THEME("theme");
 

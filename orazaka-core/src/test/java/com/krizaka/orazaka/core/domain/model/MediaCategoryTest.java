@@ -8,7 +8,7 @@ class MediaCategoryTest {
 
   @Test
   void values_containsAllCategories() {
-    assertEquals(6, MediaCategory.values().length);
+    assertEquals(7, MediaCategory.values().length);
   }
 
   @Test
@@ -19,6 +19,7 @@ class MediaCategoryTest {
     assertEquals("video", MediaCategory.VIDEO.value());
     assertEquals("speech", MediaCategory.SPEECH.value());
     assertEquals("theme", MediaCategory.THEME.value());
+    assertEquals("embedding", MediaCategory.EMBEDDING.value());
   }
 
   @Test

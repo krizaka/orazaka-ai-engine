@@ -91,7 +91,19 @@ class ImageGeneratorClientImpl implements ImageGeneratorClient {
     ImageModel dynamicImageModel = buildImageModel(baseUrl, apiKey, activeModel, height, width);
 
     OpenAiImageOptions executionOptions =
-        OpenAiImageOptions.builder().model(activeModel).n(1).height(height).width(width).build();
+        OpenAiImageOptions.builder()
+            .model(activeModel)
+            .n(1)
+            .height(height)
+            .width(width)
+            // The timeout of the CALL: the SDK applies the request options' timeout, whatever the
+            // client was built with, and its default is 60 s — a diffusion engine sends nothing
+            // until
+            // its image is done (about a minute for 1024x1024 on a Mac). Without this the
+            // configured
+            // IMAGE_GEN_READ_TIMEOUT_MS was ignored and a slow image became a timeout.
+            .timeout(Duration.ofMillis(resolveTimeout(false)))
+            .build();
 
     // A hosted model (DigitalOcean's Stable Diffusion 3.5, OpenAI's image models) has no
     // `<sd_cpp_extra_args>`: sent to it the block

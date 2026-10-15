@@ -91,7 +91,19 @@ class ImageGeneratorClientImpl implements ImageGeneratorClient {
     ImageModel dynamicImageModel = buildImageModel(baseUrl, apiKey, activeModel, height, width);
 
     OpenAiImageOptions executionOptions =
-        OpenAiImageOptions.builder().model(activeModel).n(1).height(height).width(width).build();
+        OpenAiImageOptions.builder()
+            .model(activeModel)
+            .n(1)
+            .height(height)
+            .width(width)
+            // The timeout of the CALL: the SDK applies the request options' timeout, whatever the
+            // client was built with, and its default is 60 s — a diffusion engine sends nothing
+            // until
+            // its image is done (about a minute for 1024x1024 on a Mac). Without this the
+            // configured
+            // IMAGE_GEN_READ_TIMEOUT_MS was ignored and a slow image became a timeout.
+            .timeout(Duration.ofMillis(resolveTimeout(false)))
+            .build();
 
     // A hosted model (DigitalOcean's Stable Diffusion 3.5, OpenAI's image models) has no
     // `<sd_cpp_extra_args>`: sent to it the block
@@ -103,12 +115,33 @@ class ImageGeneratorClientImpl implements ImageGeneratorClient {
     var generation = response.getResult();
     byte[] imageData = extractImageData(generation);
     String url = extractUrl(generation);
+    requireRealImage(imageData, url);
 
     if (imageData.length > 0 && url == null) {
       url = buildImageDataUrl(imageData);
     }
     return new ImageResponse(
         imageData, url, "png", measuredUsage(imageData, diffusionCpp ? steps : 1));
+  }
+
+  /** A picture of a real size: a 1x1 PNG is 70 bytes, a 512x512 one is tens of kilobytes. */
+  private static final int MIN_IMAGE_BYTES = 256;
+
+  /**
+   * Refuses what is not a picture: no bytes and no URL, or a few bytes (a probe or placeholder
+   * image). A run must fail by name rather than seal such a file as its output [§12 Zero-Fallback].
+   *
+   * @throws IllegalStateException when the engine returned nothing that is a picture
+   */
+  static void requireRealImage(byte[] imageData, String url) {
+    int size = imageData == null ? 0 : imageData.length;
+    if (size == 0 && url == null) {
+      throw new IllegalStateException("the image engine returned no image");
+    }
+    if (size > 0 && size < MIN_IMAGE_BYTES) {
+      throw new IllegalStateException(
+          "the image engine returned an image of " + size + " bytes — not a picture");
+    }
   }
 
   /**

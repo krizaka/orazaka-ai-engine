@@ -47,6 +47,7 @@ class ImageGeneratorClientImplTest {
   private HttpServer provider;
   private final AtomicReference<String> received = new AtomicReference<>();
   private final AtomicReference<String> authorization = new AtomicReference<>();
+  private final AtomicReference<com.sun.net.httpserver.Headers> headers = new AtomicReference<>();
 
   @AfterEach
   void stop() {
@@ -61,6 +62,7 @@ class ImageGeneratorClientImplTest {
         "/",
         exchange -> {
           authorization.set(exchange.getRequestHeaders().getFirst("Authorization"));
+          headers.set(exchange.getRequestHeaders());
           received.set(
               new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
           byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
@@ -283,5 +285,44 @@ class ImageGeneratorClientImplTest {
 
     client(baseUrl, 20, catalogued, "not-required").generateImage(request);
     assertThat(authorization.get()).isEqualTo("Bearer not-required");
+  }
+
+  @org.junit.jupiter.api.Test
+  void requireRealImage_refusesAOnePixelPlaceholder() {
+    byte[] onePixel = new byte[70]; // what a 1x1 transparent PNG weighs
+    IllegalStateException refused =
+        org.junit.jupiter.api.Assertions.assertThrows(
+            IllegalStateException.class,
+            () -> ImageGeneratorClientImpl.requireRealImage(onePixel, null));
+    org.junit.jupiter.api.Assertions.assertTrue(refused.getMessage().contains("70 bytes"));
+  }
+
+  @org.junit.jupiter.api.Test
+  void requireRealImage_refusesNothingAtAll() {
+    org.junit.jupiter.api.Assertions.assertThrows(
+        IllegalStateException.class,
+        () -> ImageGeneratorClientImpl.requireRealImage(new byte[0], null));
+  }
+
+  @org.junit.jupiter.api.Test
+  void requireRealImage_acceptsAPictureOrAHostedUrl() {
+    ImageGeneratorClientImpl.requireRealImage(new byte[200_000], null);
+    ImageGeneratorClientImpl.requireRealImage(new byte[0], "https://cdn.example/x.png");
+  }
+
+  @Test
+  @DisplayName(
+      "the configured read timeout is the one the client uses — a diffusion engine is silent until its image is done")
+  void theConfiguredReadTimeoutIsTheOneTheClientUses() throws IOException {
+    String baseUrl =
+        serve("{\"created\":1700000000,\"data\":[{\"b64_json\":\"" + png(512, 512) + "\"}]}");
+    var request =
+        new ImageRequest(
+            "a lighthouse at dusk", 512, 512, "stable-diffusion", Map.of(), Context.anonymous());
+
+    client(baseUrl, 20).generateImage(request);
+
+    // The client states the read timeout it applies (the test's configuration says 5000 ms).
+    assertThat(headers.get().getFirst("X-Stainless-Read-Timeout")).isEqualTo("5");
   }
 }

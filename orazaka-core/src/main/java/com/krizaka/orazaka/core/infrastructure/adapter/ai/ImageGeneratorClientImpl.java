@@ -113,7 +113,7 @@ class ImageGeneratorClientImpl implements ImageGeneratorClient {
   }
 
   /** A picture of a real size: a 1x1 PNG is 70 bytes, a 512x512 one is tens of kilobytes. */
-  static final int MIN_IMAGE_BYTES = 256;
+  private static final int MIN_IMAGE_BYTES = 256;
 
   /**
    * Refuses what is not a picture: no bytes and no URL, or a few bytes (a probe or placeholder

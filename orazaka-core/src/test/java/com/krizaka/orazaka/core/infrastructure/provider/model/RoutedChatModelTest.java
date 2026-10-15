@@ -146,4 +146,32 @@ class RoutedChatModelTest {
     verify(delegate).call(sent.capture());
     assertThat(sent.getValue().getOptions().getModel()).isEqualTo("mistral-3-14B");
   }
+
+  /**
+   * A local model (Ollama behind the GPU relay) with no worker connected fails with a message that
+   * says so — not a bare "Connection refused".
+   */
+  @Test
+  void stream_localModelWithoutWorker_failsWithAClearError() {
+    DynamicModelRouter router = mock(DynamicModelRouter.class);
+    ChatModel delegate = mock(ChatModel.class);
+    when(delegate.stream(any(Prompt.class)))
+        .thenReturn(
+            Flux.error(
+                new RuntimeException(
+                    "Request failed", new java.net.ConnectException("Connection refused"))));
+    when(router.chatModel("qwen2.5:7b")).thenReturn(delegate);
+    when(router.describe("qwen2.5:7b")).thenReturn("provider 'ollama' at http://gpu-relay:11434");
+
+    var options = OpenAiChatOptions.builder().model("qwen2.5:7b").build();
+    Throwable error =
+        org.junit.jupiter.api.Assertions.assertThrows(
+            ModelUnavailableException.class,
+            () -> new RoutedChatModel(router).stream(new Prompt("hi", options)).blockLast());
+
+    assertThat(error.getMessage())
+        .contains("qwen2.5:7b")
+        .contains("provider 'ollama' at http://gpu-relay:11434")
+        .contains("no worker");
+  }
 }

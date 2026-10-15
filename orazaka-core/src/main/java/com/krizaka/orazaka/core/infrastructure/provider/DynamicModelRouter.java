@@ -67,6 +67,14 @@ public class DynamicModelRouter {
                     "No default model endpoint resolved for category: " + category));
   }
 
+  /** Where the catalogue binds a model, for error messages: "provider 'x' at <base-url>". */
+  public String describe(String modelName) {
+    return resolver
+        .resolve(modelName)
+        .map(e -> "provider '" + e.providerName() + "' at " + e.baseUrl())
+        .orElse("no provider");
+  }
+
   /** Clears the client cache — call after an admin edits providers/models in the DB. */
   public void evictAll() {
     cache.clear();

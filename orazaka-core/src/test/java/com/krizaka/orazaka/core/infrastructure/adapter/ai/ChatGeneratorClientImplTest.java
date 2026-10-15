@@ -138,4 +138,46 @@ class ChatGeneratorClientImplTest {
     assertThat(responses.get(0).content()).isEqualTo("chunk1");
     assertThat(responses.get(1).content()).isEqualTo("chunk2");
   }
+
+  /**
+   * A model is routed to the provider the catalogue binds it to (RoutedChatModel), so a request
+   * naming only a model must keep it: without a "provider" setting it used to be dropped and the
+   * turn went to the default model (serverless) — qwen2.5:7b never reached Ollama.
+   */
+  @Test
+  void generateChat_withModelOnly_keepsTheModel() {
+    var request =
+        new ChatRequest(
+            "Hi",
+            List.of(new ChatRequest.ChatMessage("user", "Hi")),
+            Map.<String, Object>of("model", "qwen2.5:7b", "temperature", 0.2),
+            Context.anonymous());
+    when(engine.chat(any(InternalChatRequest.class)))
+        .thenReturn(new InternalChatResponse("R", null, Map.of()));
+
+    client.generateChat(request);
+
+    var sent = org.mockito.ArgumentCaptor.forClass(InternalChatRequest.class);
+    org.mockito.Mockito.verify(engine).chat(sent.capture());
+    assertThat(sent.getValue().options().getModel()).isEqualTo("qwen2.5:7b");
+    assertThat(sent.getValue().options().getTemperature()).isEqualTo(0.2);
+  }
+
+  @Test
+  void generateChat_withAnyOtherProvider_keepsTheModel() {
+    var request =
+        new ChatRequest(
+            "Hi",
+            List.of(new ChatRequest.ChatMessage("user", "Hi")),
+            Map.<String, Object>of("provider", "do-inference", "model", "deepseek-v4-pro"),
+            Context.anonymous());
+    when(engine.chat(any(InternalChatRequest.class)))
+        .thenReturn(new InternalChatResponse("R", null, Map.of()));
+
+    client.generateChat(request);
+
+    var sent = org.mockito.ArgumentCaptor.forClass(InternalChatRequest.class);
+    org.mockito.Mockito.verify(engine).chat(sent.capture());
+    assertThat(sent.getValue().options().getModel()).isEqualTo("deepseek-v4-pro");
+  }
 }

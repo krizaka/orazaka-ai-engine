@@ -42,13 +42,31 @@ public class RoutedChatModel implements ChatModel {
 
   @Override
   public Flux<ChatResponse> stream(Prompt prompt) {
-    return resolve(prompt).stream(outgoing(prompt));
+    String model = requestedModel(prompt);
+    Flux<ChatResponse> stream = resolve(prompt).stream(outgoing(prompt));
+    return model == null
+        ? stream
+        : stream.onErrorMap(
+            RoutedChatModel::isUnreachable,
+            e -> new ModelUnavailableException(model, router.describe(model), e));
   }
 
   private ChatModel resolve(Prompt prompt) {
     return requestedModel(prompt) != null
         ? router.chatModel(requestedModel(prompt))
         : router.defaultChatModel(MediaCategory.CHAT.value());
+  }
+
+  /** A connection the provider's host refused or could not open (no listener, no route). */
+  static boolean isUnreachable(Throwable error) {
+    for (Throwable t = error; t != null; t = t.getCause()) {
+      if (t instanceof java.net.ConnectException
+          || t instanceof java.net.UnknownHostException
+          || t instanceof java.net.NoRouteToHostException) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private static String requestedModel(Prompt prompt) {

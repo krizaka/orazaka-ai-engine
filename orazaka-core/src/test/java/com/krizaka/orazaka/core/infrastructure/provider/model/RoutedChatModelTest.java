@@ -105,4 +105,45 @@ class RoutedChatModelTest {
     verify(delegate).call(captor.capture());
     assertThat(captor.getValue().getOptions()).isInstanceOf(OpenAiChatOptions.class);
   }
+
+  /**
+   * The default route must name the catalogue default. {@code OpenAiChatOptions.builder()} fills
+   * Spring AI's own default model ({@code gpt-5-mini}); converted options without a model would
+   * send it to whatever provider the catalogue default lives on — 403 on DigitalOcean inference
+   * (dev.orazaka.com, 2026-10-15).
+   */
+  @Test
+  void stream_defaultRoute_sendsTheCatalogueDefaultModel() {
+    DynamicModelRouter router = mock(DynamicModelRouter.class);
+    ChatModel delegate = mock(ChatModel.class);
+    when(delegate.stream(any(Prompt.class))).thenReturn(Flux.empty());
+    when(router.defaultChatModel(any())).thenReturn(delegate);
+    when(router.defaultModelName(any())).thenReturn("mistral-3-14B");
+    RoutedChatModel routed = new RoutedChatModel(router);
+
+    routed.stream(
+            new Prompt(
+                "hi",
+                org.springframework.ai.chat.prompt.ChatOptions.builder().temperature(0.7).build()))
+        .blockLast();
+
+    ArgumentCaptor<Prompt> sent = ArgumentCaptor.forClass(Prompt.class);
+    verify(delegate).stream(sent.capture());
+    assertThat(sent.getValue().getOptions().getModel()).isEqualTo("mistral-3-14B");
+    assertThat(sent.getValue().getOptions().getTemperature()).isEqualTo(0.7);
+  }
+
+  @Test
+  void call_defaultRoute_withoutOptions_sendsTheCatalogueDefaultModel() {
+    DynamicModelRouter router = mock(DynamicModelRouter.class);
+    ChatModel delegate = mock(ChatModel.class);
+    when(router.defaultChatModel(any())).thenReturn(delegate);
+    when(router.defaultModelName(any())).thenReturn("mistral-3-14B");
+
+    new RoutedChatModel(router).call(new Prompt("hi"));
+
+    ArgumentCaptor<Prompt> sent = ArgumentCaptor.forClass(Prompt.class);
+    verify(delegate).call(sent.capture());
+    assertThat(sent.getValue().getOptions().getModel()).isEqualTo("mistral-3-14B");
+  }
 }

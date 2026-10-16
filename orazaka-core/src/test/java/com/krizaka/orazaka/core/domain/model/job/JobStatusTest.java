@@ -8,7 +8,7 @@ class JobStatusTest {
 
   @Test
   void values_containsAll() {
-    assertEquals(4, JobStatus.values().length);
+    assertEquals(6, JobStatus.values().length);
   }
 
   @Test
@@ -35,5 +35,21 @@ class JobStatusTest {
   @Test
   void fromString_invalid_throws() {
     assertThrows(IllegalArgumentException.class, () -> JobStatus.fromString("UNKNOWN"));
+  }
+
+  @Test
+  void cancelledAndDeleted_areLegalStates() {
+    assertEquals(JobStatus.CANCELLED, JobStatus.fromString("cancelled"));
+    assertEquals(JobStatus.DELETED, JobStatus.fromString("DELETED"));
+  }
+
+  @Test
+  void terminal_isEverythingThatCannotRunAnyMore() {
+    assertFalse(JobStatus.PENDING.isTerminal());
+    assertFalse(JobStatus.PROCESSING.isTerminal());
+    assertTrue(JobStatus.COMPLETED.isTerminal());
+    assertTrue(JobStatus.FAILED.isTerminal());
+    assertTrue(JobStatus.CANCELLED.isTerminal());
+    assertTrue(JobStatus.DELETED.isTerminal());
   }
 }

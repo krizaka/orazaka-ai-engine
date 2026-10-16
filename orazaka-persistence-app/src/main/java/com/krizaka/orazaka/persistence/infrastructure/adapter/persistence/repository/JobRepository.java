@@ -13,6 +13,12 @@ import org.springframework.stereotype.Repository;
 public interface JobRepository extends JpaRepository<JobEntity, String> {
   Page<JobEntity> findByUserId(String userId, Pageable pageable);
 
+  /** The owner's jobs but the ones they deleted. */
+  Page<JobEntity> findByUserIdAndStatusNot(String userId, String status, Pageable pageable);
+
+  /** Every job but the deleted ones. */
+  Page<JobEntity> findByStatusNot(String status, Pageable pageable);
+
   List<JobEntity> findByStatusIn(Collection<String> statuses);
 
   void deleteByUserId(String userId);

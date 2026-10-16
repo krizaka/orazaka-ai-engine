@@ -1,7 +1,6 @@
 package com.krizaka.orazaka.persistence.architecture;
 
 import static com.krizaka.orazaka.test.architecture.GovernanceRules.*;
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import com.krizaka.orazaka.test.architecture.GovernanceRules;
 import com.krizaka.orazaka.test.architecture.SourceFileScanner;
@@ -35,28 +34,19 @@ class PersistenceGovernanceTest {
   @Test
   @DisplayName("[ERR-103] One top-level class per file")
   void oneClassPerFile() {
-    assertDoesNotThrow(
-        () -> {
-          assertOneTopLevelClassPerFile(persistenceClasses, PKG);
-        });
+    assertOneTopLevelClassPerFile(persistenceClasses, PKG);
   }
 
   @Test
   @DisplayName("[ERR-104] No redundant 'Orazaka' prefix")
   void noRedundantPrefix() {
-    assertDoesNotThrow(
-        () -> {
-          assertNoRedundantPrefix(persistenceClasses, PKG);
-        });
+    assertNoRedundantPrefix(persistenceClasses, PKG);
   }
 
   @Test
   @DisplayName("[ERR-105] Service *Impl classes are package-private")
   void implsArePackagePrivate() {
-    assertDoesNotThrow(
-        () -> {
-          assertImplClassesPackagePrivate(persistenceClasses, PKG + ".application.service");
-        });
+    assertImplClassesPackagePrivate(persistenceClasses, PKG + ".application.service");
   }
 
   // GOV-006: [ERR-107] is not invoked here. This module has no *Mapper class — mapping was inlined
@@ -67,19 +57,13 @@ class PersistenceGovernanceTest {
   @Test
   @DisplayName("[ERR-112] No web controllers outside router")
   void noWebControllers() {
-    assertDoesNotThrow(
-        () -> {
-          assertNoWebControllers(persistenceClasses, PKG);
-        });
+    assertNoWebControllers(persistenceClasses, PKG);
   }
 
   @Test
   @DisplayName("[ADR-009] Instance fields in concrete classes are private")
   void fieldsArePrivate() {
-    assertDoesNotThrow(
-        () -> {
-          assertFieldsPrivate(persistenceClasses);
-        });
+    assertFieldsPrivate(persistenceClasses);
   }
 
   // GOV-006: [ADR-007] collection-field rule is not invoked here: no non-record, non-entity class
@@ -90,36 +74,24 @@ class PersistenceGovernanceTest {
   @Test
   @DisplayName("[GOV-001] No anonymous classes in production")
   void noAnonymousClasses() {
-    assertDoesNotThrow(
-        () -> {
-          assertNoAnonymousClasses(persistenceClasses, PKG);
-        });
+    assertNoAnonymousClasses(persistenceClasses, PKG);
   }
 
   @Test
   @DisplayName("[GOV-004] No standard streams (use SLF4J)")
   void noStandardStreams() {
-    assertDoesNotThrow(
-        () -> {
-          assertNoStandardStreams(persistenceClasses);
-        });
+    assertNoStandardStreams(persistenceClasses);
   }
 
   @Test
   @DisplayName("[ERR-109] JPA converters, entities and repositories live in their own sub-packs")
   void persistencePackageHygiene() {
-    assertDoesNotThrow(
-        () -> {
-          GovernanceRules.assertPersistencePackageHygiene(persistenceClasses);
-        });
+    GovernanceRules.assertPersistencePackageHygiene(persistenceClasses);
   }
 
   @Test
   @DisplayName("[ERR-113] No Environment injection in production beans")
   void noEnvironmentInjection() {
-    assertDoesNotThrow(
-        () -> {
-          SourceFileScanner.assertNoEnvironmentInjection(Path.of("src", "main", "java"));
-        });
+    SourceFileScanner.assertNoEnvironmentInjection(Path.of("src", "main", "java"));
   }
 }

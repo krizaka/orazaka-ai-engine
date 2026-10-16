@@ -2,7 +2,6 @@ package com.krizaka.orazaka.core.architecture;
 
 import static com.krizaka.orazaka.test.TestConstants.*;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.*;
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.krizaka.orazaka.test.architecture.ConfigBindingRules;
@@ -53,94 +52,82 @@ class GovernanceTest {
   @Test
   @DisplayName("[ADR-007] Collection fields in non-record classes must be private final")
   void collectionFieldsMustBePrivateFinal() {
-    assertDoesNotThrow(
-        () -> {
-          fields()
-              .that()
-              .haveRawType(List.class)
-              .or()
-              .haveRawType(Map.class)
-              .or()
-              .haveRawType(Set.class)
-              .and()
-              .areDeclaredInClassesThat()
-              .areNotRecords()
-              .and()
-              .areDeclaredInClassesThat()
-              .areNotEnums()
-              .and()
-              .areDeclaredInClassesThat()
-              .areNotInterfaces()
-              .and()
-              .areDeclaredInClassesThat()
-              .haveSimpleNameNotContaining("Abstract")
-              .should(bePrivateAndFinal())
-              .because(
-                  "Collection fields must be private final for immutability [ADR-007, ADR-008]."
-                      + " Use Map.copyOf()/List.copyOf() in constructors.")
-              .check(coreClasses);
-        });
+    fields()
+        .that()
+        .haveRawType(List.class)
+        .or()
+        .haveRawType(Map.class)
+        .or()
+        .haveRawType(Set.class)
+        .and()
+        .areDeclaredInClassesThat()
+        .areNotRecords()
+        .and()
+        .areDeclaredInClassesThat()
+        .areNotEnums()
+        .and()
+        .areDeclaredInClassesThat()
+        .areNotInterfaces()
+        .and()
+        .areDeclaredInClassesThat()
+        .haveSimpleNameNotContaining("Abstract")
+        .should(bePrivateAndFinal())
+        .because(
+            "Collection fields must be private final for immutability [ADR-007, ADR-008]."
+                + " Use Map.copyOf()/List.copyOf() in constructors.")
+        .check(coreClasses);
   }
 
   @Test
   @DisplayName("[ERR-129] application/service holds only service impls (*Impl)")
   void applicationServiceHoldsOnlyImpls() {
-    assertDoesNotThrow(
-        () -> {
-          classes()
-              .that()
-              .resideInAPackage("com.krizaka.orazaka.core.application.service..")
-              .and()
-              .areTopLevelClasses()
-              .should()
-              .haveSimpleNameEndingWith("Impl")
-              .because(
-                  "application/service holds only inbound-port implementations (*ServiceImpl, plus"
-                      + " stereotype impls like AiClientImpl/ChatMemoryStoreImpl). Mappers are inlined into"
-                      + " their impl; factories live with the concern they build (routing); never here"
-                      + " [ERR-129/130].")
-              .check(coreClasses);
-        });
+    classes()
+        .that()
+        .resideInAPackage("com.krizaka.orazaka.core.application.service..")
+        .and()
+        .areTopLevelClasses()
+        .should()
+        .haveSimpleNameEndingWith("Impl")
+        .because(
+            "application/service holds only inbound-port implementations (*ServiceImpl, plus"
+                + " stereotype impls like AiClientImpl/ChatMemoryStoreImpl). Mappers are inlined into"
+                + " their impl; factories live with the concern they build (routing); never here"
+                + " [ERR-129/130].")
+        .check(coreClasses);
   }
 
   @Test
   @DisplayName("[ERR-130] infrastructure/support holds only cross-cutting helpers")
   void supportPackageHoldsOnlyHelpers() {
-    assertDoesNotThrow(
-        () -> {
-          noClasses()
-              .that()
-              .resideInAPackage("com.krizaka.orazaka.core.infrastructure.support..")
-              .should()
-              .haveSimpleNameEndingWith("Service")
-              .orShould()
-              .haveSimpleNameEndingWith("Controller")
-              .orShould()
-              .haveSimpleNameEndingWith("Adapter")
-              .because(
-                  "infrastructure/support holds cross-cutting helpers (*Util) and shared *Exceptions"
-                      + " only — never a *Service/*Controller/*Adapter [ERR-130].")
-              .check(coreClasses);
-        });
+    noClasses()
+        .that()
+        .resideInAPackage("com.krizaka.orazaka.core.infrastructure.support..")
+        .should()
+        .haveSimpleNameEndingWith("Service")
+        .orShould()
+        .haveSimpleNameEndingWith("Controller")
+        .orShould()
+        .haveSimpleNameEndingWith("Adapter")
+        .because(
+            "infrastructure/support holds cross-cutting helpers (*Util) and shared *Exceptions"
+                + " only — never a *Service/*Controller/*Adapter [ERR-130].")
+        .check(coreClasses);
   }
 
   @Test
   @DisplayName("[GOV-001] No anonymous classes in production source (enums/TypeRef exempt)")
   void noAnonymousClassesInProduction() {
-    assertDoesNotThrow(
-        () -> {
-          classes()
-              .that()
-              .resideInAPackage(PKG_CORE)
-              .should()
-              .notBeAnonymousClasses()
-              .orShould(beEnumConstantOrTypeReference())
-              .because(
-                  "Anonymous classes are banned in production — use explicit named implementations"
-                      + " or lambda expressions [Governance Mandate]."
-                      + " Enum constants and Jackson TypeReferences are exempt.")
-              .check(coreClasses);
-        });
+    classes()
+        .that()
+        .resideInAPackage(PKG_CORE)
+        .should()
+        .notBeAnonymousClasses()
+        .orShould(beEnumConstantOrTypeReference())
+        .because(
+            "Anonymous classes are banned in production — use explicit named implementations"
+                + " or lambda expressions [Governance Mandate]."
+                + " Enum constants and Jackson TypeReferences are exempt.")
+        .check(coreClasses);
   }
 
   private static ArchCondition<com.tngtech.archunit.core.domain.JavaClass>
@@ -168,31 +155,25 @@ class GovernanceTest {
   @DisplayName(
       "[GOV-004] No classes in production should access standard streams (System.out/System.err)")
   void noStandardStreams() {
-    assertDoesNotThrow(
-        () -> {
-          com.tngtech.archunit.library.GeneralCodingRules.NO_CLASSES_SHOULD_ACCESS_STANDARD_STREAMS
-              .because("Use SLF4J loggers instead of standard output/error streams")
-              .check(coreClasses);
-        });
+    com.tngtech.archunit.library.GeneralCodingRules.NO_CLASSES_SHOULD_ACCESS_STANDARD_STREAMS
+        .because("Use SLF4J loggers instead of standard output/error streams")
+        .check(coreClasses);
   }
 
   @Test
   @DisplayName("[GOV-002] Engine integration gates must be public (EngineModelRegistry exempt)")
   void integrationGatesMustBePublic() {
-    assertDoesNotThrow(
-        () -> {
-          classes()
-              .that()
-              .resideInAPackage("com.krizaka.orazaka.core.application.engine..")
-              .and()
-              .haveSimpleNameEndingWith("Engine")
-              .should()
-              .bePublic()
-              .because(
-                  "Engine integration gates (Engine, AbstractEngine) must be public."
-                      + " EngineModelRegistry is package-private per ADR-009.")
-              .check(coreClasses);
-        });
+    classes()
+        .that()
+        .resideInAPackage("com.krizaka.orazaka.core.application.engine..")
+        .and()
+        .haveSimpleNameEndingWith("Engine")
+        .should()
+        .bePublic()
+        .because(
+            "Engine integration gates (Engine, AbstractEngine) must be public."
+                + " EngineModelRegistry is package-private per ADR-009.")
+        .check(coreClasses);
   }
 
   @Test
@@ -249,48 +230,44 @@ class GovernanceTest {
   @DisplayName(
       "[ERR-103] Every top-level class (production + test) must reside in a dedicated file")
   void oneTopLevelClassPerFile() {
-    assertDoesNotThrow(
-        () -> {
-          classes()
-              .that()
-              .resideInAPackage(PKG_CORE)
-              .and()
-              .doNotHaveModifier(com.tngtech.archunit.core.domain.JavaModifier.SYNTHETIC)
-              .should(
-                  new ArchCondition<com.tngtech.archunit.core.domain.JavaClass>(
-                      "reside in a dedicated file matching their class name") {
-                    @Override
-                    public void check(
-                        com.tngtech.archunit.core.domain.JavaClass javaClass,
-                        ConditionEvents events) {
-                      // Bypass nested, inner, member, or anonymous classes
-                      if (javaClass.isAnonymousClass() || javaClass.isMemberClass()) {
-                        return;
-                      }
-                      String sourceFileName =
-                          javaClass.getSource().isPresent()
-                              ? javaClass.getSource().get().getFileName().orElse(null)
-                              : null;
-                      if (sourceFileName != null && !"Unknown Source".equals(sourceFileName)) {
-                        String expectedFileName = javaClass.getSimpleName() + ".java";
-                        if (!sourceFileName.equals(expectedFileName)) {
-                          String message =
-                              String.format(
-                                  "Architecture Violation [ERR-103]: Class '%s' is illegally bundled"
-                                      + " inside '%s'. Every top-level component (production or test)"
-                                      + " must have its own dedicated file.",
-                                  javaClass.getFullName(), sourceFileName);
-                          events.add(SimpleConditionEvent.violated(javaClass, message));
-                        }
-                      }
-                    }
-                  })
-              .because(
-                  "Every top-level Java class, interface, enum, or record—whether in production"
-                      + " (src/main) or test suites (src/test)—must reside in its own dedicated"
-                      + " .java source file [ERR-103, Source File Isolation Invariant].")
-              .check(allCoreClasses);
-        });
+    classes()
+        .that()
+        .resideInAPackage(PKG_CORE)
+        .and()
+        .doNotHaveModifier(com.tngtech.archunit.core.domain.JavaModifier.SYNTHETIC)
+        .should(
+            new ArchCondition<com.tngtech.archunit.core.domain.JavaClass>(
+                "reside in a dedicated file matching their class name") {
+              @Override
+              public void check(
+                  com.tngtech.archunit.core.domain.JavaClass javaClass, ConditionEvents events) {
+                // Bypass nested, inner, member, or anonymous classes
+                if (javaClass.isAnonymousClass() || javaClass.isMemberClass()) {
+                  return;
+                }
+                String sourceFileName =
+                    javaClass.getSource().isPresent()
+                        ? javaClass.getSource().get().getFileName().orElse(null)
+                        : null;
+                if (sourceFileName != null && !"Unknown Source".equals(sourceFileName)) {
+                  String expectedFileName = javaClass.getSimpleName() + ".java";
+                  if (!sourceFileName.equals(expectedFileName)) {
+                    String message =
+                        String.format(
+                            "Architecture Violation [ERR-103]: Class '%s' is illegally bundled"
+                                + " inside '%s'. Every top-level component (production or test)"
+                                + " must have its own dedicated file.",
+                            javaClass.getFullName(), sourceFileName);
+                    events.add(SimpleConditionEvent.violated(javaClass, message));
+                  }
+                }
+              }
+            })
+        .because(
+            "Every top-level Java class, interface, enum, or record—whether in production"
+                + " (src/main) or test suites (src/test)—must reside in its own dedicated"
+                + " .java source file [ERR-103, Source File Isolation Invariant].")
+        .check(allCoreClasses);
   }
 
   private static ArchCondition<JavaField> bePrivateAndFinal() {
@@ -315,242 +292,209 @@ class GovernanceTest {
   @Test
   @DisplayName("[ERR-104] No class names with redundant 'Orazaka' prefix")
   void noRedundantProjectPrefix() {
-    assertDoesNotThrow(
-        () -> {
-          classes()
-              .that()
-              .resideInAPackage(PKG_CORE)
-              .should()
-              .haveSimpleNameNotStartingWith("Orazaka")
-              .because(
-                  "The project name must not be prepended to class names [ERR-104]."
-                      + " Use package topology for ownership.")
-              .check(coreClasses);
-        });
+    classes()
+        .that()
+        .resideInAPackage(PKG_CORE)
+        .should()
+        .haveSimpleNameNotStartingWith("Orazaka")
+        .because(
+            "The project name must not be prepended to class names [ERR-104]."
+                + " Use package topology for ownership.")
+        .check(coreClasses);
   }
 
   @Test
   @DisplayName("[ERR-112] No @RestController or @Controller annotations in core")
   void noWebControllersInCore() {
-    assertDoesNotThrow(
-        () -> {
-          classes()
-              .that()
-              .resideInAPackage(PKG_CORE)
-              .should()
-              .notBeAnnotatedWith(org.springframework.web.bind.annotation.RestController.class)
-              .andShould()
-              .notBeAnnotatedWith(org.springframework.stereotype.Controller.class)
-              .because(
-                  "orazaka-core is a stateless library — web controllers belong in orazaka-router"
-                      + " [ERR-112, Section 1.A]")
-              .check(coreClasses);
-        });
+    classes()
+        .that()
+        .resideInAPackage(PKG_CORE)
+        .should()
+        .notBeAnnotatedWith(org.springframework.web.bind.annotation.RestController.class)
+        .andShould()
+        .notBeAnnotatedWith(org.springframework.stereotype.Controller.class)
+        .because(
+            "orazaka-core is a stateless library — web controllers belong in orazaka-router"
+                + " [ERR-112, Section 1.A]")
+        .check(coreClasses);
   }
 
   @Test
   @DisplayName("[ERR-112+] No classes in core may depend on web MVC annotation/servlet packs")
   void noWebMvcAnnotationDependenciesInCore() {
-    assertDoesNotThrow(
-        () -> {
-          com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses()
-              .that()
-              .resideInAPackage(PKG_CORE)
-              .should()
-              .dependOnClassesThat()
-              .resideInAPackage("org.springframework.web.bind.annotation..")
-              .because(
-                  "orazaka-core must never import web MVC annotations (@RequestMapping, @GetMapping,"
-                      + " @PostMapping, @ResponseBody, etc.). Web binding is the exclusive domain of"
-                      + " orazaka-router [§1.2 Stateless Core, ERR-112]."
-                      + " ArchUnit enforces this as a non-negotiable compile-time gatekeeper.")
-              .check(coreClasses);
-        });
+    com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses()
+        .that()
+        .resideInAPackage(PKG_CORE)
+        .should()
+        .dependOnClassesThat()
+        .resideInAPackage("org.springframework.web.bind.annotation..")
+        .because(
+            "orazaka-core must never import web MVC annotations (@RequestMapping, @GetMapping,"
+                + " @PostMapping, @ResponseBody, etc.). Web binding is the exclusive domain of"
+                + " orazaka-router [§1.2 Stateless Core, ERR-112]."
+                + " ArchUnit enforces this as a non-negotiable compile-time gatekeeper.")
+        .check(coreClasses);
   }
 
   @Test
   @DisplayName("[ERR-112++] No classes in core may depend on javax/jakarta.servlet packs")
   void noServletDependenciesInCore() {
-    assertDoesNotThrow(
-        () -> {
-          com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses()
-              .that()
-              .resideInAPackage(PKG_CORE)
-              .should()
-              .dependOnClassesThat()
-              .resideInAPackage("jakarta.servlet..")
-              .because(
-                  "orazaka-core must remain servlet-agnostic. Servlet APIs belong exclusively"
-                      + " in orazaka-router [§1.2 Stateless Core]."
-                      + " ArchUnit enforces this as a non-negotiable compile-time gatekeeper.")
-              .check(coreClasses);
-        });
+    com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses()
+        .that()
+        .resideInAPackage(PKG_CORE)
+        .should()
+        .dependOnClassesThat()
+        .resideInAPackage("jakarta.servlet..")
+        .because(
+            "orazaka-core must remain servlet-agnostic. Servlet APIs belong exclusively"
+                + " in orazaka-router [§1.2 Stateless Core]."
+                + " ArchUnit enforces this as a non-negotiable compile-time gatekeeper.")
+        .check(coreClasses);
   }
 
   @Test
   @DisplayName("[ADR-009] Fields in concrete non-record classes must be private")
   void fieldsInConcreteClassesMustBePrivate() {
-    assertDoesNotThrow(
-        () -> {
-          fields()
-              .that()
-              .areDeclaredInClassesThat()
-              .areNotRecords()
-              .and()
-              .areDeclaredInClassesThat()
-              .areNotEnums()
-              .and()
-              .areDeclaredInClassesThat()
-              .areNotInterfaces()
-              .and()
-              .areDeclaredInClassesThat()
-              .haveSimpleNameNotContaining("Abstract")
-              .and()
-              .areNotStatic()
-              .should(
-                  new ArchCondition<JavaField>("be private") {
-                    @Override
-                    public void check(JavaField field, ConditionEvents events) {
-                      boolean isPrivate =
-                          field
-                              .getModifiers()
-                              .contains(com.tngtech.archunit.core.domain.JavaModifier.PRIVATE);
-                      if (!isPrivate) {
-                        events.add(
-                            SimpleConditionEvent.violated(
-                                field,
-                                String.format(
-                                    "Field <%s> in <%s> must be private [ADR-009]",
-                                    field.getName(), field.getOwner().getName())));
-                      }
-                    }
-                  })
-              .because(
-                  "Instance fields in concrete classes must be private [ADR-009]."
-                      + " Use accessor methods for encapsulation.")
-              .check(coreClasses);
-        });
+    fields()
+        .that()
+        .areDeclaredInClassesThat()
+        .areNotRecords()
+        .and()
+        .areDeclaredInClassesThat()
+        .areNotEnums()
+        .and()
+        .areDeclaredInClassesThat()
+        .areNotInterfaces()
+        .and()
+        .areDeclaredInClassesThat()
+        .haveSimpleNameNotContaining("Abstract")
+        .and()
+        .areNotStatic()
+        .should(
+            new ArchCondition<JavaField>("be private") {
+              @Override
+              public void check(JavaField field, ConditionEvents events) {
+                boolean isPrivate =
+                    field
+                        .getModifiers()
+                        .contains(com.tngtech.archunit.core.domain.JavaModifier.PRIVATE);
+                if (!isPrivate) {
+                  events.add(
+                      SimpleConditionEvent.violated(
+                          field,
+                          String.format(
+                              "Field <%s> in <%s> must be private [ADR-009]",
+                              field.getName(), field.getOwner().getName())));
+                }
+              }
+            })
+        .because(
+            "Instance fields in concrete classes must be private [ADR-009]."
+                + " Use accessor methods for encapsulation.")
+        .check(coreClasses);
   }
 
   @Test
   @DisplayName("[ERR-105] *Impl classes must be package-private (not public)")
   void implClassesMustBePackagePrivate() {
-    assertDoesNotThrow(
-        () -> {
-          classes()
-              .that()
-              .resideInAPackage(PKG_CORE)
-              .and()
-              .haveSimpleNameEndingWith("Impl")
-              .should()
-              .notBePublic()
-              .because(
-                  "Implementation classes (*Impl) must be package-private."
-                      + " Cross-module interaction happens through interfaces only [ERR-105].")
-              .check(coreClasses);
-        });
+    classes()
+        .that()
+        .resideInAPackage(PKG_CORE)
+        .and()
+        .haveSimpleNameEndingWith("Impl")
+        .should()
+        .notBePublic()
+        .because(
+            "Implementation classes (*Impl) must be package-private."
+                + " Cross-module interaction happens through interfaces only [ERR-105].")
+        .check(coreClasses);
   }
 
   @Test
   @DisplayName("[ERR-107] Mapper classes must be final with only static methods")
   void mappersAreStaticUtilities() {
-    assertDoesNotThrow(
-        () -> {
-          classes()
-              .that()
-              .resideInAPackage(PKG_CORE)
-              .and()
-              .haveSimpleNameEndingWith("Mapper")
-              .should()
-              .haveModifier(com.tngtech.archunit.core.domain.JavaModifier.FINAL)
-              .because(
-                  "Mapper classes must be final static utility classes."
-                      + " Field-by-field mapping in controllers/services is banned [ERR-107].")
-              .check(coreClasses);
-        });
+    classes()
+        .that()
+        .resideInAPackage(PKG_CORE)
+        .and()
+        .haveSimpleNameEndingWith("Mapper")
+        .should()
+        .haveModifier(com.tngtech.archunit.core.domain.JavaModifier.FINAL)
+        .because(
+            "Mapper classes must be final static utility classes."
+                + " Field-by-field mapping in controllers/services is banned [ERR-107].")
+        .check(coreClasses);
   }
 
   @Test
   @DisplayName("[ERR-113] No Environment injection in production beans")
   void noEnvironmentInjection() {
-    assertDoesNotThrow(
-        () -> {
-          // Was a second implementation of the shared rule, written inline here, while the shared
-          // one was
-          // invoked by no suite at all (GOV-006, §4.3). One author now.
-          SourceFileScanner.assertNoEnvironmentInjection(Path.of("src", "main", "java"));
-        });
+    // Was a second implementation of the shared rule, written inline here, while the shared
+    // one was
+    // invoked by no suite at all (GOV-006, §4.3). One author now.
+    SourceFileScanner.assertNoEnvironmentInjection(Path.of("src", "main", "java"));
   }
 
   @Test
   @DisplayName("[GOV-005] No @Autowired field injection — constructor DI only")
   void noFieldInjection() {
-    assertDoesNotThrow(
-        () -> {
-          fields()
-              .that()
-              .areDeclaredInClassesThat()
-              .resideInAPackage(PKG_CORE)
-              .and()
-              .areAnnotatedWith(org.springframework.beans.factory.annotation.Autowired.class)
-              .should(
-                  new ArchCondition<JavaField>("not exist (field injection is banned)") {
-                    @Override
-                    public void check(JavaField field, ConditionEvents events) {
-                      events.add(
-                          SimpleConditionEvent.violated(
-                              field,
-                              String.format(
-                                  "Field <%s> in <%s> uses @Autowired field injection."
-                                      + " Use constructor injection instead [GOV-005].",
-                                  field.getName(), field.getOwner().getName())));
-                    }
-                  })
-              .allowEmptyShould(true)
-              .because(
-                  "Constructor injection is mandatory. @Autowired field injection is banned [GOV-005].")
-              .check(coreClasses);
-        });
+    fields()
+        .that()
+        .areDeclaredInClassesThat()
+        .resideInAPackage(PKG_CORE)
+        .and()
+        .areAnnotatedWith(org.springframework.beans.factory.annotation.Autowired.class)
+        .should(
+            new ArchCondition<JavaField>("not exist (field injection is banned)") {
+              @Override
+              public void check(JavaField field, ConditionEvents events) {
+                events.add(
+                    SimpleConditionEvent.violated(
+                        field,
+                        String.format(
+                            "Field <%s> in <%s> uses @Autowired field injection."
+                                + " Use constructor injection instead [GOV-005].",
+                            field.getName(), field.getOwner().getName())));
+              }
+            })
+        .allowEmptyShould(true)
+        .because(
+            "Constructor injection is mandatory. @Autowired field injection is banned [GOV-005].")
+        .check(coreClasses);
   }
 
   @Test
   @DisplayName("[ERR-118] No classes in core may depend on Spring AMQP packs")
   void noAmqpDependenciesInCore() {
-    assertDoesNotThrow(
-        () -> {
-          com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses()
-              .that()
-              .resideInAPackage(PKG_CORE)
-              .should()
-              .dependOnClassesThat()
-              .resideInAPackage("org.springframework.amqp..")
-              .because(
-                  "orazaka-core must remain AMQP-agnostic. RabbitMQ communication flows through"
-                      + " the EventPublisher outbound port interface. Concrete AMQP adapters belong"
-                      + " exclusively in orazaka-persistence/app [§2.14, ERR-118]."
-                      + " ArchUnit enforces this as a non-negotiable compile-time gatekeeper.")
-              .check(coreClasses);
-        });
+    com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses()
+        .that()
+        .resideInAPackage(PKG_CORE)
+        .should()
+        .dependOnClassesThat()
+        .resideInAPackage("org.springframework.amqp..")
+        .because(
+            "orazaka-core must remain AMQP-agnostic. RabbitMQ communication flows through"
+                + " the EventPublisher outbound port interface. Concrete AMQP adapters belong"
+                + " exclusively in orazaka-persistence/app [§2.14, ERR-118]."
+                + " ArchUnit enforces this as a non-negotiable compile-time gatekeeper.")
+        .check(coreClasses);
   }
 
   @Test
   @DisplayName("[ERR-118+] No classes in core may depend on RabbitMQ client packs")
   void noRabbitMqDependenciesInCore() {
-    assertDoesNotThrow(
-        () -> {
-          com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses()
-              .that()
-              .resideInAPackage(PKG_CORE)
-              .should()
-              .dependOnClassesThat()
-              .resideInAPackage("com.rabbitmq..")
-              .because(
-                  "orazaka-core must never import RabbitMQ client types directly."
-                      + " All messaging infrastructure is encapsulated behind the EventPublisher"
-                      + " outbound port [§2.14, ERR-118]."
-                      + " ArchUnit enforces this as a non-negotiable compile-time gatekeeper.")
-              .check(coreClasses);
-        });
+    com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses()
+        .that()
+        .resideInAPackage(PKG_CORE)
+        .should()
+        .dependOnClassesThat()
+        .resideInAPackage("com.rabbitmq..")
+        .because(
+            "orazaka-core must never import RabbitMQ client types directly."
+                + " All messaging infrastructure is encapsulated behind the EventPublisher"
+                + " outbound port [§2.14, ERR-118]."
+                + " ArchUnit enforces this as a non-negotiable compile-time gatekeeper.")
+        .check(coreClasses);
   }
 
   @Test
@@ -558,59 +502,51 @@ class GovernanceTest {
       "[ERR-122] Only PromptContextInterceptor interface is permitted in"
           + " application.interceptor package")
   void onlyPortInterfaceInInterceptorPackage() {
-    assertDoesNotThrow(
-        () -> {
-          classes()
-              .that()
-              .resideInAPackage("com.krizaka.orazaka.core.application.interceptor..")
-              .should()
-              .beInterfaces()
-              .because(
-                  "The application.interceptor package is a pure SPI port layer."
-                      + " Only the PromptContextInterceptor interface is permitted here."
-                      + " All concrete interceptor implementations must reside in standalone"
-                      + " orazaka-interceptor-* submodules [ERR-122, §1.4].")
-              .check(coreClasses);
-        });
+    classes()
+        .that()
+        .resideInAPackage("com.krizaka.orazaka.core.application.interceptor..")
+        .should()
+        .beInterfaces()
+        .because(
+            "The application.interceptor package is a pure SPI port layer."
+                + " Only the PromptContextInterceptor interface is permitted here."
+                + " All concrete interceptor implementations must reside in standalone"
+                + " orazaka-interceptor-* submodules [ERR-122, §1.4].")
+        .check(coreClasses);
   }
 
   @Test
   @DisplayName("[ERR-122+] No concrete PromptContextInterceptor implementations in core")
   void noConcreteInterceptorImplementationsInCore() {
-    assertDoesNotThrow(
-        () -> {
-          classes()
-              .that()
-              .resideInAPackage(PKG_CORE)
-              .and()
-              .implement(
-                  com.krizaka.orazaka.core.application.interceptor.PromptContextInterceptor.class)
-              .should(
-                  new ArchCondition<com.tngtech.archunit.core.domain.JavaClass>(
-                      "not exist — zero concrete interceptors permitted in core") {
-                    @Override
-                    public void check(
-                        com.tngtech.archunit.core.domain.JavaClass javaClass,
-                        ConditionEvents events) {
-                      events.add(
-                          SimpleConditionEvent.violated(
-                              javaClass,
-                              String.format(
-                                  "Architecture Violation [ERR-122]: Class '%s' implements"
-                                      + " PromptContextInterceptor inside orazaka-core."
-                                      + " Concrete interceptors must reside in"
-                                      + " orazaka-interceptor-* submodules.",
-                                  javaClass.getFullName())));
-                    }
-                  })
-              .allowEmptyShould(true)
-              .because(
-                  "orazaka-core is a pure domain hexagon. Zero concrete PromptContextInterceptor"
-                      + " implementations are permitted [ERR-122, §1.4]."
-                      + " All interceptors must reside in standalone Maven submodules under"
-                      + " orazaka-interceptors/ and be loaded via AutoConfiguration.imports.")
-              .check(coreClasses);
-        });
+    classes()
+        .that()
+        .resideInAPackage(PKG_CORE)
+        .and()
+        .implement(com.krizaka.orazaka.core.application.interceptor.PromptContextInterceptor.class)
+        .should(
+            new ArchCondition<com.tngtech.archunit.core.domain.JavaClass>(
+                "not exist — zero concrete interceptors permitted in core") {
+              @Override
+              public void check(
+                  com.tngtech.archunit.core.domain.JavaClass javaClass, ConditionEvents events) {
+                events.add(
+                    SimpleConditionEvent.violated(
+                        javaClass,
+                        String.format(
+                            "Architecture Violation [ERR-122]: Class '%s' implements"
+                                + " PromptContextInterceptor inside orazaka-core."
+                                + " Concrete interceptors must reside in"
+                                + " orazaka-interceptor-* submodules.",
+                            javaClass.getFullName())));
+              }
+            })
+        .allowEmptyShould(true)
+        .because(
+            "orazaka-core is a pure domain hexagon. Zero concrete PromptContextInterceptor"
+                + " implementations are permitted [ERR-122, §1.4]."
+                + " All interceptors must reside in standalone Maven submodules under"
+                + " orazaka-interceptors/ and be loaded via AutoConfiguration.imports.")
+        .check(coreClasses);
   }
 
   /**
@@ -662,73 +598,64 @@ class GovernanceTest {
   @Test
   @DisplayName("[ERR-135] Records must be pure, stateless Data Carriers")
   void recordsMustBePureDataCarriers() {
-    assertDoesNotThrow(
-        () -> {
-          com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses()
-              .that()
-              .areRecords()
-              .should()
-              .dependOnClassesThat(
-                  new com.tngtech.archunit.base.DescribedPredicate<
-                      com.tngtech.archunit.core.domain.JavaClass>("be banned record dependencies") {
-                    @Override
-                    public boolean test(com.tngtech.archunit.core.domain.JavaClass javaClass) {
-                      String pkg = javaClass.getPackageName();
-                      String name = javaClass.getSimpleName();
+    com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses()
+        .that()
+        .areRecords()
+        .should()
+        .dependOnClassesThat(
+            new com.tngtech.archunit.base.DescribedPredicate<
+                com.tngtech.archunit.core.domain.JavaClass>("be banned record dependencies") {
+              @Override
+              public boolean test(com.tngtech.archunit.core.domain.JavaClass javaClass) {
+                String pkg = javaClass.getPackageName();
+                String name = javaClass.getSimpleName();
 
-                      // Banned loggers
-                      if (pkg.startsWith("org.slf4j") || pkg.startsWith("java.util.logging")) {
-                        return true;
-                      }
+                // Banned loggers
+                if (pkg.startsWith("org.slf4j") || pkg.startsWith("java.util.logging")) {
+                  return true;
+                }
 
-                      // Banned active I/O
-                      if (pkg.startsWith("java.nio.file")) {
-                        return true;
-                      }
-                      if (pkg.startsWith("java.io")
-                          && !"java.io.Serializable".equals(javaClass.getName())) {
-                        return true;
-                      }
+                // Banned active I/O
+                if (pkg.startsWith("java.nio.file")) {
+                  return true;
+                }
+                if (pkg.startsWith("java.io")
+                    && !"java.io.Serializable".equals(javaClass.getName())) {
+                  return true;
+                }
 
-                      // Banned Spring bean/context/stereotype
-                      if (pkg.startsWith("org.springframework.stereotype")
-                          || pkg.startsWith("org.springframework.context")
-                          || pkg.startsWith("org.springframework.beans")) {
-                        return true;
-                      }
-                      return (name.endsWith("Client")
-                              || name.endsWith("Service")
-                              || name.endsWith("Facade")
-                              || name.endsWith("Manager"))
-                          && !pkg.startsWith("java.")
-                          && !pkg.startsWith("javax.")
-                          && !pkg.startsWith("jakarta.");
-                    }
-                  })
-              .because(
-                  "Java Records are stateless Data Carriers and must remain pure [ERR-135]. "
-                      + "They cannot perform I/O, log, or depend on Spring context/beans/AiClient.")
-              .check(coreClasses);
-        });
+                // Banned Spring bean/context/stereotype
+                if (pkg.startsWith("org.springframework.stereotype")
+                    || pkg.startsWith("org.springframework.context")
+                    || pkg.startsWith("org.springframework.beans")) {
+                  return true;
+                }
+                return (name.endsWith("Client")
+                        || name.endsWith("Service")
+                        || name.endsWith("Facade")
+                        || name.endsWith("Manager"))
+                    && !pkg.startsWith("java.")
+                    && !pkg.startsWith("javax.")
+                    && !pkg.startsWith("jakarta.");
+              }
+            })
+        .because(
+            "Java Records are stateless Data Carriers and must remain pure [ERR-135]. "
+                + "They cannot perform I/O, log, or depend on Spring context/beans/AiClient.")
+        .check(coreClasses);
   }
 
   @Test
   @DisplayName(
       "[CFG-001] every type the configuration binder builds has a constructor it can choose")
   void configurationBindsUnambiguously() {
-    assertDoesNotThrow(
-        () -> {
-          ConfigBindingRules.assertConfigurationBindsUnambiguously();
-          ConfigBindingRules.assertInjectableComponentsHaveOneConstructor();
-        });
+    ConfigBindingRules.assertConfigurationBindsUnambiguously();
+    ConfigBindingRules.assertInjectableComponentsHaveOneConstructor();
   }
 
   @Test
   @DisplayName("[LOG-001] no logging call takes a prompt, a response body or a message text")
   void noLoggingCallTakesContent() {
-    assertDoesNotThrow(
-        () -> {
-          LoggedContentRules.assertNoLoggingCallTakesContent();
-        });
+    LoggedContentRules.assertNoLoggingCallTakesContent();
   }
 }

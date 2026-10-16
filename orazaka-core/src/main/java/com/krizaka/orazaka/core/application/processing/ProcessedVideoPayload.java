@@ -20,9 +20,9 @@ public record ProcessedVideoPayload(
   /** Compact constructor enforcing immutability and null-safety. */
   public ProcessedVideoPayload {
     audioTranscript = Objects.requireNonNullElse(audioTranscript, "");
-    keyframes = (keyframes == null) ? List.of() : List.copyOf(keyframes);
+    keyframes = keyframes == null ? List.of() : List.copyOf(keyframes);
     durationSeconds =
-        (durationSeconds != null && durationSeconds.compareTo(BigDecimal.ZERO) > 0)
+        durationSeconds != null && durationSeconds.compareTo(BigDecimal.ZERO) > 0
             ? durationSeconds
             : null;
   }

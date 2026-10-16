@@ -16,6 +16,6 @@ public record AgentPayload(String goal, Map<String, Object> params) implements P
     if (goal.isBlank()) {
       throw new IllegalArgumentException("Agent goal must not be blank");
     }
-    params = (params == null) ? Map.of() : Map.copyOf(params);
+    params = params == null ? Map.of() : Map.copyOf(params);
   }
 }

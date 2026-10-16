@@ -16,7 +16,7 @@ import java.util.Set;
 public record IntentionContext(
     String sessionId, String actorId, Set<String> authorities, Map<String, Object> preferences) {
   public IntentionContext {
-    authorities = (authorities == null) ? Set.of() : Set.copyOf(authorities);
-    preferences = (preferences == null) ? Map.of() : Map.copyOf(preferences);
+    authorities = authorities == null ? Set.of() : Set.copyOf(authorities);
+    preferences = preferences == null ? Map.of() : Map.copyOf(preferences);
   }
 }

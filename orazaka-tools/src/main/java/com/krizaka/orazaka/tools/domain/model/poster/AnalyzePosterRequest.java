@@ -10,7 +10,7 @@ public record AnalyzePosterRequest(String posterBase64, String prompt) {
       throw new IllegalArgumentException("posterBase64 must not be blank");
     }
     prompt =
-        (prompt != null && !prompt.isBlank())
+        prompt != null && !prompt.isBlank()
             ? prompt
             : "Analyze this movie poster for visual content and themes.";
     Objects.requireNonNull(prompt, "prompt must not be null");

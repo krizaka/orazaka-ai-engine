@@ -2,6 +2,7 @@ package com.krizaka.orazaka.persistence.architecture;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
@@ -29,56 +30,68 @@ class PersistenceBoundaryTest {
   @Test
   @DisplayName("[ERR-102] Persistence must not depend on router")
   void persistenceDoesNotDependOnRouter() {
-    noClasses()
-        .that()
-        .resideInAPackage("com.krizaka.orazaka.persistence..")
-        .should()
-        .dependOnClassesThat()
-        .resideInAPackage("com.krizaka.orazaka.conversationservice..")
-        .because("Persistence is independent of the router module")
-        .check(persistenceClasses);
+    assertDoesNotThrow(
+        () -> {
+          noClasses()
+              .that()
+              .resideInAPackage("com.krizaka.orazaka.persistence..")
+              .should()
+              .dependOnClassesThat()
+              .resideInAPackage("com.krizaka.orazaka.conversationservice..")
+              .because("Persistence is independent of the router module")
+              .check(persistenceClasses);
+        });
   }
 
   @Test
   @DisplayName("[ERR-102] Persistence must not depend on core")
   void persistenceDoesNotDependOnCore() {
-    noClasses()
-        .that()
-        .resideInAPackage("com.krizaka.orazaka.persistence..")
-        .should()
-        .dependOnClassesThat()
-        .resideInAPackage("com.krizaka.orazaka.core..")
-        .because("Persistence is independent of the core AI module")
-        .check(persistenceClasses);
+    assertDoesNotThrow(
+        () -> {
+          noClasses()
+              .that()
+              .resideInAPackage("com.krizaka.orazaka.persistence..")
+              .should()
+              .dependOnClassesThat()
+              .resideInAPackage("com.krizaka.orazaka.core..")
+              .because("Persistence is independent of the core AI module")
+              .check(persistenceClasses);
+        });
   }
 
   @Test
   @DisplayName("[ERR-102] Persistence must not depend on identity")
   void persistenceDoesNotDependOnIdentity() {
-    // No exemption: the identity event publishers moved into the identity module
-    // (phase-0g), so persistence-app is fully decoupled from the identity context.
-    noClasses()
-        .that()
-        .resideInAPackage("com.krizaka.orazaka.persistence..")
-        .should()
-        .dependOnClassesThat()
-        .resideInAPackage("com.krizaka.users..")
-        .because("Persistence must remain decoupled from identity domains")
-        .check(persistenceClasses);
+    assertDoesNotThrow(
+        () -> {
+          // No exemption: the identity event publishers moved into the identity module
+          // (phase-0g), so persistence-app is fully decoupled from the identity context.
+          noClasses()
+              .that()
+              .resideInAPackage("com.krizaka.orazaka.persistence..")
+              .should()
+              .dependOnClassesThat()
+              .resideInAPackage("com.krizaka.users..")
+              .because("Persistence must remain decoupled from identity domains")
+              .check(persistenceClasses);
+        });
   }
 
   @Test
   @DisplayName("[ERR-102] Provider implementations must not be public")
   void providerImplNotPublic() {
-    classes()
-        .that()
-        .resideInAPackage("com.krizaka.orazaka.persistence.application.service..")
-        .and()
-        .haveSimpleNameEndingWith("Impl")
-        .should()
-        .notBePublic()
-        .because("Provider implementations are package-private — only interfaces are public")
-        .check(persistenceClasses);
+    assertDoesNotThrow(
+        () -> {
+          classes()
+              .that()
+              .resideInAPackage("com.krizaka.orazaka.persistence.application.service..")
+              .and()
+              .haveSimpleNameEndingWith("Impl")
+              .should()
+              .notBePublic()
+              .because("Provider implementations are package-private — only interfaces are public")
+              .check(persistenceClasses);
+        });
   }
 
   // GOV-006: the inline "Mapper classes must not be public" rule is gone. No *Mapper exists in
@@ -90,31 +103,34 @@ class PersistenceBoundaryTest {
   @DisplayName(
       "[ERR-109] Persistence components must reside strictly under infrastructure.adapter.persistence package hierarchy")
   void persistenceComponentsPackageHygiene() {
-    classes()
-        .that()
-        .implement(jakarta.persistence.AttributeConverter.class)
-        .should()
-        .resideInAPackage("..infrastructure.adapter.persistence.converter..")
-        .because(
-            "JPA AttributeConverters must live in the infrastructure.adapter.persistence.converter package")
-        .check(persistenceClasses);
+    assertDoesNotThrow(
+        () -> {
+          classes()
+              .that()
+              .implement(jakarta.persistence.AttributeConverter.class)
+              .should()
+              .resideInAPackage("..infrastructure.adapter.persistence.converter..")
+              .because(
+                  "JPA AttributeConverters must live in the infrastructure.adapter.persistence.converter package")
+              .check(persistenceClasses);
 
-    classes()
-        .that()
-        .areAnnotatedWith(jakarta.persistence.Entity.class)
-        .should()
-        .resideInAPackage("..infrastructure.adapter.persistence.entity..")
-        .because(
-            "JPA Entity classes must live in the infrastructure.adapter.persistence.entity package")
-        .check(persistenceClasses);
+          classes()
+              .that()
+              .areAnnotatedWith(jakarta.persistence.Entity.class)
+              .should()
+              .resideInAPackage("..infrastructure.adapter.persistence.entity..")
+              .because(
+                  "JPA Entity classes must live in the infrastructure.adapter.persistence.entity package")
+              .check(persistenceClasses);
 
-    classes()
-        .that()
-        .areAssignableTo(org.springframework.data.repository.Repository.class)
-        .should()
-        .resideInAPackage("..infrastructure.adapter.persistence.repository..")
-        .because(
-            "Spring Data Repositories must live in the infrastructure.adapter.persistence.repository package")
-        .check(persistenceClasses);
+          classes()
+              .that()
+              .areAssignableTo(org.springframework.data.repository.Repository.class)
+              .should()
+              .resideInAPackage("..infrastructure.adapter.persistence.repository..")
+              .because(
+                  "Spring Data Repositories must live in the infrastructure.adapter.persistence.repository package")
+              .check(persistenceClasses);
+        });
   }
 }

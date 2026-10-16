@@ -280,7 +280,7 @@ class EnginePipelineBridgeTest {
       var result = enginePipelineBridge.compileContext(request, null, PROVIDER_OLLAMA, List.of());
 
       assertEquals(4, result.toPrompt().getInstructions().size());
-      assertEquals("sys-msg", result.toPrompt().getInstructions().get(0).getText());
+      assertEquals("sys-msg", result.toPrompt().getInstructions().getFirst().getText());
     }
 
     @Test
@@ -464,11 +464,11 @@ class EnginePipelineBridgeTest {
       var result = enginePipelineBridge.compileContext(request, null, PROVIDER_OLLAMA, List.of());
 
       assertEquals("test prompt", result.promptText());
-      var userMsg = result.toPrompt().getInstructions().get(0);
+      var userMsg = result.toPrompt().getInstructions().getFirst();
       assertInstanceOf(UserMessage.class, userMsg);
       var mediaList = ((UserMessage) userMsg).getMedia();
       assertEquals(1, mediaList.size());
-      assertEquals(MimeTypeUtils.IMAGE_PNG, mediaList.get(0).getMimeType());
+      assertEquals(MimeTypeUtils.IMAGE_PNG, mediaList.getFirst().getMimeType());
     }
 
     @Test
@@ -484,7 +484,7 @@ class EnginePipelineBridgeTest {
 
       // The pipeline was told this turn carried no media. An image lifted out of its output would
       // reach the model behind every guard that passed the turn as text.
-      var userMsg = result.toPrompt().getInstructions().get(0);
+      var userMsg = result.toPrompt().getInstructions().getFirst();
       assertInstanceOf(UserMessage.class, userMsg);
       assertTrue(((UserMessage) userMsg).getMedia().isEmpty());
     }
@@ -496,7 +496,7 @@ class EnginePipelineBridgeTest {
       var result = enginePipelineBridge.compileContext(request, null, PROVIDER_OLLAMA, List.of());
 
       assertEquals("test prompt", result.promptText());
-      var userMsg = result.toPrompt().getInstructions().get(0);
+      var userMsg = result.toPrompt().getInstructions().getFirst();
       assertInstanceOf(UserMessage.class, userMsg);
       assertTrue(((UserMessage) userMsg).getMedia().isEmpty());
     }

@@ -1,5 +1,7 @@
 package com.krizaka.orazaka.assets.domain.port;
 
+import java.io.Serial;
+
 /**
  * A data key could not be unwrapped: the master key is unknown here, or the blob did not
  * authenticate under it.
@@ -9,7 +11,7 @@ package com.krizaka.orazaka.assets.domain.port;
  */
 public class MasterKeyUnavailableException extends RuntimeException {
 
-  private static final long serialVersionUID = 1L;
+  @Serial private static final long serialVersionUID = 1L;
 
   /**
    * @param message what could not be opened, and why — never key material

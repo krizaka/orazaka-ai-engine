@@ -41,10 +41,14 @@ class ToolInterceptor implements PromptContextInterceptor {
         return options;
       }
     }
-    if (toolRegistry == null || toolRegistry.getRegisteredTools().isEmpty()) return options;
+    if (toolRegistry == null || toolRegistry.getRegisteredTools().isEmpty()) {
+      return options;
+    }
 
     List<ToolCallback> demandedTools = collectDemandedTools(request, promptText);
-    if (demandedTools.isEmpty()) return options;
+    if (demandedTools.isEmpty()) {
+      return options;
+    }
 
     return attachTools(options, demandedTools);
   }

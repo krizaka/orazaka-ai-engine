@@ -95,7 +95,9 @@ public class CostShieldInterceptor implements PromptContextInterceptor {
       process.waitFor();
 
       long totalPages = freePages + activePages + inactivePages + wiredPages + compressedPages;
-      if (totalPages == 0) return 0.0;
+      if (totalPages == 0) {
+        return 0.0;
+      }
 
       long usedPages = activePages + wiredPages + compressedPages;
       return (double) usedPages / totalPages * 100.0;
@@ -112,7 +114,9 @@ public class CostShieldInterceptor implements PromptContextInterceptor {
   /** Extracts the numeric page count from a vm_stat output line. */
   private long extractPageCount(String line) {
     String[] parts = line.split(":");
-    if (parts.length < 2) return 0;
+    if (parts.length < 2) {
+      return 0;
+    }
     String value = parts[1].trim().replace(".", "");
     try {
       return Long.parseLong(value);

@@ -32,15 +32,15 @@ class PipelineConfigManagerImplTest {
         .thenReturn(List.of(entity("MEMORY", true, 5)));
     List<InterceptorConfigDto> result = manager.findAllOrdered();
     assertEquals(1, result.size());
-    assertEquals("MEMORY", result.get(0).interceptorKey());
-    assertTrue(result.get(0).enabled());
+    assertEquals("MEMORY", result.getFirst().interceptorKey());
+    assertTrue(result.getFirst().enabled());
   }
 
   @Test
   void findAllOrdered_nullIsEnabled_mapsToFalse() {
     when(repository.findAllByOrderByExecutionOrderAsc())
         .thenReturn(List.of(entity("MEMORY", null, 5)));
-    assertFalse(manager.findAllOrdered().get(0).enabled());
+    assertFalse(manager.findAllOrdered().getFirst().enabled());
   }
 
   @Test

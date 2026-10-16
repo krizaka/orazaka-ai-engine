@@ -30,7 +30,7 @@ public record HostCapability(Set<String> accelerators) {
       return true;
     }
     String required = supportedHardware.trim().toLowerCase(Locale.ROOT);
-    if (required.equals("cpu") || required.equals("any") || required.equals("universal")) {
+    if ("cpu".equals(required) || "any".equals(required) || "universal".equals(required)) {
       return true;
     }
     return accelerators.stream().anyMatch(accelerator -> accelerator.equalsIgnoreCase(required));

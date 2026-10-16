@@ -2,9 +2,7 @@ package com.krizaka.orazaka.core.infrastructure.provider.model;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 import com.krizaka.orazaka.core.infrastructure.provider.DynamicModelRouter;
 import java.util.List;

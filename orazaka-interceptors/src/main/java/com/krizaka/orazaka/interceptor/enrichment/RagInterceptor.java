@@ -37,8 +37,9 @@ class RagInterceptor implements PromptContextInterceptor {
         .ifPresent(
             rag -> {
               String context = knowledgeService.retrieveContext(promptText, rag.topK());
-              if (context != null && !context.isBlank())
-                messages.add(0, new SystemMessage("RAG Context: \n" + context));
+              if (context != null && !context.isBlank()) {
+                messages.addFirst(new SystemMessage("RAG Context: \n" + context));
+              }
             });
     return options;
   }

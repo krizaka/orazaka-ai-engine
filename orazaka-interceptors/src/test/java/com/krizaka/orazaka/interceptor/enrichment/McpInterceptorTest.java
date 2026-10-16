@@ -29,7 +29,7 @@ class McpInterceptorTest {
     interceptor.preProcess(request, "prompt", messages, options);
 
     assertThat(messages).hasSize(1);
-    assertThat(messages.get(0).getText()).isEqualTo("MCP Context: External MCP Data");
+    assertThat(messages.getFirst().getText()).isEqualTo("MCP Context: External MCP Data");
   }
 
   @Test

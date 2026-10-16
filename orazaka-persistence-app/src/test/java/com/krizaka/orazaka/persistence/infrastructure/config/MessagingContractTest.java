@@ -2,6 +2,7 @@ package com.krizaka.orazaka.persistence.infrastructure.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.lang.reflect.Modifier;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -70,6 +71,6 @@ class MessagingContractTest {
   @DisplayName("MessagingContract private constructor should prevent instantiation")
   void notInstantiable() throws Exception {
     var ctor = MessagingContract.class.getDeclaredConstructor();
-    assertThat(java.lang.reflect.Modifier.isPrivate(ctor.getModifiers())).isTrue();
+    assertThat(Modifier.isPrivate(ctor.getModifiers())).isTrue();
   }
 }

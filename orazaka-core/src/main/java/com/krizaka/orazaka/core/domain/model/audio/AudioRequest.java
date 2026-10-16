@@ -26,9 +26,9 @@ public record AudioRequest(
 
   public AudioRequest {
     AiRequest.requireValid(prompt, context);
-    voice = (voice != null && !voice.isBlank()) ? voice : "alloy";
-    model = (model != null && !model.isBlank()) ? model : "tts-1";
-    settings = (settings != null) ? Map.copyOf(settings) : Map.of();
+    voice = voice != null && !voice.isBlank() ? voice : "alloy";
+    model = model != null && !model.isBlank() ? model : "tts-1";
+    settings = settings != null ? Map.copyOf(settings) : Map.of();
   }
 
   /**

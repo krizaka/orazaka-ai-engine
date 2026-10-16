@@ -50,7 +50,7 @@ class JobPersistenceProviderImpl implements JobPersistenceProvider {
     // No default: a job whose producer declared no class would keep its material under no window
     // at all (ADR-065).
     Objects.requireNonNull(dataClass, "a job must declare its data class");
-    String id = (jobId == null || jobId.isBlank()) ? UUID.randomUUID().toString() : jobId;
+    String id = jobId == null || jobId.isBlank() ? UUID.randomUUID().toString() : jobId;
     JobEntity entity = new JobEntity();
     entity.setId(id);
     entity.setUserId(userId);

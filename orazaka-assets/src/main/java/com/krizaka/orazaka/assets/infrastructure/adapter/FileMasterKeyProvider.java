@@ -79,7 +79,7 @@ public final class FileMasterKeyProvider implements MasterKeyProvider {
     }
     requireOwnerOnly(keyFile);
     try {
-      for (String raw : Files.readAllLines(keyFile, StandardCharsets.UTF_8)) {
+      for (String raw : Files.readAllLines(keyFile)) {
         String line = raw.trim();
         if (line.isEmpty() || line.startsWith("#")) {
           continue;
@@ -226,7 +226,7 @@ public final class FileMasterKeyProvider implements MasterKeyProvider {
         .append('\n');
     if (Files.exists(keyFile)) {
       requireOwnerOnly(keyFile);
-      for (String raw : Files.readAllLines(keyFile, StandardCharsets.UTF_8)) {
+      for (String raw : Files.readAllLines(keyFile)) {
         String line = raw.trim();
         if (line.isEmpty() || line.startsWith("#") || line.startsWith("active")) {
           continue;
@@ -242,7 +242,7 @@ public final class FileMasterKeyProvider implements MasterKeyProvider {
         .append(Base64.getEncoder().encodeToString(material))
         .append('\n');
     Files.createDirectories(keyFile.toAbsolutePath().getParent());
-    Files.writeString(keyFile, out.toString(), StandardCharsets.UTF_8);
+    Files.writeString(keyFile, out.toString());
     try {
       Files.setPosixFilePermissions(
           keyFile, Set.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE));

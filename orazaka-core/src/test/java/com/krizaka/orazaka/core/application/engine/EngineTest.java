@@ -15,13 +15,7 @@ import com.krizaka.orazaka.core.domain.model.PromptContext;
 import com.krizaka.orazaka.core.domain.model.audio.AudioRequest;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatResponse;
-import com.krizaka.orazaka.core.domain.ports.outbound.KnowledgeService;
-import com.krizaka.orazaka.core.domain.ports.outbound.McpOrchestrator;
-import com.krizaka.orazaka.core.domain.ports.outbound.ModelCatalogProvider;
-import com.krizaka.orazaka.core.domain.ports.outbound.PlatformMcpServerProvider;
-import com.krizaka.orazaka.core.domain.ports.outbound.ToolRegistry;
-import com.krizaka.orazaka.core.domain.ports.outbound.UserCredentialsProvider;
-import com.krizaka.orazaka.core.domain.ports.outbound.UserMcpServerProvider;
+import com.krizaka.orazaka.core.domain.ports.outbound.*;
 import com.krizaka.orazaka.core.infrastructure.config.CoreProperties;
 import com.krizaka.orazaka.core.infrastructure.support.CoreException;
 import java.util.List;
@@ -348,9 +342,9 @@ class EngineTest {
                   if (instructions.size() != 3) {
                     return false;
                   }
-                  return instructions.get(0).getText().equals("Old user prompt")
-                      && instructions.get(1).getText().equals("Old assistant reply")
-                      && instructions.get(2).getText().equals("New prompt");
+                  return "Old user prompt".equals(instructions.getFirst().getText())
+                      && "Old assistant reply".equals(instructions.get(1).getText())
+                      && "New prompt".equals(instructions.get(2).getText());
                 }));
   }
 
@@ -504,7 +498,9 @@ class EngineTest {
             .ifPresent(
                 convId -> {
                   var history = memoryResolver.resolve(convId).get(convId);
-                  if (!history.isEmpty()) messages.addAll(0, history);
+                  if (!history.isEmpty()) {
+                    messages.addAll(0, history);
+                  }
                 });
         return options;
       }
@@ -518,8 +514,9 @@ class EngineTest {
                 convId -> {
                   var chatMemory = memoryResolver.resolve(convId);
                   List<Message> newMessages = new java.util.ArrayList<>();
-                  if (promptText != null && !promptText.isBlank())
+                  if (promptText != null && !promptText.isBlank()) {
                     newMessages.add(new UserMessage(promptText));
+                  }
                   newMessages.add(new AssistantMessage(responseText));
                   chatMemory.add(convId, newMessages);
                 });
@@ -544,8 +541,7 @@ class EngineTest {
             .filter(ctx -> !ctx.isBlank())
             .ifPresent(
                 ctx ->
-                    messages.add(
-                        0,
+                    messages.addFirst(
                         new org.springframework.ai.chat.messages.SystemMessage(
                             "MCP Context: " + ctx)));
         return options;
@@ -568,11 +564,11 @@ class EngineTest {
             .ifPresent(
                 rag -> {
                   String context = knowledgeService.retrieveContext(promptText, rag.topK());
-                  if (context != null && !context.isBlank())
-                    messages.add(
-                        0,
+                  if (context != null && !context.isBlank()) {
+                    messages.addFirst(
                         new org.springframework.ai.chat.messages.SystemMessage(
                             "RAG Context: \n" + context));
+                  }
                 });
         return options;
       }
@@ -588,8 +584,12 @@ class EngineTest {
           String promptText,
           List<Message> messages,
           ChatOptions options) {
-        if (request.streaming()) return options;
-        if (toolRegistry == null || toolRegistry.getRegisteredTools().isEmpty()) return options;
+        if (request.streaming()) {
+          return options;
+        }
+        if (toolRegistry == null || toolRegistry.getRegisteredTools().isEmpty()) {
+          return options;
+        }
 
         String fullText =
             (promptText != null ? promptText : "")
@@ -615,7 +615,9 @@ class EngineTest {
             demanded.add(tool);
           }
         }
-        if (demanded.isEmpty()) return options;
+        if (demanded.isEmpty()) {
+          return options;
+        }
 
         if (options instanceof OllamaChatOptions ollama) {
           return OllamaChatOptions.builder()

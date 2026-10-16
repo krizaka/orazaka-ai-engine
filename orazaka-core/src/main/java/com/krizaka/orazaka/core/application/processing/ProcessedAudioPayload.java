@@ -25,7 +25,7 @@ public record ProcessedAudioPayload(String transcript, BigDecimal durationSecond
   public ProcessedAudioPayload {
     transcript = Objects.requireNonNullElse(transcript, "");
     durationSeconds =
-        (durationSeconds != null && durationSeconds.compareTo(BigDecimal.ZERO) > 0)
+        durationSeconds != null && durationSeconds.compareTo(BigDecimal.ZERO) > 0
             ? durationSeconds
             : null;
   }

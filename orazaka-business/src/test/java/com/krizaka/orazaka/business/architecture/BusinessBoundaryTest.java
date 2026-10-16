@@ -1,6 +1,7 @@
 package com.krizaka.orazaka.business.architecture;
 
 import static com.krizaka.orazaka.test.architecture.GovernanceRules.*;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import com.tngtech.archunit.core.domain.JavaClasses;
 import org.junit.jupiter.api.BeforeAll;
@@ -26,29 +27,42 @@ class BusinessBoundaryTest {
   @Test
   @DisplayName("[ERR-102] Business must not depend on router")
   void businessIsRouterBlind() {
-    assertNoDependencyOn(
-        businessClasses,
-        PKG,
-        "com.krizaka.orazaka.conversationservice",
-        "Business must not depend on the router app");
+    assertDoesNotThrow(
+        () -> {
+          assertNoDependencyOn(
+              businessClasses,
+              PKG,
+              "com.krizaka.orazaka.conversationservice",
+              "Business must not depend on the router app");
+        });
   }
 
   @Test
   @DisplayName("[ERR-102] Business must not depend on identity")
   void businessIsIdentityBlind() {
-    assertNoDependencyOn(businessClasses, PKG, "com.krizaka.users", "Business is identity-blind");
+    assertDoesNotThrow(
+        () -> {
+          assertNoDependencyOn(
+              businessClasses, PKG, "com.krizaka.users", "Business is identity-blind");
+        });
   }
 
   @Test
   @DisplayName("[ERR-102] Business must not depend on tools")
   void businessIsToolsBlind() {
-    assertNoDependencyOn(
-        businessClasses, PKG, "com.krizaka.orazaka.tools", "Business is tools-blind");
+    assertDoesNotThrow(
+        () -> {
+          assertNoDependencyOn(
+              businessClasses, PKG, "com.krizaka.orazaka.tools", "Business is tools-blind");
+        });
   }
 
   @Test
   @DisplayName("[GOV-005] No field injection in business")
   void noFieldInjection() {
-    assertNoFieldInjection(businessClasses, PKG);
+    assertDoesNotThrow(
+        () -> {
+          assertNoFieldInjection(businessClasses, PKG);
+        });
   }
 }

@@ -1,5 +1,6 @@
 package com.krizaka.orazaka.core.infrastructure.spend;
 
+import java.io.Serial;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -9,7 +10,7 @@ import org.springframework.web.server.ResponseStatusException;
  */
 public class SpendBudgetExceededException extends ResponseStatusException {
 
-  private static final long serialVersionUID = 1L;
+  @Serial private static final long serialVersionUID = 1L;
 
   /**
    * @param provider the paid provider whose call was refused

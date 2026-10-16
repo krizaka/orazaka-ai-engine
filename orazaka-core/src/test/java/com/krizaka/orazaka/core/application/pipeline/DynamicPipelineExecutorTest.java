@@ -35,7 +35,7 @@ class DynamicPipelineExecutorTest {
   private DynamicPipelineExecutor executor;
 
   private static class MockInterceptor1 implements PromptContextInterceptor {
-    private boolean intercepted = false;
+    private boolean intercepted;
 
     @Override
     public PromptContext beforeExecution(PromptContext context) {
@@ -50,7 +50,7 @@ class DynamicPipelineExecutorTest {
   }
 
   private static class MockInterceptor2 implements PromptContextInterceptor {
-    private boolean intercepted = false;
+    private boolean intercepted;
 
     @Override
     public PromptContext beforeExecution(PromptContext context) {
@@ -488,7 +488,7 @@ class DynamicPipelineExecutorTest {
 
       var current = executor.getCurrentConfig();
       assertEquals(1, current.size());
-      assertEquals("mockInterceptor", current.get(0).interceptorKey());
+      assertEquals("mockInterceptor", current.getFirst().interceptorKey());
     }
 
     @Test
@@ -498,7 +498,7 @@ class DynamicPipelineExecutorTest {
       var defaults = executor.buildDefaultConfigs();
 
       assertEquals(1, defaults.size());
-      assertNotNull(defaults.get(0).displayLabel());
+      assertNotNull(defaults.getFirst().displayLabel());
     }
   }
 }

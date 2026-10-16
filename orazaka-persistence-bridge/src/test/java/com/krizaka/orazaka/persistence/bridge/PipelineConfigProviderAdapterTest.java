@@ -20,9 +20,9 @@ class PipelineConfigProviderAdapterTest {
         .thenReturn(List.of(new InterceptorConfigDto("MEMORY", "Memory", 5, true, "Memory")));
     List<InterceptorConfig> result = provider.findAllOrdered();
     assertEquals(1, result.size());
-    assertEquals("MEMORY", result.get(0).interceptorKey());
-    assertEquals(5, result.get(0).executionOrder());
-    assertTrue(result.get(0).enabled());
+    assertEquals("MEMORY", result.getFirst().interceptorKey());
+    assertEquals(5, result.getFirst().executionOrder());
+    assertTrue(result.getFirst().enabled());
   }
 
   @Test
@@ -47,7 +47,7 @@ class PipelineConfigProviderAdapterTest {
     List<InterceptorConfig> result =
         provider.saveAll(List.of(new InterceptorConfig("ROUTER", "Router", 7, true, "d")));
     assertEquals(1, result.size());
-    assertEquals("ROUTER", result.get(0).interceptorKey());
+    assertEquals("ROUTER", result.getFirst().interceptorKey());
   }
 
   @Test

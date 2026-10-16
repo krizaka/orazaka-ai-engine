@@ -67,7 +67,7 @@ class DefaultToolRegistryTest {
     "analyzeAudioExtract, '{\"clipPath\":\"valid-path.mp3\",\"checkType\":\"loudness\"}', 'Audio extract compliance check passed'",
     "analyzeAudioExtract, '{\"clipPath\":\"corrupt-path.mp3\",\"checkType\":\"loudness\"}', 'Audio clip corrupt or missing'"
   })
-  void testToolCallbacks(String toolName, String inputJson, String expectedSubstring) {
+  void toolCallbacks(String toolName, String inputJson, String expectedSubstring) {
     ToolCallback tool =
         registry.getRegisteredTools().stream()
             .filter(t -> toolName.equals(t.getToolDefinition().name()))

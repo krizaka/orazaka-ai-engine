@@ -15,6 +15,6 @@ public record ChatPayload(String prompt, List<String> assetIds) implements Paylo
     if (prompt.isBlank()) {
       throw new IllegalArgumentException("Chat prompt must not be blank");
     }
-    assetIds = (assetIds == null) ? List.of() : List.copyOf(assetIds);
+    assetIds = assetIds == null ? List.of() : List.copyOf(assetIds);
   }
 }

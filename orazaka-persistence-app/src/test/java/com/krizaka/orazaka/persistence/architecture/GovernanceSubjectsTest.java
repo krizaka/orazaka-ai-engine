@@ -1,8 +1,6 @@
 package com.krizaka.orazaka.persistence.architecture;
 
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 import com.krizaka.orazaka.test.architecture.GovernanceSubjects;
 import java.util.List;
@@ -47,6 +45,6 @@ class GovernanceSubjectsTest {
   @Test
   @DisplayName("[GOV-006] every governance rule is non-vacuous by construction")
   void everyRuleIsNonVacuous() {
-    GovernanceSubjects.assertEveryRuleIsNonVacuous();
+    assertDoesNotThrow(GovernanceSubjects::assertEveryRuleIsNonVacuous);
   }
 }

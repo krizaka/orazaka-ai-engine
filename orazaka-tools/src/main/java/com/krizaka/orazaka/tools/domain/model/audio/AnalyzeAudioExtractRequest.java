@@ -9,7 +9,7 @@ public record AnalyzeAudioExtractRequest(String clipPath, String checkType) {
     if (clipPath.isBlank()) {
       throw new IllegalArgumentException("clipPath must not be blank");
     }
-    checkType = (checkType != null && !checkType.isBlank()) ? checkType : "compliance";
+    checkType = checkType != null && !checkType.isBlank() ? checkType : "compliance";
     Objects.requireNonNull(checkType, "checkType must not be null");
   }
 }

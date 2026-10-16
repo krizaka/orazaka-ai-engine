@@ -33,15 +33,15 @@ class CapabilityManagerImplTest {
     when(repository.findAll()).thenReturn(List.of(entity("orazaka.core.media.video", true)));
     List<CapabilityDeclaration> result = manager.findAll();
     assertEquals(1, result.size());
-    assertEquals("video.generate", result.get(0).handlerKey());
-    assertEquals("job.video.generate", result.get(0).routingKey());
-    assertTrue(result.get(0).enabled());
+    assertEquals("video.generate", result.getFirst().handlerKey());
+    assertEquals("job.video.generate", result.getFirst().routingKey());
+    assertTrue(result.getFirst().enabled());
   }
 
   @Test
   void findAll_nullIsEnabled_mapsToFalse() {
     when(repository.findAll()).thenReturn(List.of(entity("orazaka.core.chat.completion", null)));
-    assertFalse(manager.findAll().get(0).enabled());
+    assertFalse(manager.findAll().getFirst().enabled());
   }
 
   @Test

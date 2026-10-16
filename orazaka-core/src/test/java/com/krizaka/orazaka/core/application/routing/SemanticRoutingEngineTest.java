@@ -62,7 +62,7 @@ class SemanticRoutingEngineTest {
         engine.resolveInterceptors("generate video", List.of(route), registry);
 
     assertEquals(1, result.size());
-    assertSame(mockInterceptor, result.get(0));
+    assertSame(mockInterceptor, result.getFirst());
   }
 
   @Test
@@ -103,6 +103,6 @@ class SemanticRoutingEngineTest {
         engine.resolveInterceptors("generate video", List.of(route), registry);
 
     assertEquals(1, result.size());
-    assertSame(mockInterceptor, result.get(0));
+    assertSame(mockInterceptor, result.getFirst());
   }
 }

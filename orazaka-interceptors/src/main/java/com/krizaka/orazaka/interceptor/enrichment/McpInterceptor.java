@@ -29,7 +29,7 @@ class McpInterceptor implements PromptContextInterceptor {
       InternalChatRequest request, String promptText, List<Message> messages, ChatOptions options) {
     Optional.ofNullable(mcpOrchestrator.resolveExternalContext())
         .filter(ctx -> !ctx.isBlank())
-        .ifPresent(ctx -> messages.add(0, new SystemMessage("MCP Context: " + ctx)));
+        .ifPresent(ctx -> messages.addFirst(new SystemMessage("MCP Context: " + ctx)));
     return options;
   }
 }

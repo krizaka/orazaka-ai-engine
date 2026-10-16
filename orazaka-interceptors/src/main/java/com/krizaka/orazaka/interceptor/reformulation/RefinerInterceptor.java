@@ -60,7 +60,9 @@ public class RefinerInterceptor implements PromptContextInterceptor {
 
   @Override
   public PromptContext intercept(PromptContext context) {
-    if (!isRefinerConfigured()) return context;
+    if (!isRefinerConfigured()) {
+      return context;
+    }
     if (context.carriesMedia()) {
       // The refinement envelope carries the text and the metadata — never the image. Refining "what
       // do you think?" without the photograph rewrites a question about content the refiner never

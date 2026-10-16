@@ -149,10 +149,18 @@ public class ClosedLoopValidationInterceptor implements PromptContextInterceptor
 
     // Static fallback from properties
     List<ValidationStepType> steps = new java.util.ArrayList<>();
-    if (properties.schemaStrict()) steps.add(ValidationStepType.STRUCTURAL_A);
-    if (properties.sandboxEnabled()) steps.add(ValidationStepType.SANDBOX_B);
-    if (properties.debateEnabled()) steps.add(ValidationStepType.SEMANTIC_C);
-    if (properties.tdrEnabled()) steps.add(ValidationStepType.TDR_D);
+    if (properties.schemaStrict()) {
+      steps.add(ValidationStepType.STRUCTURAL_A);
+    }
+    if (properties.sandboxEnabled()) {
+      steps.add(ValidationStepType.SANDBOX_B);
+    }
+    if (properties.debateEnabled()) {
+      steps.add(ValidationStepType.SEMANTIC_C);
+    }
+    if (properties.tdrEnabled()) {
+      steps.add(ValidationStepType.TDR_D);
+    }
     return List.copyOf(steps);
   }
 
@@ -376,11 +384,17 @@ public class ClosedLoopValidationInterceptor implements PromptContextInterceptor
    */
   private String extractTarget(String assertion, String marker) {
     int idx = assertion.indexOf(marker);
-    if (idx == -1) return null;
+    if (idx == -1) {
+      return null;
+    }
     String tail = assertion.substring(idx + marker.length()).trim();
     // Strip leading articles
-    if (tail.startsWith("a ")) tail = tail.substring(2);
-    if (tail.startsWith("an ")) tail = tail.substring(3);
+    if (tail.startsWith("a ")) {
+      tail = tail.substring(2);
+    }
+    if (tail.startsWith("an ")) {
+      tail = tail.substring(3);
+    }
     return tail.isBlank() ? null : tail;
   }
 
@@ -391,7 +405,9 @@ public class ClosedLoopValidationInterceptor implements PromptContextInterceptor
    * @return The extracted JSON string, or null if none found.
    */
   private String extractJsonBlock(String text) {
-    if (text == null) return null;
+    if (text == null) {
+      return null;
+    }
     String stripped = text.strip();
     // Direct JSON
     if (stripped.startsWith("{") || stripped.startsWith("[")) {
@@ -399,14 +415,22 @@ public class ClosedLoopValidationInterceptor implements PromptContextInterceptor
     }
     // Markdown-fenced JSON
     int start = stripped.indexOf("```json");
-    if (start == -1) start = stripped.indexOf("```");
-    if (start == -1) return null;
+    if (start == -1) {
+      start = stripped.indexOf("```");
+    }
+    if (start == -1) {
+      return null;
+    }
 
     int contentStart = stripped.indexOf('\n', start);
-    if (contentStart == -1) return null;
+    if (contentStart == -1) {
+      return null;
+    }
 
     int end = stripped.indexOf("```", contentStart);
-    if (end == -1) return null;
+    if (end == -1) {
+      return null;
+    }
 
     return stripped.substring(contentStart + 1, end).strip();
   }
@@ -425,10 +449,14 @@ public class ClosedLoopValidationInterceptor implements PromptContextInterceptor
               .map(Generation::getOutput)
               .map(AssistantMessage::getText)
               .orElse(null);
-      if (text == null) return 5;
+      if (text == null) {
+        return 5;
+      }
 
       String json = extractJsonBlock(text);
-      if (json == null) return 5;
+      if (json == null) {
+        return 5;
+      }
 
       JsonNode node = MAPPER.readTree(json);
       return node.has("score") ? node.get("score").asInt(5) : 5;

@@ -36,7 +36,7 @@ class ValidationPipelineRepositoryAdapterTest {
     List<ValidationPipelineConfiguration> result = repository.findAllOrderedByExecution();
 
     assertThat(result).hasSize(2);
-    assertThat(result.get(0).stepType()).isEqualTo(ValidationStepType.STRUCTURAL_A);
+    assertThat(result.getFirst().stepType()).isEqualTo(ValidationStepType.STRUCTURAL_A);
     assertThat(result.get(1).enabled()).isFalse();
   }
 
@@ -68,7 +68,7 @@ class ValidationPipelineRepositoryAdapterTest {
                 new ValidationPipelineConfiguration(
                     UUID.randomUUID(), ValidationStepType.STRUCTURAL_A, true, 1, Map.of())));
     assertThat(result).hasSize(1);
-    assertThat(result.get(0).stepType()).isEqualTo(ValidationStepType.STRUCTURAL_A);
+    assertThat(result.getFirst().stepType()).isEqualTo(ValidationStepType.STRUCTURAL_A);
   }
 
   @Test

@@ -25,7 +25,7 @@ public record ConditionalRoute(
       throw new IllegalArgumentException("intentLabel must not be blank");
     }
     requiredInterceptorKeys =
-        (requiredInterceptorKeys != null) ? List.copyOf(requiredInterceptorKeys) : List.of();
+        requiredInterceptorKeys != null ? List.copyOf(requiredInterceptorKeys) : List.of();
     if (confidenceThreshold < 0.0 || confidenceThreshold > 1.0) {
       throw new IllegalArgumentException(
           "confidenceThreshold must be between 0.0 and 1.0, got: " + confidenceThreshold);

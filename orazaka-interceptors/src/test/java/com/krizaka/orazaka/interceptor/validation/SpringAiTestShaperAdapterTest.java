@@ -43,7 +43,7 @@ class SpringAiTestShaperAdapterTest {
 
     assertThat(contract.schemaName()).isEqualTo("code-review");
     assertThat(contract.assertions()).hasSize(2);
-    assertThat(contract.assertions().get(0)).contains("code block");
+    assertThat(contract.assertions().getFirst()).contains("code block");
     assertThat(contract.hasAssertions()).isTrue();
     assertThat(contract.generatedAt()).isNotBlank();
   }
@@ -161,7 +161,9 @@ class SpringAiTestShaperAdapterTest {
   }
 
   private ChatResponse mockResponse(String text) {
-    if (text == null) return null;
+    if (text == null) {
+      return null;
+    }
     var output = new AssistantMessage(text);
     var generation = new Generation(output);
     return new ChatResponse(List.of(generation));

@@ -49,8 +49,8 @@ class ChatAssistantUseCaseTest {
     assertEquals("actor-1", sent.context().userId());
     assertEquals("session-1", sent.context().conversationId());
     assertEquals(1, sent.messages().size());
-    assertEquals("system", sent.messages().get(0).role());
-    assertEquals("BE CONCISE", sent.messages().get(0).content());
+    assertEquals("system", sent.messages().getFirst().role());
+    assertEquals("BE CONCISE", sent.messages().getFirst().content());
   }
 
   @Test

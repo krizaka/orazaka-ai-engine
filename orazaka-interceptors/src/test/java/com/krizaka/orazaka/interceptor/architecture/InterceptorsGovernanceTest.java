@@ -1,6 +1,7 @@
 package com.krizaka.orazaka.interceptor.architecture;
 
 import static com.krizaka.orazaka.test.architecture.GovernanceRules.*;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import com.krizaka.orazaka.test.architecture.GovernanceRules;
 import com.krizaka.orazaka.test.architecture.PackPurityRules;
@@ -48,79 +49,118 @@ class InterceptorsGovernanceTest {
   @Test
   @DisplayName("[ERR-103] One top-level class per file")
   void oneClassPerFile() {
-    assertOneTopLevelClassPerFile(interceptorClasses, PKG);
+    assertDoesNotThrow(
+        () -> {
+          assertOneTopLevelClassPerFile(interceptorClasses, PKG);
+        });
   }
 
   @Test
   @DisplayName("[ERR-104] No redundant 'Orazaka' prefix")
   void noRedundantPrefix() {
-    assertNoRedundantPrefix(interceptorClasses, PKG);
+    assertDoesNotThrow(
+        () -> {
+          assertNoRedundantPrefix(interceptorClasses, PKG);
+        });
   }
 
   @Test
   @DisplayName("[ERR-107] Mapper classes are final and package-private")
   void mappersAreFinalAndPackagePrivate() {
-    assertMappersFinal(interceptorClasses, PKG);
-    assertMappersPackagePrivate(interceptorClasses, PKG);
+    assertDoesNotThrow(
+        () -> {
+          assertMappersFinal(interceptorClasses, PKG);
+          assertMappersPackagePrivate(interceptorClasses, PKG);
+        });
   }
 
   @Test
   @DisplayName("[ERR-112] No web controllers outside router")
   void noWebControllers() {
-    assertNoWebControllers(interceptorClasses, PKG);
+    assertDoesNotThrow(
+        () -> {
+          assertNoWebControllers(interceptorClasses, PKG);
+        });
   }
 
   @Test
   @DisplayName("[ADR-009] Instance fields in concrete classes are private")
   void fieldsArePrivate() {
-    assertFieldsPrivate(interceptorClasses);
+    assertDoesNotThrow(
+        () -> {
+          assertFieldsPrivate(interceptorClasses);
+        });
   }
 
   @Test
   @DisplayName("[ADR-007] Collection fields are private final")
   void collectionFieldsPrivateFinal() {
-    assertCollectionFieldsPrivateFinal(interceptorClasses);
+    assertDoesNotThrow(
+        () -> {
+          assertCollectionFieldsPrivateFinal(interceptorClasses);
+        });
   }
 
   @Test
   @DisplayName("[GOV-001] No anonymous classes in production")
   void noAnonymousClasses() {
-    assertNoAnonymousClasses(interceptorClasses, PKG);
+    assertDoesNotThrow(
+        () -> {
+          assertNoAnonymousClasses(interceptorClasses, PKG);
+        });
   }
 
   @Test
   @DisplayName("[GOV-004] No standard streams (use SLF4J)")
   void noStandardStreams() {
-    assertNoStandardStreams(interceptorClasses);
+    assertDoesNotThrow(
+        () -> {
+          assertNoStandardStreams(interceptorClasses);
+        });
   }
 
   @Test
   @DisplayName("[PACK-002] no pack, studio or pack-capability key is a literal in engine code")
   void noPackKeyLiteralsInEngineCode() {
-    GovernanceRules.assertNoPackKeyLiterals(REPOSITORY_ROOT);
+    assertDoesNotThrow(
+        () -> {
+          GovernanceRules.assertNoPackKeyLiterals(REPOSITORY_ROOT);
+        });
   }
 
   @Test
   @DisplayName("[PACK-003] engine code never branches on a pack identifier")
   void noPackKeyConditionalsInEngineCode() {
-    GovernanceRules.assertNoPackKeyConditionals(REPOSITORY_ROOT);
+    assertDoesNotThrow(
+        () -> {
+          GovernanceRules.assertNoPackKeyConditionals(REPOSITORY_ROOT);
+        });
   }
 
   @Test
   @DisplayName("[EXEC-001] every in-process capability's handler_key has an executor")
   void everyCapabilityHasAnExecutor() {
-    GovernanceRules.assertEveryCapabilityHasAnExecutor(REPOSITORY_ROOT);
+    assertDoesNotThrow(
+        () -> {
+          GovernanceRules.assertEveryCapabilityHasAnExecutor(REPOSITORY_ROOT);
+        });
   }
 
   @Test
   @DisplayName("[EXEC-002] every capability's routing_key is drained by a declared worker")
   void everyCapabilityIsDrained() {
-    GovernanceRules.assertEveryCapabilityIsDrained(REPOSITORY_ROOT);
+    assertDoesNotThrow(
+        () -> {
+          GovernanceRules.assertEveryCapabilityIsDrained(REPOSITORY_ROOT);
+        });
   }
 
   @Test
   @DisplayName("[ERR-113] No Environment injection in production beans")
   void noEnvironmentInjection() {
-    SourceFileScanner.assertNoEnvironmentInjection(Path.of("src", "main", "java"));
+    assertDoesNotThrow(
+        () -> {
+          SourceFileScanner.assertNoEnvironmentInjection(Path.of("src", "main", "java"));
+        });
   }
 }

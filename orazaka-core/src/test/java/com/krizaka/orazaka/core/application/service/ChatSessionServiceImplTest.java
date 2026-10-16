@@ -76,7 +76,7 @@ class ChatSessionServiceImplTest {
     List<ChatSessionInfo> result = service.getSessionsByUserId(U1);
 
     assertThat(result).hasSize(1);
-    assertThat(result.get(0).userId()).isEqualTo(U1);
+    assertThat(result.getFirst().userId()).isEqualTo(U1);
     verify(provider).findAllByUserId(U1);
   }
 

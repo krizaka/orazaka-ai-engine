@@ -30,7 +30,7 @@ public record UseCaseDescriptor(
     Objects.requireNonNull(capability, "capability must not be null");
     Objects.requireNonNull(planning, "planning must not be null");
     Objects.requireNonNull(rbac, "rbac must not be null");
-    personas = (personas == null) ? Set.of() : Set.copyOf(personas);
-    requiredTools = (requiredTools == null) ? Set.of() : Set.copyOf(requiredTools);
+    personas = personas == null ? Set.of() : Set.copyOf(personas);
+    requiredTools = requiredTools == null ? Set.of() : Set.copyOf(requiredTools);
   }
 }

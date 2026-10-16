@@ -39,7 +39,7 @@ class CapabilityProviderAdapterTest {
     List<CapabilityDescriptor> result = service.findAll();
 
     assertEquals(2, result.size());
-    CapabilityDescriptor first = result.get(0);
+    CapabilityDescriptor first = result.getFirst();
     // A descriptor is an identity and a switch since ADR-069 §5 — the label, the icon and the
     // endpoint it used to carry were the registry's UI manifest.
     assertEquals("orazaka.core.media.video", first.featureKey());

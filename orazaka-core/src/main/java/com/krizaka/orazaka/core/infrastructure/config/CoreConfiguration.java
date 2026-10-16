@@ -65,17 +65,15 @@ public class CoreConfiguration {
     }
 
     String defaultProvider =
-        (temp != null && temp.defaultProvider() != null)
-            ? temp.defaultProvider()
-            : DEFAULT_PROVIDER;
+        temp != null && temp.defaultProvider() != null ? temp.defaultProvider() : DEFAULT_PROVIDER;
 
     CoreProperties.RagConfig rag =
-        (temp != null && temp.rag() != null)
+        temp != null && temp.rag() != null
             ? temp.rag()
             : new CoreProperties.RagConfig(true, "pgvector", 3);
 
     CoreProperties.McpConfig mcp =
-        (temp != null && temp.mcp() != null) ? temp.mcp() : new CoreProperties.McpConfig(List.of());
+        temp != null && temp.mcp() != null ? temp.mcp() : new CoreProperties.McpConfig(List.of());
 
     // Master pipeline switch + routing come from yaml; per-interceptor enable is DB-driven
     // (pipeline_interceptor_config). The refiner/router model wiring is sourced from defaults
@@ -83,7 +81,7 @@ public class CoreConfiguration {
     boolean orchestrationEnabled =
         (temp == null || temp.orchestration() == null) || temp.orchestration().enabled();
     CoreProperties.RoutingConfig routing =
-        (temp != null && temp.orchestration() != null && temp.orchestration().routing() != null)
+        temp != null && temp.orchestration() != null && temp.orchestration().routing() != null
             ? temp.orchestration().routing()
             : new CoreProperties.RoutingConfig(null, null);
     CoreProperties.OrchestrationConfig orchestration =

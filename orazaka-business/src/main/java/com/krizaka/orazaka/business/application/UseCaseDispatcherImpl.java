@@ -1,12 +1,6 @@
 package com.krizaka.orazaka.business.application;
 
-import com.krizaka.orazaka.business.api.Intention;
-import com.krizaka.orazaka.business.api.Payload;
-import com.krizaka.orazaka.business.api.UseCase;
-import com.krizaka.orazaka.business.api.UseCaseContext;
-import com.krizaka.orazaka.business.api.UseCaseDispatcher;
-import com.krizaka.orazaka.business.api.UseCaseRegistry;
-import com.krizaka.orazaka.business.api.UseCaseResolutionException;
+import com.krizaka.orazaka.business.api.*;
 import java.util.Objects;
 
 /**

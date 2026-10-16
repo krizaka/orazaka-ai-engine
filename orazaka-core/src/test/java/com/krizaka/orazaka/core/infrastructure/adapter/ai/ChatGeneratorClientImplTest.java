@@ -135,7 +135,7 @@ class ChatGeneratorClientImplTest {
     List<ChatResponse> responses = client.streamChat(request).collectList().block();
 
     assertThat(responses).hasSize(2);
-    assertThat(responses.get(0).content()).isEqualTo("chunk1");
+    assertThat(responses.getFirst().content()).isEqualTo("chunk1");
     assertThat(responses.get(1).content()).isEqualTo("chunk2");
   }
 

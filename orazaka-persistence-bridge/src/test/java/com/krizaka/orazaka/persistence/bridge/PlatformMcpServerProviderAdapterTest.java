@@ -29,8 +29,8 @@ class PlatformMcpServerProviderAdapterTest {
     List<PlatformMcpServerProvider.PlatformMcpServer> result =
         provider.getActivePlatformMcpServers();
     assertEquals(1, result.size());
-    assertEquals("GitHub", result.get(0).label());
-    assertEquals("STDIO", result.get(0).transportType());
+    assertEquals("GitHub", result.getFirst().label());
+    assertEquals("STDIO", result.getFirst().transportType());
   }
 
   @Test

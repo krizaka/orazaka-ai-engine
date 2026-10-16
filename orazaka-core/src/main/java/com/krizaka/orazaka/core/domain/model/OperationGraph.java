@@ -17,6 +17,6 @@ import java.util.List;
 public final record OperationGraph(List<OperationNode> nodes) {
   /** Compact constructor — defensively copies the list and handles null input. */
   public OperationGraph {
-    nodes = (nodes == null) ? List.of() : List.copyOf(nodes);
+    nodes = nodes == null ? List.of() : List.copyOf(nodes);
   }
 }

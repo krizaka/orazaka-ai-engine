@@ -1,6 +1,7 @@
 package com.krizaka.orazaka.interceptor.architecture;
 
 import static com.krizaka.orazaka.test.architecture.GovernanceRules.*;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import com.tngtech.archunit.core.domain.JavaClasses;
 import org.junit.jupiter.api.BeforeAll;
@@ -27,37 +28,55 @@ class InterceptorsBoundaryTest {
   @Test
   @DisplayName("[ERR-102] Interceptors must not depend on router")
   void interceptorsAreRouterBlind() {
-    assertNoDependencyOn(
-        interceptorClasses,
-        PKG,
-        "com.krizaka.orazaka.conversationservice",
-        "Interceptors must not depend on the router app");
+    assertDoesNotThrow(
+        () -> {
+          assertNoDependencyOn(
+              interceptorClasses,
+              PKG,
+              "com.krizaka.orazaka.conversationservice",
+              "Interceptors must not depend on the router app");
+        });
   }
 
   @Test
   @DisplayName("[ERR-102] Interceptors must not depend on identity")
   void interceptorsAreIdentityBlind() {
-    assertNoDependencyOn(
-        interceptorClasses, PKG, "com.krizaka.users", "Interceptors are identity-blind");
+    assertDoesNotThrow(
+        () -> {
+          assertNoDependencyOn(
+              interceptorClasses, PKG, "com.krizaka.users", "Interceptors are identity-blind");
+        });
   }
 
   @Test
   @DisplayName("[ERR-102] Interceptors must not depend on tools")
   void interceptorsAreToolsBlind() {
-    assertNoDependencyOn(
-        interceptorClasses, PKG, "com.krizaka.orazaka.tools", "Interceptors are tools-blind");
+    assertDoesNotThrow(
+        () -> {
+          assertNoDependencyOn(
+              interceptorClasses, PKG, "com.krizaka.orazaka.tools", "Interceptors are tools-blind");
+        });
   }
 
   @Test
   @DisplayName("[ERR-102] Interceptors must not depend on business")
   void interceptorsAreBusinessBlind() {
-    assertNoDependencyOn(
-        interceptorClasses, PKG, "com.krizaka.orazaka.business", "Interceptors are business-blind");
+    assertDoesNotThrow(
+        () -> {
+          assertNoDependencyOn(
+              interceptorClasses,
+              PKG,
+              "com.krizaka.orazaka.business",
+              "Interceptors are business-blind");
+        });
   }
 
   @Test
   @DisplayName("[GOV-005] No field injection in interceptors")
   void noFieldInjection() {
-    assertNoFieldInjection(interceptorClasses, PKG);
+    assertDoesNotThrow(
+        () -> {
+          assertNoFieldInjection(interceptorClasses, PKG);
+        });
   }
 }

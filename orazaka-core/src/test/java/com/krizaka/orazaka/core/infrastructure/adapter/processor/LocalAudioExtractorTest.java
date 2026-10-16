@@ -50,7 +50,7 @@ class LocalAudioExtractorTest {
               when(mock.start())
                   .thenAnswer(
                       invocation -> {
-                        String[] command = (String[]) context.arguments().get(0);
+                        String[] command = (String[]) context.arguments().getFirst();
                         String outputPath = command[command.length - 1];
                         Files.write(Path.of(outputPath), new byte[] {9, 8, 7});
                         return mockProcess;

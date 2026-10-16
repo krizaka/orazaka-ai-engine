@@ -26,8 +26,8 @@ public record ImageRequest(
     implements AiRequest {
   public ImageRequest {
     AiRequest.requireValid(prompt, context);
-    settings = (settings != null) ? Map.copyOf(settings) : Map.of();
-    direction = (direction != null) ? direction : ImageDirection.none();
+    settings = settings != null ? Map.copyOf(settings) : Map.of();
+    direction = direction != null ? direction : ImageDirection.none();
   }
 
   /**

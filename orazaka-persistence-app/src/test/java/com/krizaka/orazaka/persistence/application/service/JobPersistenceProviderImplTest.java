@@ -230,7 +230,7 @@ class JobPersistenceProviderImplTest {
     Page<JobDto> page = provider.getJobsByUserId(USER_1, pageable);
 
     assertEquals(1, page.getTotalElements());
-    assertEquals("kept", page.getContent().get(0).id());
+    assertEquals("kept", page.getContent().getFirst().id());
     verify(repository, never()).findByUserId(any(), any());
   }
 

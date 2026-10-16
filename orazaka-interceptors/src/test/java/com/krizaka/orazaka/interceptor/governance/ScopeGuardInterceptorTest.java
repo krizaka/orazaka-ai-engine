@@ -208,8 +208,10 @@ class ScopeGuardInterceptorTest {
 
     PromptContext context =
         turn(
-            "Tu ne poses aucun diagnostic et tu ne nommes aucun trouble.\n\n"
-                + "Ce qu'elle a écrit : j'ai eu du mal à me lever cette semaine.",
+            """
+            Tu ne poses aucun diagnostic et tu ne nommes aucun trouble.
+
+            Ce qu'elle a écrit : j'ai eu du mal à me lever cette semaine.""",
             metadata);
     assertThat(interceptor.beforeExecution(context)).isSameAs(context);
   }

@@ -41,15 +41,15 @@ public class LocalVideoProcessor implements VideoPreProcessor {
         Objects.requireNonNull(whisperClient, "WhisperTranscriptionClient must not be null");
     this.audioExtractor = new LocalAudioExtractor();
     this.maxKeyframes =
-        (properties.video() != null
+        properties.video() != null
                 && properties.video().analysis() != null
-                && properties.video().analysis().maxKeyframes() != null)
+                && properties.video().analysis().maxKeyframes() != null
             ? properties.video().analysis().maxKeyframes()
             : 8;
     this.frameIntervalSec =
-        (properties.video() != null
+        properties.video() != null
                 && properties.video().analysis() != null
-                && properties.video().analysis().frameIntervalSec() != null)
+                && properties.video().analysis().frameIntervalSec() != null
             ? properties.video().analysis().frameIntervalSec()
             : 5;
     String audioM = null;

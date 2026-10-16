@@ -92,7 +92,7 @@ public class GraphEngine {
     }
     List<OperationNode> nodes = new ArrayList<>();
     final String activeModel =
-        (modelCatalogProvider != null)
+        modelCatalogProvider != null
             ? modelCatalogProvider.getActiveChatModel().orElse(null)
             : null;
 

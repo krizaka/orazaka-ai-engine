@@ -1,15 +1,9 @@
 package com.krizaka.orazaka.core.application.service;
 
 import static com.krizaka.orazaka.test.TestConstants.*;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 import com.krizaka.orazaka.core.domain.event.JobStatusChangedEvent;
 import com.krizaka.orazaka.core.domain.model.job.JobInfo;
@@ -152,7 +146,7 @@ class JobServiceImplTest {
     Page<JobInfo> result = jobService.getJobsByUserId(userId, pageable);
     assertNotNull(result);
     assertEquals(1, result.getTotalElements());
-    assertEquals(JOB_1, result.getContent().get(0).id());
+    assertEquals(JOB_1, result.getContent().getFirst().id());
   }
 
   @Test
@@ -168,7 +162,7 @@ class JobServiceImplTest {
     Page<JobInfo> result = jobService.getAllJobs(pageable);
     assertNotNull(result);
     assertEquals(1, result.getTotalElements());
-    assertEquals(JOB_1, result.getContent().get(0).id());
+    assertEquals(JOB_1, result.getContent().getFirst().id());
   }
 
   @Test

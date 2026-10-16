@@ -15,9 +15,11 @@ import org.junit.jupiter.api.Test;
 class SafetyInterceptorTest {
 
   private static final String RESPONSE =
-      "Je ne suis pas en mesure de vous accompagner sur ce que vous traversez, et je ne veux pas "
-          + "vous laisser seul·e avec ça. Des personnes formées répondent, tout de suite :\n\n"
-          + "3114 — 3114 (24h/24 et 7j/7, gratuit)";
+      """
+      Je ne suis pas en mesure de vous accompagner sur ce que vous traversez, et je ne veux pas \
+      vous laisser seul·e avec ça. Des personnes formées répondent, tout de suite :
+
+      3114 — 3114 (24h/24 et 7j/7, gratuit)""";
 
   private final SafetyInterceptor interceptor = new SafetyInterceptor();
 

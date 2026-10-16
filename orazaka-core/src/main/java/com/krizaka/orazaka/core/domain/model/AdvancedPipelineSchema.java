@@ -23,9 +23,9 @@ public record AdvancedPipelineSchema(
   /** Compact constructor enforcing non-null invariants and defensive copies. */
   public AdvancedPipelineSchema {
     Objects.requireNonNull(pipelineId, "pipelineId must not be null");
-    coreInterceptorIds = (coreInterceptorIds != null) ? List.copyOf(coreInterceptorIds) : List.of();
+    coreInterceptorIds = coreInterceptorIds != null ? List.copyOf(coreInterceptorIds) : List.of();
     dynamicInterceptorIds =
-        (dynamicInterceptorIds != null) ? List.copyOf(dynamicInterceptorIds) : List.of();
+        dynamicInterceptorIds != null ? List.copyOf(dynamicInterceptorIds) : List.of();
   }
 
   /**

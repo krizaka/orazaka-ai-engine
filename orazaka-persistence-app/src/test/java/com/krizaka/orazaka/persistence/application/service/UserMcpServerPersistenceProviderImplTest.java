@@ -52,7 +52,7 @@ class UserMcpServerPersistenceProviderImplTest {
     List<UserMcpServerDto> result = provider.findByUserIdAndEnabledTrue("user-1");
 
     assertThat(result).hasSize(1);
-    assertThat(result.get(0).label()).isEqualTo("mcp-server");
+    assertThat(result.getFirst().label()).isEqualTo("mcp-server");
     verify(repository).findByUserIdAndEnabledTrue("user-1");
   }
 
@@ -71,7 +71,7 @@ class UserMcpServerPersistenceProviderImplTest {
     List<UserMcpServerDto> result = provider.findByUserId("user-1");
 
     assertThat(result).hasSize(1);
-    assertThat(result.get(0).label()).isEqualTo("mcp-server");
+    assertThat(result.getFirst().label()).isEqualTo("mcp-server");
   }
 
   @Test

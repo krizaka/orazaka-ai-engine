@@ -52,11 +52,11 @@ public record Context(
     Objects.requireNonNull(userId, "userId must not be null");
     Objects.requireNonNull(conversationId, "conversationId must not be null");
     preferences =
-        (preferences != null)
+        preferences != null
             ? Collections.unmodifiableMap(Map.copyOf(preferences))
             : Collections.emptyMap();
     authorities =
-        (authorities != null)
+        authorities != null
             ? Collections.unmodifiableSet(Set.copyOf(authorities))
             : Collections.emptySet();
   }

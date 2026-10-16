@@ -55,7 +55,9 @@ public class RouterInterceptor implements PromptContextInterceptor {
 
   @Override
   public PromptContext intercept(PromptContext context) {
-    if (!isRouterConfigured()) return context;
+    if (!isRouterConfigured()) {
+      return context;
+    }
     if (context.carriesMedia()) {
       // The router chooses from the text alone and cannot tell which provider can see an image —
       // and a routed provider outranks the caller's own. A vision job that names its vision model

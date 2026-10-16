@@ -128,7 +128,9 @@ public final class EngineStreamBridge {
               .map(
                   chatResponse -> {
                     String chunk = extractChunkText(chatResponse);
-                    if (chunk != null) responseBuilder.append(chunk);
+                    if (chunk != null) {
+                      responseBuilder.append(chunk);
+                    }
                     captureTokenUsage(chatResponse, tokenUsage);
                     return new InternalChatResponse(
                         chunk, context.conversationId(), Map.of("provider", context.provider()));
@@ -172,9 +174,15 @@ public final class EngineStreamBridge {
 
   private static String extractModelName(EnginePipelineContext context) {
     var options = context.toPrompt().getOptions();
-    if (options instanceof OpenAiChatOptions openaiOpts) return openaiOpts.getModel();
-    if (options instanceof AnthropicChatOptions anthropicOpts) return anthropicOpts.getModel();
-    if (options instanceof GoogleGenAiChatOptions geminiOpts) return geminiOpts.getModel();
+    if (options instanceof OpenAiChatOptions openaiOpts) {
+      return openaiOpts.getModel();
+    }
+    if (options instanceof AnthropicChatOptions anthropicOpts) {
+      return anthropicOpts.getModel();
+    }
+    if (options instanceof GoogleGenAiChatOptions geminiOpts) {
+      return geminiOpts.getModel();
+    }
     return null;
   }
 
@@ -225,7 +233,9 @@ public final class EngineStreamBridge {
   }
 
   private static void closeResources(EnginePipelineContext context) {
-    if (context.closeables() == null) return;
+    if (context.closeables() == null) {
+      return;
+    }
     for (AutoCloseable c : context.closeables()) {
       try {
         c.close();

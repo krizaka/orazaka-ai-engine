@@ -40,7 +40,7 @@ class McpServiceImplTest {
     List<McpToolInfo> tools = mcpService.getAvailableTools();
 
     assertThat(tools).hasSize(1);
-    McpToolInfo toolInfo = tools.get(0);
+    McpToolInfo toolInfo = tools.getFirst();
     assertThat(toolInfo.name()).isEqualTo("testTool");
     assertThat(toolInfo.description()).isEqualTo("A test tool description");
     assertThat(toolInfo.inputSchema()).isEqualTo("{\"type\":\"object\"}");

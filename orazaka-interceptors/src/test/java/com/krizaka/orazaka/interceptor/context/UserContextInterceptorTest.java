@@ -60,7 +60,7 @@ class UserContextInterceptorTest {
     interceptor.preProcess(request, "prompt", messages, options);
 
     assertThat(messages).hasSize(1);
-    assertThat(messages.get(0).getText())
+    assertThat(messages.getFirst().getText())
         .contains("System constraints:")
         .contains("User Primary Industry: Finance")
         .contains("User AI Behavior: Helpful assistant");
@@ -86,7 +86,7 @@ class UserContextInterceptorTest {
     interceptor.preProcess(request, "prompt", messages, options);
 
     assertThat(messages).hasSize(1);
-    assertThat(messages.get(0).getText())
+    assertThat(messages.getFirst().getText())
         .contains("System constraints:")
         .contains("User Primary Industry: Healthcare")
         .contains("User AI Behavior: Professional advisor");

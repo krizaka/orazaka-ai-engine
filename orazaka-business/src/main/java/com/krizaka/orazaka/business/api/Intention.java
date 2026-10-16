@@ -25,7 +25,7 @@ public record Intention(
     Payload payload,
     IntentionContext context) {
   public Intention {
-    id = (id == null || id.isBlank()) ? UUID.randomUUID().toString() : id;
+    id = id == null || id.isBlank() ? UUID.randomUUID().toString() : id;
     Objects.requireNonNull(type, "type must not be null");
     Objects.requireNonNull(mode, "mode must not be null");
     Objects.requireNonNull(capability, "capability must not be null");

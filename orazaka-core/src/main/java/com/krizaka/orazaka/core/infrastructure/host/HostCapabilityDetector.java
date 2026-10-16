@@ -47,7 +47,7 @@ public class HostCapabilityDetector {
     if (gpu.contains("cuda")) {
       return new HostCapability(Set.of("cuda"));
     }
-    boolean appleSilicon = name.contains("mac") && (arch.equals("aarch64") || arch.contains("arm"));
+    boolean appleSilicon = name.contains("mac") && ("aarch64".equals(arch) || arch.contains("arm"));
     if (appleSilicon) {
       return new HostCapability(Set.of("APPLE_SILICON_MLX", "mps", "coreml"));
     }

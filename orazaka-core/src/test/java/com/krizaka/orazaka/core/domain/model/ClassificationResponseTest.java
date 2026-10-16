@@ -15,8 +15,8 @@ class ClassificationResponseTest {
             new ClassificationResponse.ClassifiedIntent("translation", 0.45));
     var response = new ClassificationResponse(intents);
     assertEquals(2, response.intents().size());
-    assertEquals("video_generation", response.intents().get(0).label());
-    assertEquals(0.92, response.intents().get(0).confidence());
+    assertEquals("video_generation", response.intents().getFirst().label());
+    assertEquals(0.92, response.intents().getFirst().confidence());
   }
 
   @Test

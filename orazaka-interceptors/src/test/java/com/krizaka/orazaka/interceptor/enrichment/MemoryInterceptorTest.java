@@ -42,7 +42,7 @@ class MemoryInterceptorTest {
     interceptor.preProcess(request, "Current query", messages, options);
 
     assertThat(messages).hasSize(3);
-    assertThat(messages.get(0).getText()).isEqualTo("Hi");
+    assertThat(messages.getFirst().getText()).isEqualTo("Hi");
     assertThat(messages.get(1).getText()).isEqualTo("Hello");
     assertThat(messages.get(2).getText()).isEqualTo("Current query");
   }
@@ -69,8 +69,8 @@ class MemoryInterceptorTest {
 
     List<Message> added = captor.getValue();
     assertThat(added).hasSize(2);
-    assertThat(added.get(0)).isInstanceOf(UserMessage.class);
-    assertThat(added.get(0).getText()).isEqualTo("User Prompt");
+    assertThat(added.getFirst()).isInstanceOf(UserMessage.class);
+    assertThat(added.getFirst().getText()).isEqualTo("User Prompt");
     assertThat(added.get(1)).isInstanceOf(AssistantMessage.class);
     assertThat(added.get(1).getText()).isEqualTo("AI Response");
   }

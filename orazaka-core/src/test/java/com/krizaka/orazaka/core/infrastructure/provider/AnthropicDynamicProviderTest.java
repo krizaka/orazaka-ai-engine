@@ -9,7 +9,7 @@ import org.springframework.ai.chat.model.ChatModel;
 class AnthropicDynamicProviderTest {
 
   @Test
-  void testSupports() {
+  void supports() {
     AnthropicDynamicProvider provider = new AnthropicDynamicProvider();
     assertThat(provider.supports("claude")).isTrue();
     assertThat(provider.supports("anthropic")).isTrue();
@@ -18,14 +18,14 @@ class AnthropicDynamicProviderTest {
   }
 
   @Test
-  void testCreateValid() {
+  void createValid() {
     AnthropicDynamicProvider provider = new AnthropicDynamicProvider();
     ChatModel model = provider.create("claude-3-5-sonnet", "my-api-key");
     assertThat(model).isNotNull();
   }
 
   @Test
-  void testCreateInvalid() {
+  void createInvalid() {
     AnthropicDynamicProvider provider = new AnthropicDynamicProvider();
     assertThatThrownBy(() -> provider.create(null, "my-api-key"))
         .isInstanceOf(IllegalArgumentException.class)

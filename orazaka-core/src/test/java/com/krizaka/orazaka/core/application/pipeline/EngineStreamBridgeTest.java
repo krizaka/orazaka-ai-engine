@@ -83,9 +83,9 @@ class EngineStreamBridgeTest {
 
     // Assert
     assertThat(results).isNotNull().hasSize(2);
-    assertThat(results.get(0).content()).isEqualTo("chunk 1");
-    assertThat(results.get(0).conversationId()).isEqualTo(CONV_1);
-    assertThat(results.get(0).metadata()).containsEntry("provider", PROVIDER_OLLAMA);
+    assertThat(results.getFirst().content()).isEqualTo("chunk 1");
+    assertThat(results.getFirst().conversationId()).isEqualTo(CONV_1);
+    assertThat(results.getFirst().metadata()).containsEntry("provider", PROVIDER_OLLAMA);
 
     assertThat(results.get(1).content()).isEqualTo("chunk 2");
     assertThat(results.get(1).conversationId()).isEqualTo(CONV_1);
@@ -127,7 +127,7 @@ class EngineStreamBridgeTest {
 
     // Assert
     assertThat(results).isNotNull().hasSize(1);
-    assertThat(results.get(0).content()).isEqualTo("fallback chunk");
+    assertThat(results.getFirst().content()).isEqualTo("fallback chunk");
 
     verify(eventPublisher, times(1)).publishEvent(any(ChatCompletedEvent.class));
   }
@@ -165,7 +165,7 @@ class EngineStreamBridgeTest {
 
     // Assert
     assertThat(results).isNotNull().hasSize(1);
-    assertThat(results.get(0).content()).isEqualTo("fallback chunk async");
+    assertThat(results.getFirst().content()).isEqualTo("fallback chunk async");
 
     verify(eventPublisher, times(1)).publishEvent(any(ChatCompletedEvent.class));
   }
@@ -208,8 +208,8 @@ class EngineStreamBridgeTest {
 
     // Assert
     assertThat(results).isNotNull().hasSize(1);
-    assertThat(results.get(0).content()).isEqualTo("openai chunk");
-    assertThat(results.get(0).metadata()).containsEntry("provider", "openai");
+    assertThat(results.getFirst().content()).isEqualTo("openai chunk");
+    assertThat(results.getFirst().metadata()).containsEntry("provider", "openai");
   }
 
   @Test
@@ -241,7 +241,7 @@ class EngineStreamBridgeTest {
 
     // Assert
     assertThat(results).isNotNull().hasSize(1);
-    assertThat(results.get(0).content()).isEqualTo("local fallback chunk");
+    assertThat(results.getFirst().content()).isEqualTo("local fallback chunk");
   }
 
   @Test

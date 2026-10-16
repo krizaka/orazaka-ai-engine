@@ -152,7 +152,9 @@ class SemanticRouterInterceptor implements PromptContextInterceptor {
    */
   private boolean containsAny(String text, String... keywords) {
     for (String keyword : keywords) {
-      if (text.contains(keyword)) return true;
+      if (text.contains(keyword)) {
+        return true;
+      }
     }
     return false;
   }
@@ -165,7 +167,9 @@ class SemanticRouterInterceptor implements PromptContextInterceptor {
    * @return The truncated text.
    */
   private String truncate(String text, int maxLen) {
-    if (text == null) return "";
+    if (text == null) {
+      return "";
+    }
     return text.length() > maxLen ? text.substring(0, maxLen) + "..." : text;
   }
 }

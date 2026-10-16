@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.krizaka.orazaka.assets.infrastructure.adapter.FileMasterKeyProvider;
 import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Base64;
@@ -42,8 +41,7 @@ class CrossLanguageFixtureTest {
         keyFile,
         "# fixture keyring — test material only\nactive = fixture\nfixture = "
             + Base64.getEncoder().encodeToString(FIXED_KEY)
-            + "\n",
-        StandardCharsets.UTF_8);
+            + "\n");
     Files.setPosixFilePermissions(
         keyFile,
         java.util.Set.of(

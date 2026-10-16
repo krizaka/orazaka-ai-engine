@@ -1,14 +1,7 @@
 package com.krizaka.orazaka.interceptor.governance.persistence;
 
 import com.krizaka.orazaka.interceptor.governance.PredicateOperator;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import java.util.UUID;
 
 /** JPA entity for the {@code interceptor_policy_predicate} table — individual predicate row. */

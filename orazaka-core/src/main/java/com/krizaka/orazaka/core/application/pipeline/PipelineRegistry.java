@@ -89,7 +89,7 @@ public final class PipelineRegistry {
    * @return The pipeline config, or a default config if not found.
    */
   public PipelineConfig getConfig(String pipelineId) {
-    String key = (pipelineId != null) ? pipelineId : PipelineConfig.DEFAULT_PIPELINE_ID;
+    String key = pipelineId != null ? pipelineId : PipelineConfig.DEFAULT_PIPELINE_ID;
     Map<String, PipelineConfig> snapshot = configCache.get();
     return snapshot.getOrDefault(key, buildDefaultConfig());
   }

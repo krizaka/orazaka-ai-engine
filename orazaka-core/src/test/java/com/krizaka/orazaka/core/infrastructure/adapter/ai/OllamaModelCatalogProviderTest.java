@@ -55,7 +55,7 @@ class OllamaModelCatalogProviderTest {
 
     assertThat(catalog).isPresent();
     assertThat(catalog.get().models()).hasSize(2);
-    assertThat(catalog.get().models().get(0).name()).isEqualTo("llama3:latest");
+    assertThat(catalog.get().models().getFirst().name()).isEqualTo("llama3:latest");
   }
 
   @Test

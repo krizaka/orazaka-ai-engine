@@ -37,14 +37,18 @@ public record ImageResponse(byte[] imageData, String url, String format, ImageUs
 
   @Override
   public boolean equals(Object o) {
-    if (this == o) return true;
+    if (this == o) {
+      return true;
+    }
     if (!(o
         instanceof
         ImageResponse(
             byte[] otherData,
             String otherUrl,
             String otherFormat,
-            ImageUsage otherUsage))) return false;
+            ImageUsage otherUsage))) {
+      return false;
+    }
     return Arrays.equals(imageData, otherData)
         && Objects.equals(url, otherUrl)
         && Objects.equals(format, otherFormat)
@@ -56,8 +60,7 @@ public record ImageResponse(byte[] imageData, String url, String format, ImageUs
     int result = Arrays.hashCode(imageData);
     result = 31 * result + Objects.hashCode(url);
     result = 31 * result + Objects.hashCode(format);
-    result = 31 * result + Objects.hashCode(usage);
-    return result;
+    return 31 * result + Objects.hashCode(usage);
   }
 
   @Override

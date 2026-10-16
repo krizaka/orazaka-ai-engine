@@ -178,7 +178,7 @@ public class EntitlementInterceptor implements PromptContextInterceptor {
 
   private static String actorOf(PromptContext context) {
     Object actor = context.userMetadata().get(USER_ID_KEY);
-    return (actor instanceof String s && !s.isBlank()) ? s : null;
+    return actor instanceof String s && !s.isBlank() ? s : null;
   }
 
   /**
@@ -187,6 +187,6 @@ public class EntitlementInterceptor implements PromptContextInterceptor {
    */
   private static String correlationOf(PromptContext context, String actorId) {
     Object conversation = context.userMetadata().get(CONVERSATION_ID_KEY);
-    return (conversation instanceof String s && !s.isBlank()) ? s : actorId;
+    return conversation instanceof String s && !s.isBlank() ? s : actorId;
   }
 }

@@ -49,7 +49,7 @@ class BrandContextInterceptor implements PromptContextInterceptor {
     StringBuilder instruction = new StringBuilder("Brand context for this workspace:");
     brand.forEach(
         (key, value) -> instruction.append("\n- ").append(key).append(": ").append(value));
-    messages.add(0, new SystemMessage(instruction.toString()));
+    messages.addFirst(new SystemMessage(instruction.toString()));
     return options;
   }
 
@@ -76,7 +76,7 @@ class BrandContextInterceptor implements PromptContextInterceptor {
         .forEach(
             (key, value) -> {
               if (key != null
-                  && !key.equals(NAMESPACE_KEY)
+                  && !NAMESPACE_KEY.equals(key)
                   && key.startsWith(prefix)
                   && value != null) {
                 brand.put(key.substring(prefix.length()), String.valueOf(value));

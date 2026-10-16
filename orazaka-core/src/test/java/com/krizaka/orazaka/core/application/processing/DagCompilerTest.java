@@ -1,8 +1,6 @@
 package com.krizaka.orazaka.core.application.processing;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 import com.krizaka.orazaka.core.domain.model.AdaptiveDag;
 import com.krizaka.orazaka.core.domain.model.IntentMesh;
@@ -15,7 +13,7 @@ import org.junit.jupiter.api.Test;
 class DagCompilerTest {
 
   @Test
-  void testIntentClassifierNormalChat() {
+  void intentClassifierNormalChat() {
     IntentClassifier classifier = new IntentClassifier();
     IntentMesh mesh = classifier.classify("Hello there, how are you?");
 
@@ -25,7 +23,7 @@ class DagCompilerTest {
   }
 
   @Test
-  void testIntentClassifierHybridMesh() {
+  void intentClassifierHybridMesh() {
     IntentClassifier classifier = new IntentClassifier();
     // Prompt targets both Next.js code and local C++ media video rendering
     IntentMesh mesh = classifier.classify("Create a nextjs-app and generate a demo video of it.");
@@ -36,7 +34,7 @@ class DagCompilerTest {
   }
 
   @Test
-  void testDagCompilerLocalSafetyRoute() {
+  void dagCompilerLocalSafetyRoute() {
     IntentClassifier classifier = new IntentClassifier();
     IntentMesh mesh = classifier.classify("Create a nextjs-app and generate a demo video of it.");
 
@@ -52,7 +50,7 @@ class DagCompilerTest {
   }
 
   @Test
-  void testDagCompilerBackpressureMitigation() {
+  void dagCompilerBackpressureMitigation() {
     IntentClassifier classifier = new IntentClassifier();
     IntentMesh mesh = classifier.classify("Create a nextjs-app and generate a demo video of it.");
 

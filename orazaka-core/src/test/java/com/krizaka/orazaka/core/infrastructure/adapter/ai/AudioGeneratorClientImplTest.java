@@ -13,14 +13,14 @@ import org.junit.jupiter.api.Test;
 class AudioGeneratorClientImplTest {
 
   @Test
-  void testConstructorNullCheck() {
+  void constructorNullCheck() {
     assertThatThrownBy(() -> new AudioGeneratorClientImpl(null))
         .isInstanceOf(NullPointerException.class)
         .hasMessageContaining("Engine must not be null");
   }
 
   @Test
-  void testGenerateAudio() {
+  void generateAudio() {
     Engine engine = mock(Engine.class);
     AudioGeneratorClientImpl client = new AudioGeneratorClientImpl(engine);
 

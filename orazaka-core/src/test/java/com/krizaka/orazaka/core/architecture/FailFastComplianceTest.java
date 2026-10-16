@@ -1,6 +1,7 @@
 package com.krizaka.orazaka.core.architecture;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
@@ -37,23 +38,26 @@ class FailFastComplianceTest {
   @Test
   @DisplayName("[Gate-FF] Core engine classes must not directly throw IllegalStateException")
   void coreEngineMustNotThrowIllegalStateException() {
-    noClasses()
-        .that()
-        .resideInAPackage("com.krizaka.orazaka.core.application..")
-        .and()
-        .areNotRecords()
-        .and()
-        .haveSimpleNameNotEndingWith("Configuration")
-        .and()
-        .haveSimpleNameNotContaining("Bridge")
-        .and()
-        .haveSimpleNameNotContaining("VideoService")
-        .should()
-        .dependOnClassesThat()
-        .haveFullyQualifiedName("java.lang.IllegalStateException")
-        .because(
-            "Engine service classes must throw CoreException, not IllegalStateException."
-                + " Records, Configuration, and Bridge/Video adapter classes are exempt.")
-        .check(engineServiceClasses);
+    assertDoesNotThrow(
+        () -> {
+          noClasses()
+              .that()
+              .resideInAPackage("com.krizaka.orazaka.core.application..")
+              .and()
+              .areNotRecords()
+              .and()
+              .haveSimpleNameNotEndingWith("Configuration")
+              .and()
+              .haveSimpleNameNotContaining("Bridge")
+              .and()
+              .haveSimpleNameNotContaining("VideoService")
+              .should()
+              .dependOnClassesThat()
+              .haveFullyQualifiedName("java.lang.IllegalStateException")
+              .because(
+                  "Engine service classes must throw CoreException, not IllegalStateException."
+                      + " Records, Configuration, and Bridge/Video adapter classes are exempt.")
+              .check(engineServiceClasses);
+        });
   }
 }

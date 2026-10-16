@@ -1,5 +1,7 @@
 package com.krizaka.orazaka.core.application.pipeline;
 
+import java.io.Serial;
+
 /**
  * Thrown when an engine turn arrives while the master orchestration switch is off.
  *
@@ -18,7 +20,7 @@ package com.krizaka.orazaka.core.application.pipeline;
  */
 public class PipelineDisabledException extends RuntimeException {
 
-  private static final long serialVersionUID = 1L;
+  @Serial private static final long serialVersionUID = 1L;
 
   /** Creates the refusal. The message names the switch, so a log line says which one was off. */
   public PipelineDisabledException() {

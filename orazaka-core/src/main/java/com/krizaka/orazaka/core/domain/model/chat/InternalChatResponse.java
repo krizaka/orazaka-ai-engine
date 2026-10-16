@@ -30,7 +30,7 @@ public record InternalChatResponse(
     if (tokenUsage == null) {
       tokenUsage = TokenUsage.none();
     }
-    metadata = (metadata == null) ? Map.of() : Map.copyOf(metadata);
+    metadata = metadata == null ? Map.of() : Map.copyOf(metadata);
   }
 
   /**

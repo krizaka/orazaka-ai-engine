@@ -45,7 +45,7 @@ class CatalogModelManagerImplTest {
     List<CatalogModelDto> result = manager.getAllModels();
 
     assertEquals(1, result.size());
-    assertEquals("m", result.get(0).modelName());
+    assertEquals("m", result.getFirst().modelName());
   }
 
   @Test
@@ -68,7 +68,7 @@ class CatalogModelManagerImplTest {
     List<CatalogModelDto> result = manager.getModelsByCategory("c");
 
     assertEquals(1, result.size());
-    assertEquals("c", result.get(0).category());
+    assertEquals("c", result.getFirst().category());
   }
 
   @Test
@@ -134,7 +134,7 @@ class CatalogModelManagerImplTest {
     List<String> result = manager.getAllProviders();
 
     assertEquals(1, result.size());
-    assertEquals("p", result.get(0));
+    assertEquals("p", result.getFirst());
   }
 
   @Test

@@ -1,6 +1,7 @@
 package com.krizaka.orazaka.core.architecture;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.fields;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.domain.JavaModifier;
@@ -34,24 +35,27 @@ class EncapsulationTest {
   @Test
   @DisplayName("[ADR-009] All fields in concrete core classes must be private")
   void allFieldsInConcreteClassesMustBePrivate() {
-    fields()
-        .that()
-        .areDeclaredInClassesThat()
-        .resideInAPackage("com.krizaka.orazaka.core..")
-        .and()
-        .areDeclaredInClassesThat()
-        .areNotRecords()
-        .and()
-        .areDeclaredInClassesThat()
-        .areNotEnums()
-        .and()
-        .areDeclaredInClassesThat()
-        .doNotHaveModifier(JavaModifier.ABSTRACT)
-        .should()
-        .bePrivate()
-        .because(
-            "Fields must be strictly private and immutable after constructor seals [ADR-009]."
-                + " Records, enums, and sealed abstract base classes are exempt.")
-        .check(coreClasses);
+    assertDoesNotThrow(
+        () -> {
+          fields()
+              .that()
+              .areDeclaredInClassesThat()
+              .resideInAPackage("com.krizaka.orazaka.core..")
+              .and()
+              .areDeclaredInClassesThat()
+              .areNotRecords()
+              .and()
+              .areDeclaredInClassesThat()
+              .areNotEnums()
+              .and()
+              .areDeclaredInClassesThat()
+              .doNotHaveModifier(JavaModifier.ABSTRACT)
+              .should()
+              .bePrivate()
+              .because(
+                  "Fields must be strictly private and immutable after constructor seals [ADR-009]."
+                      + " Records, enums, and sealed abstract base classes are exempt.")
+              .check(coreClasses);
+        });
   }
 }

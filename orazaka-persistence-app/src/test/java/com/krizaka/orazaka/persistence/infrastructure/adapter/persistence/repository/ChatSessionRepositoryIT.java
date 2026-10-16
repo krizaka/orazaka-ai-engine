@@ -43,7 +43,7 @@ class ChatSessionRepositoryIT extends AbstractContainerIntegrationTest {
 
     List<ChatSessionEntity> found = repository.findAllByUserIdOrderByUpdatedAtDesc(actorId);
     assertEquals(1, found.size());
-    assertEquals(entity.getId(), found.get(0).getId());
-    assertEquals("Integration round-trip", found.get(0).getTitle());
+    assertEquals(entity.getId(), found.getFirst().getId());
+    assertEquals("Integration round-trip", found.getFirst().getTitle());
   }
 }

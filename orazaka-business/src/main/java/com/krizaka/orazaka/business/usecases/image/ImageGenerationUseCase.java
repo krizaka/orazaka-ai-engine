@@ -1,12 +1,6 @@
 package com.krizaka.orazaka.business.usecases.image;
 
-import com.krizaka.orazaka.business.api.Capability;
-import com.krizaka.orazaka.business.api.ImagePayload;
-import com.krizaka.orazaka.business.api.PlanningMode;
-import com.krizaka.orazaka.business.api.RbacPolicy;
-import com.krizaka.orazaka.business.api.UseCase;
-import com.krizaka.orazaka.business.api.UseCaseContext;
-import com.krizaka.orazaka.business.api.UseCaseDescriptor;
+import com.krizaka.orazaka.business.api.*;
 import com.krizaka.orazaka.core.domain.model.Context;
 import com.krizaka.orazaka.core.domain.model.image.ImageRequest;
 import com.krizaka.orazaka.core.domain.model.image.ImageResponse;
@@ -54,7 +48,7 @@ public final class ImageGenerationUseCase implements UseCase<ImagePayload, Image
             Set.of());
     // Width/height/model resolve from the catalog defaults downstream; size hint travels as a
     // setting so the provider can honour it when present.
-    Map<String, Object> settings = (input.size() != null) ? Map.of("size", input.size()) : Map.of();
+    Map<String, Object> settings = input.size() != null ? Map.of("size", input.size()) : Map.of();
     return aiClient.image(
         new ImageRequest(input.prompt(), null, null, null, settings, coreContext));
   }

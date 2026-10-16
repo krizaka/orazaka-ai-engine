@@ -30,10 +30,10 @@ public record PipelineConfig(
   /** Compact constructor enforcing non-null invariants and defensive copies. */
   public PipelineConfig {
     Objects.requireNonNull(pipelineId, "pipelineId must not be null");
-    coreInterceptors = (coreInterceptors != null) ? List.copyOf(coreInterceptors) : List.of();
+    coreInterceptors = coreInterceptors != null ? List.copyOf(coreInterceptors) : List.of();
     dynamicInterceptors =
-        (dynamicInterceptors != null) ? List.copyOf(dynamicInterceptors) : List.of();
-    routes = (routes != null) ? List.copyOf(routes) : List.of();
+        dynamicInterceptors != null ? List.copyOf(dynamicInterceptors) : List.of();
+    routes = routes != null ? List.copyOf(routes) : List.of();
   }
 
   /**

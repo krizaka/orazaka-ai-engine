@@ -57,7 +57,7 @@ class MessageCompilerTest {
     List<Message> result = MessageCompiler.compile(request, "hello", mediaResult, false);
 
     assertEquals(1, result.size());
-    assertInstanceOf(UserMessage.class, result.get(0));
+    assertInstanceOf(UserMessage.class, result.getFirst());
   }
 
   @Test
@@ -71,8 +71,8 @@ class MessageCompilerTest {
         MessageCompiler.compile(request, "refined [posterBase64: dGVzdA==]", mediaResult, false);
 
     assertEquals(1, result.size());
-    assertTrue(((UserMessage) result.get(0)).getMedia().isEmpty());
-    assertEquals("refined [posterBase64: dGVzdA==]", result.get(0).getText());
+    assertTrue(((UserMessage) result.getFirst()).getMedia().isEmpty());
+    assertEquals("refined [posterBase64: dGVzdA==]", result.getFirst().getText());
   }
 
   @Test
@@ -99,7 +99,7 @@ class MessageCompilerTest {
     List<Message> result = MessageCompiler.compile(request, "new prompt", mediaResult, false);
 
     assertEquals(4, result.size());
-    assertInstanceOf(SystemMessage.class, result.get(0));
+    assertInstanceOf(SystemMessage.class, result.getFirst());
     assertInstanceOf(UserMessage.class, result.get(1));
     assertInstanceOf(AssistantMessage.class, result.get(2));
     assertInstanceOf(UserMessage.class, result.get(3));

@@ -47,7 +47,7 @@ class BrandContextInterceptorTest {
     interceptor.preProcess(requestWith(preferences), "Décris cette pièce", messages, null);
 
     assertThat(messages).hasSize(2);
-    assertThat(messages.get(0).getText())
+    assertThat(messages.getFirst().getText())
         .contains("Brand context")
         .contains("tone: premium")
         .contains("brandName: Dupont & Fils");
@@ -74,7 +74,7 @@ class BrandContextInterceptorTest {
 
     interceptor.preProcess(requestWith(preferences), "x", messages, null);
 
-    assertThat(messages.get(0).getText()).contains("tone: premium").doesNotContain("alloy");
+    assertThat(messages.getFirst().getText()).contains("tone: premium").doesNotContain("alloy");
   }
 
   @Test
@@ -94,7 +94,7 @@ class BrandContextInterceptorTest {
     interceptor.preProcess(requestWith(first), "x", a, null);
     interceptor.preProcess(requestWith(second), "x", b, null);
 
-    assertThat(a.get(0).getText()).isEqualTo(b.get(0).getText());
+    assertThat(a.getFirst().getText()).isEqualTo(b.getFirst().getText());
   }
 
   @Test
@@ -110,7 +110,9 @@ class BrandContextInterceptorTest {
 
     interceptor.preProcess(requestWith(preferences), "x", messages, null);
 
-    assertThat(messages.get(0).getText()).contains("register: formel").doesNotContain("premium");
+    assertThat(messages.getFirst().getText())
+        .contains("register: formel")
+        .doesNotContain("premium");
   }
 
   @Test

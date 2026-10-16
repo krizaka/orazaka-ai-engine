@@ -152,7 +152,7 @@ public class MemoryResolver {
     public void add(String conversationId, List<Message> messages) {
       this.messages.addAll(messages);
       while (this.messages.size() > MAX_MESSAGES) {
-        this.messages.remove(0);
+        this.messages.removeFirst();
       }
     }
 

@@ -36,7 +36,7 @@ class ValidationPipelineManagerImplTest {
         .thenReturn(List.of(entity("STRUCTURAL_A", true, 1)));
     List<ValidationPipelineConfigDto> result = manager.findAllOrderedByExecution();
     assertEquals(1, result.size());
-    assertEquals("STRUCTURAL_A", result.get(0).stepType());
+    assertEquals("STRUCTURAL_A", result.getFirst().stepType());
   }
 
   @Test
@@ -44,7 +44,7 @@ class ValidationPipelineManagerImplTest {
     var e = entity("SANDBOX_B", true, 2);
     e.setConfigurationPayload(null);
     when(repository.findAllByOrderByExecutionOrderAsc()).thenReturn(List.of(e));
-    assertTrue(manager.findAllOrderedByExecution().get(0).configurationPayload().isEmpty());
+    assertTrue(manager.findAllOrderedByExecution().getFirst().configurationPayload().isEmpty());
   }
 
   @Test

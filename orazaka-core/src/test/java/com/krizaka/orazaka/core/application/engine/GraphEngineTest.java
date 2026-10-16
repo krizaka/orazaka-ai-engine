@@ -37,7 +37,7 @@ class GraphEngineTest {
   }
 
   @Test
-  void testCompileGraphShortCircuit() {
+  void compileGraphShortCircuit() {
     CapabilityDescriptor textFeature = new CapabilityDescriptor("orazaka.core.chat.text", true);
     CapabilityDescriptor imageFeature = new CapabilityDescriptor("orazaka.core.chat.image", false);
     Mockito.when(capabilityProvider.findAll()).thenReturn(List.of(textFeature, imageFeature));
@@ -57,12 +57,12 @@ class GraphEngineTest {
 
     OperationNode textNode =
         graph.nodes().stream()
-            .filter(n -> n.id().equals("orazaka.core.chat.text"))
+            .filter(n -> "orazaka.core.chat.text".equals(n.id()))
             .findFirst()
             .orElseThrow();
     OperationNode imageNode =
         graph.nodes().stream()
-            .filter(n -> n.id().equals("orazaka.core.chat.image"))
+            .filter(n -> "orazaka.core.chat.image".equals(n.id()))
             .findFirst()
             .orElseThrow();
 
@@ -74,7 +74,7 @@ class GraphEngineTest {
   }
 
   @Test
-  void testCompileGraphAdminLocked() {
+  void compileGraphAdminLocked() {
     CapabilityDescriptor textFeature = new CapabilityDescriptor("orazaka.core.chat.text", true);
     Mockito.when(capabilityProvider.findAll()).thenReturn(List.of(textFeature));
 
@@ -99,7 +99,7 @@ class GraphEngineTest {
   }
 
   @Test
-  void testPrintSampleJsonPayload() throws Exception {
+  void printSampleJsonPayload() throws Exception {
     CapabilityDescriptor textConfig = new CapabilityDescriptor("orazaka.core.chat.text", true);
     CapabilityDescriptor imageConfig = new CapabilityDescriptor("orazaka.core.chat.image", true);
     CapabilityDescriptor speechConfig =
@@ -128,7 +128,7 @@ class GraphEngineTest {
   }
 
   @Test
-  void testCompileGraphActiveModelNull() {
+  void compileGraphActiveModelNull() {
     CapabilityDescriptor textFeature = new CapabilityDescriptor("orazaka.core.chat.text", true);
     Mockito.when(capabilityProvider.findAll()).thenReturn(List.of(textFeature));
     Mockito.when(modelCatalogProvider.getActiveChatModel()).thenReturn(Optional.empty());
@@ -142,12 +142,12 @@ class GraphEngineTest {
     OperationGraph graph = engine.compileGraph();
 
     assertThat(graph.nodes()).hasSize(1);
-    assertThat(graph.nodes().get(0).state()).isInstanceOf(Locked.class);
-    assertThat(((Locked) graph.nodes().get(0).state()).reason()).contains("Capability missing");
+    assertThat(graph.nodes().getFirst().state()).isInstanceOf(Locked.class);
+    assertThat(((Locked) graph.nodes().getFirst().state()).reason()).contains("Capability missing");
   }
 
   @Test
-  void testCompileGraphVideoFeatureProbing() {
+  void compileGraphVideoFeatureProbing() {
     CapabilityDescriptor videoFeature = new CapabilityDescriptor("orazaka.core.media.video", true);
     Mockito.when(capabilityProvider.findAll()).thenReturn(List.of(videoFeature));
 
@@ -161,20 +161,20 @@ class GraphEngineTest {
     GraphEngine engine =
         new GraphEngine(capabilityProvider, adminRegistry, mockProber, modelCatalogProvider);
     OperationGraph graph = engine.compileGraph();
-    assertThat(((Locked) graph.nodes().get(0).state()).reason())
+    assertThat(((Locked) graph.nodes().getFirst().state()).reason())
         .contains("Video engine offline on port 8188");
 
     // Case 2: Video online
     engine.invalidateCache();
     Mockito.when(mockProber.isVideoEngineOnline()).thenReturn(true);
     OperationGraph graph2 = engine.compileGraph();
-    assertThat(graph2.nodes().get(0).state()).isInstanceOf(Active.class);
+    assertThat(graph2.nodes().getFirst().state()).isInstanceOf(Active.class);
 
     // Case 3: Image online (fallback)
     engine.invalidateCache();
     Mockito.when(mockProber.isVideoEngineOnline()).thenReturn(false);
     Mockito.when(mockProber.isImageEngineOnline()).thenReturn(true);
     OperationGraph graph3 = engine.compileGraph();
-    assertThat(graph3.nodes().get(0).state()).isInstanceOf(Active.class);
+    assertThat(graph3.nodes().getFirst().state()).isInstanceOf(Active.class);
   }
 }

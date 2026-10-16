@@ -23,6 +23,6 @@ import java.util.UUID;
 public record StudioPayload(UUID installationId, Map<String, Object> inputs) implements Payload {
   public StudioPayload {
     Objects.requireNonNull(installationId, "installationId must not be null");
-    inputs = (inputs == null) ? Map.of() : Map.copyOf(inputs);
+    inputs = inputs == null ? Map.of() : Map.copyOf(inputs);
   }
 }

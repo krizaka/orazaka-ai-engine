@@ -32,7 +32,7 @@ public record InternalChatRequest(
 
   /** Compact constructor — defensively copies the message list. */
   public InternalChatRequest {
-    messages = (messages == null) ? List.of() : List.copyOf(messages);
+    messages = messages == null ? List.of() : List.copyOf(messages);
   }
 
   /** Backwards compatible constructor defaulting streaming to false. */

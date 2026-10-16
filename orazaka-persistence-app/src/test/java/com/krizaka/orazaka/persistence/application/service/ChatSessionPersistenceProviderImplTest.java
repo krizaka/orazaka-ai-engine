@@ -74,7 +74,7 @@ class ChatSessionPersistenceProviderImplTest {
     List<ChatSessionDto> result = provider.findAllByUserId("user-1");
 
     assertEquals(1, result.size());
-    assertEquals("user-1", result.get(0).userId());
+    assertEquals("user-1", result.getFirst().userId());
   }
 
   @Test

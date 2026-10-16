@@ -83,21 +83,31 @@ class ChatGeneratorClientImpl implements ChatGeneratorClient {
       return null;
     }
     var builder = ChatOptions.builder().model(model);
-    if (temperature != null) builder.temperature(temperature);
+    if (temperature != null) {
+      builder.temperature(temperature);
+    }
     return builder.build();
   }
 
   private static ChatOptions buildOllamaOptions(String model, Double temperature) {
     var builder = OllamaChatOptions.builder();
-    if (model != null) builder.model(model);
-    if (temperature != null) builder.temperature(temperature);
+    if (model != null) {
+      builder.model(model);
+    }
+    if (temperature != null) {
+      builder.temperature(temperature);
+    }
     return builder.build();
   }
 
   private static ChatOptions buildOpenAiOptions(String model, Double temperature) {
     var builder = OpenAiChatOptions.builder();
-    if (model != null) builder.model(model);
-    if (temperature != null) builder.temperature(temperature);
+    if (model != null) {
+      builder.model(model);
+    }
+    if (temperature != null) {
+      builder.temperature(temperature);
+    }
     return builder.build();
   }
 

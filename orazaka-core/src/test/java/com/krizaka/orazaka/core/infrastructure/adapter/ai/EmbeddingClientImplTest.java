@@ -75,7 +75,7 @@ class EmbeddingClientImplTest {
     assertThat(result.model()).isEqualTo("bge-m3");
     assertThat(result.promptTokens()).isEqualTo(7);
     assertThat(result.dimensions()).isEqualTo(2);
-    assertThat(result.vectors().get(0)).containsExactly(1.0f, 2.0f);
+    assertThat(result.vectors().getFirst()).containsExactly(1.0f, 2.0f);
     assertThat(result.vectors().get(1)).containsExactly(0.5f, 0.25f);
   }
 

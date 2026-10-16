@@ -35,7 +35,7 @@ class RagInterceptorTest {
     interceptor.preProcess(request, "test query", messages, options);
 
     assertThat(messages).hasSize(1);
-    assertThat(messages.get(0).getText()).contains("RAG Context:", "Relevant knowledge chunks");
+    assertThat(messages.getFirst().getText()).contains("RAG Context:", "Relevant knowledge chunks");
   }
 
   @Test

@@ -48,7 +48,7 @@ class UserContextInterceptor implements PromptContextInterceptor {
       Map<String, Object> preferences = request.context().preferences();
       String constraints = buildConstraints(preferences);
       if (!constraints.isEmpty()) {
-        messages.add(0, new SystemMessage("System constraints:\n" + constraints));
+        messages.addFirst(new SystemMessage("System constraints:\n" + constraints));
         logger.debug("Successfully injected user profile system prompt constraints.");
       }
     } catch (RuntimeException e) {

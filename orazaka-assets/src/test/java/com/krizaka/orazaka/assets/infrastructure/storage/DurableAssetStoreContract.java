@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.krizaka.orazaka.assets.domain.port.DurableAssetStore;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
@@ -69,7 +68,7 @@ abstract class DurableAssetStoreContract {
 
   Path file(String name, String content) throws IOException {
     Path path = work.resolve("src-" + name);
-    Files.writeString(path, content, StandardCharsets.UTF_8);
+    Files.writeString(path, content);
     return path;
   }
 }

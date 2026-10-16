@@ -37,7 +37,9 @@ class MemoryInterceptor implements PromptContextInterceptor {
         .ifPresent(
             convId -> {
               List<Message> history = memoryResolver.resolve(convId).get(convId);
-              if (!history.isEmpty()) messages.addAll(0, history);
+              if (!history.isEmpty()) {
+                messages.addAll(0, history);
+              }
             });
     return options;
   }
@@ -49,8 +51,9 @@ class MemoryInterceptor implements PromptContextInterceptor {
             convId -> {
               ChatMemory chatMemory = memoryResolver.resolve(convId);
               List<Message> newMessages = new ArrayList<>();
-              if (promptText != null && !promptText.isBlank())
+              if (promptText != null && !promptText.isBlank()) {
                 newMessages.add(new UserMessage(promptText));
+              }
               newMessages.add(new AssistantMessage(responseText));
               chatMemory.add(convId, newMessages);
             });

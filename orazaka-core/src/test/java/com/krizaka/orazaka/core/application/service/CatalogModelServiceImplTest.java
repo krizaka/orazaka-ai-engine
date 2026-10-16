@@ -45,7 +45,7 @@ class CatalogModelServiceImplTest {
     List<CatalogModelInfo> result = service.getAllModels();
 
     assertThat(result).hasSize(1);
-    assertThat(result.get(0).modelName()).isEqualTo(MODEL_M1);
+    assertThat(result.getFirst().modelName()).isEqualTo(MODEL_M1);
     verify(catalogModelManager).getAllModels();
   }
 
@@ -58,7 +58,7 @@ class CatalogModelServiceImplTest {
     List<CatalogModelInfo> result = service.getModelsByCategory(CATEGORY);
 
     assertThat(result).hasSize(1);
-    assertThat(result.get(0).category()).isEqualTo(CATEGORY);
+    assertThat(result.getFirst().category()).isEqualTo(CATEGORY);
     verify(catalogModelManager).getModelsByCategory(CATEGORY);
   }
 

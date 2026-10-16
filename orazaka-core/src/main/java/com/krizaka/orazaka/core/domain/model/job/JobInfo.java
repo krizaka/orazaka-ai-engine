@@ -33,7 +33,7 @@ public record JobInfo(
     Objects.requireNonNull(status, "Status cannot be null");
     Objects.requireNonNull(createdAt, "createdAt cannot be null");
     Objects.requireNonNull(updatedAt, "updatedAt cannot be null");
-    payload = (payload != null) ? Map.copyOf(payload) : Map.of();
-    result = (result != null) ? Map.copyOf(result) : Map.of();
+    payload = payload != null ? Map.copyOf(payload) : Map.of();
+    result = result != null ? Map.copyOf(result) : Map.of();
   }
 }

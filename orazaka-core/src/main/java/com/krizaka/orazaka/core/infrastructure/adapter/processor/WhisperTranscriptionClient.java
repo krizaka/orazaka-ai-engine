@@ -164,9 +164,15 @@ public final class WhisperTranscriptionClient {
 
     @Override
     public boolean equals(Object o) {
-      if (this == o) return true;
-      if (!(o instanceof NamedByteArrayResource other)) return false;
-      if (!super.equals(other)) return false;
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof NamedByteArrayResource other)) {
+        return false;
+      }
+      if (!super.equals(other)) {
+        return false;
+      }
       return Objects.equals(filename, other.filename);
     }
 

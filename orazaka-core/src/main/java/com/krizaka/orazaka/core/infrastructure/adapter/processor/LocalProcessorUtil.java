@@ -13,7 +13,9 @@ final class LocalProcessorUtil {
   /** Returns {@code true} if every byte in the array is zero. */
   static boolean isAllZeros(byte[] data) {
     for (byte b : data) {
-      if (b != 0) return false;
+      if (b != 0) {
+        return false;
+      }
     }
     return true;
   }

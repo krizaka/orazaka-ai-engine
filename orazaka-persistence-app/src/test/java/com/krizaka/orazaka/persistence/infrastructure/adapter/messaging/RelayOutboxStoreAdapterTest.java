@@ -1,9 +1,7 @@
 package com.krizaka.orazaka.persistence.infrastructure.adapter.messaging;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 import com.krizaka.messaging.outbox.OutboxMessage;
 import com.krizaka.orazaka.persistence.domain.model.PendingOutboxEvent;
@@ -37,7 +35,7 @@ class RelayOutboxStoreAdapterTest {
                     Map.of("email", "a@b.c"),
                     2)));
 
-    OutboxMessage relayed = adapter.lockPendingBatch(10).get(0);
+    OutboxMessage relayed = adapter.lockPendingBatch(10).getFirst();
 
     assertThat(relayed.id()).isEqualTo(id);
     assertThat(relayed.exchange()).isEqualTo("platform.events");

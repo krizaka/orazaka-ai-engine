@@ -25,7 +25,7 @@ public record ClassificationResponse(List<ClassifiedIntent> intents) {
 
   /** Compact constructor enforcing defensive copy. */
   public ClassificationResponse {
-    intents = (intents != null) ? List.copyOf(intents) : List.of();
+    intents = intents != null ? List.copyOf(intents) : List.of();
   }
 
   /**

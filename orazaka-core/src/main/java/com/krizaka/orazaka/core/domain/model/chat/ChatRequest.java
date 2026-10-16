@@ -20,8 +20,8 @@ public record ChatRequest(
     implements AiRequest {
   public ChatRequest {
     AiRequest.requireValid(prompt, context);
-    messages = (messages == null) ? List.of() : List.copyOf(messages);
-    settings = (settings != null) ? Map.copyOf(settings) : Map.of();
+    messages = messages == null ? List.of() : List.copyOf(messages);
+    settings = settings != null ? Map.copyOf(settings) : Map.of();
   }
 
   /**

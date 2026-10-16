@@ -1,6 +1,7 @@
 package com.krizaka.orazaka.core.architecture;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noFields;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.domain.JavaField;
@@ -37,15 +38,18 @@ class PromptExternalizationTest {
   @Test
   @DisplayName("[ADR-012] Engine/pipeline must not contain static final String prompt constants")
   void engineMustNotContainHardcodedPromptConstants() {
-    noFields()
-        .that()
-        .areDeclaredInClassesThat()
-        .resideInAnyPackage("com.krizaka.orazaka.core.application..")
-        .should(beStaticFinalStringExcludingSafePatterns())
-        .because(
-            "All prompt text blocks must be externalized to .st resource files [ADR-012]."
-                + " Static final String fields suggest hardcoded prompts.")
-        .check(engineClasses);
+    assertDoesNotThrow(
+        () -> {
+          noFields()
+              .that()
+              .areDeclaredInClassesThat()
+              .resideInAnyPackage("com.krizaka.orazaka.core.application..")
+              .should(beStaticFinalStringExcludingSafePatterns())
+              .because(
+                  "All prompt text blocks must be externalized to .st resource files [ADR-012]."
+                      + " Static final String fields suggest hardcoded prompts.")
+              .check(engineClasses);
+        });
   }
 
   private static ArchCondition<JavaField> beStaticFinalStringExcludingSafePatterns() {
@@ -62,11 +66,11 @@ class PromptExternalizationTest {
 
         String name = field.getName();
         // Allow logger constants, property key prefixes, and short identifiers
-        if (name.equals("logger")
+        if ("logger".equals(name)
             || name.startsWith("LOG")
             || name.startsWith("PROPERTY_")
             || name.startsWith("CONFIG_")
-            || name.equals("DEFAULT_PROVIDER")
+            || "DEFAULT_PROVIDER".equals(name)
             || name.contains("KEY")
             || name.contains("PREFIX")
             || name.contains("HEADER")) {

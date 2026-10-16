@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test;
 class PlatformToolConfigProviderTest {
 
   @Test
-  void testPlatformToolConfigRecordGettersAndConstructors() {
+  void platformToolConfigRecordGettersAndConstructors() {
     PlatformToolConfigProvider.PlatformToolConfig config =
         new PlatformToolConfigProvider.PlatformToolConfig(
             1, "tool-123", true, 300, false, "paragraph", "sources");
@@ -22,7 +22,7 @@ class PlatformToolConfigProviderTest {
   }
 
   @Test
-  void testPlatformToolConfigEqualsHashCodeToString() {
+  void platformToolConfigEqualsHashCodeToString() {
     PlatformToolConfigProvider.PlatformToolConfig config1 =
         new PlatformToolConfigProvider.PlatformToolConfig(
             1, "tool-123", true, 300, false, "paragraph", "sources");

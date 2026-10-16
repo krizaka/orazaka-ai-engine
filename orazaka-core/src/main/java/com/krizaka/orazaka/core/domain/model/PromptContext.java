@@ -204,7 +204,7 @@ public record PromptContext(
    * @return The hold identifier, or {@code null} when the turn was not metered.
    */
   public String billingHoldId() {
-    return (systemMetadata.get(BILLING_HOLD_ID_KEY) instanceof String s && !s.isBlank()) ? s : null;
+    return systemMetadata.get(BILLING_HOLD_ID_KEY) instanceof String s && !s.isBlank() ? s : null;
   }
 
   /**

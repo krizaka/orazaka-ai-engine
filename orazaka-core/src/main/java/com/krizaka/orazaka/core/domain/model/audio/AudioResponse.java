@@ -16,13 +16,17 @@ public record AudioResponse(byte[] audioData, String format) {
     if (audioData.length == 0) {
       throw new IllegalArgumentException("audioData must not be empty");
     }
-    format = (format != null && !format.isBlank()) ? format : "mp3";
+    format = format != null && !format.isBlank() ? format : "mp3";
   }
 
   @Override
   public boolean equals(Object o) {
-    if (this == o) return true;
-    if (!(o instanceof AudioResponse(byte[] otherData, String otherFormat))) return false;
+    if (this == o) {
+      return true;
+    }
+    if (!(o instanceof AudioResponse(byte[] otherData, String otherFormat))) {
+      return false;
+    }
     return Arrays.equals(audioData, otherData) && Objects.equals(format, otherFormat);
   }
 

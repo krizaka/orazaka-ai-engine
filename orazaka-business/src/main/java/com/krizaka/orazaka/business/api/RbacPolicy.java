@@ -14,8 +14,7 @@ public record RbacPolicy(Set<String> requiredAuthorities) {
   public static final RbacPolicy PERMIT_ALL = new RbacPolicy(Set.of());
 
   public RbacPolicy {
-    requiredAuthorities =
-        (requiredAuthorities == null) ? Set.of() : Set.copyOf(requiredAuthorities);
+    requiredAuthorities = requiredAuthorities == null ? Set.of() : Set.copyOf(requiredAuthorities);
   }
 
   /**

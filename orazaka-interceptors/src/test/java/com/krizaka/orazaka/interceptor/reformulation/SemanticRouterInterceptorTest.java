@@ -63,7 +63,7 @@ class SemanticRouterInterceptorTest {
     PromptContext result = interceptor.intercept(createContext("Draw a cat"));
     List<String> steps = (List<String>) result.systemMetadata().get("semanticRouterSteps");
     assertThat(steps).isNotEmpty();
-    assertThat(steps.get(0)).startsWith("IMAGE:");
+    assertThat(steps.getFirst()).startsWith("IMAGE:");
   }
 
   @Test

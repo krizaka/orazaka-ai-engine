@@ -53,7 +53,7 @@ class ChunkingStrategiesTest {
     void splitsByDoubleNewline() {
       var result = ChunkingStrategies.PLAIN_TEXT.chunk("para1\n\npara2\n\npara3", Map.of());
       assertEquals(3, result.size());
-      assertEquals("para1", result.get(0).getText());
+      assertEquals("para1", result.getFirst().getText());
     }
 
     @Test
@@ -73,7 +73,7 @@ class ChunkingStrategiesTest {
     void preservesMetadata() {
       var meta = Map.<String, Object>of("source", TEST);
       var result = ChunkingStrategies.PLAIN_TEXT.chunk("hello\n\nworld", meta);
-      assertEquals(TEST, result.get(0).getMetadata().get("source"));
+      assertEquals(TEST, result.getFirst().getMetadata().get("source"));
     }
   }
 
@@ -106,7 +106,7 @@ class ChunkingStrategiesTest {
       var result =
           ChunkingStrategies.JSON_ARRAY.chunk("[\"item1\", \"item2\", \"item3\"]", Map.of());
       assertEquals(3, result.size());
-      assertEquals("item1", result.get(0).getText());
+      assertEquals("item1", result.getFirst().getText());
     }
 
     @Test
@@ -115,7 +115,7 @@ class ChunkingStrategiesTest {
       var result =
           ChunkingStrategies.JSON_ARRAY.chunk("[{\"name\":\"test\",\"value\":42}]", Map.of());
       assertEquals(1, result.size());
-      assertTrue(result.get(0).getText().contains(TEST));
+      assertTrue(result.getFirst().getText().contains(TEST));
     }
 
     @Test

@@ -40,7 +40,7 @@ class PlatformMcpServerPersistenceProviderImplTest {
     List<PlatformMcpServerDto> result = provider.findByEnabledTrue();
 
     assertEquals(1, result.size());
-    assertTrue(result.get(0).enabled());
+    assertTrue(result.getFirst().enabled());
   }
 
   @Test

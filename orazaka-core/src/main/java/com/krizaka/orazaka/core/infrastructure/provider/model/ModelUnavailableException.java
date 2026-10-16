@@ -1,5 +1,7 @@
 package com.krizaka.orazaka.core.infrastructure.provider.model;
 
+import java.io.Serial;
+
 /**
  * The provider bound to a model cannot be reached — for a local model (Ollama, LocalAI behind the
  * GPU relay) it means no worker is connected. Says which model and which provider, so the turn
@@ -7,7 +9,7 @@ package com.krizaka.orazaka.core.infrastructure.provider.model;
  */
 public class ModelUnavailableException extends RuntimeException {
 
-  private static final long serialVersionUID = 1L;
+  @Serial private static final long serialVersionUID = 1L;
 
   /**
    * @param model the model the turn asked for

@@ -1,5 +1,7 @@
 package com.krizaka.orazaka.persistence.architecture;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+
 import com.krizaka.orazaka.test.architecture.PackCoherenceRules;
 import com.krizaka.orazaka.test.architecture.SqlBoundaryRules;
 import java.nio.file.Path;
@@ -21,17 +23,24 @@ class SqlBoundaryTest {
   @Test
   @DisplayName("[SEAM-001] infra/initdb has no cross-context foreign keys")
   void noCrossContextForeignKeys() {
-    Path initdb = SqlBoundaryRules.locateInitDb(Path.of(System.getProperty("user.dir")));
-    SqlBoundaryRules.assertNoCrossContextForeignKeys(initdb);
+    assertDoesNotThrow(
+        () -> {
+          Path initdb = SqlBoundaryRules.locateInitDb(Path.of(System.getProperty("user.dir")));
+          SqlBoundaryRules.assertNoCrossContextForeignKeys(initdb);
+        });
   }
 
   @Test
   @DisplayName("[PACK-001] every studio in a pack has the entitlement row that unlocks it")
   void packCatalogueIsCoherent() {
-    // The failure this catches: an actor buys a pack, the subscription is written, and the
-    // entitlement union comes back without the studio they paid for. Silent, indistinguishable
-    // from a billing bug, and aimed at the customer who just gave you money.
-    Path initdb = SqlBoundaryRules.locateInitDb(Path.of(System.getProperty("user.dir")));
-    PackCoherenceRules.assertPackCatalogueIsCoherent(initdb);
+    assertDoesNotThrow(
+        () -> {
+          // The failure this catches: an actor buys a pack, the subscription is written, and the
+          // entitlement union comes back without the studio they paid for. Silent,
+          // indistinguishable
+          // from a billing bug, and aimed at the customer who just gave you money.
+          Path initdb = SqlBoundaryRules.locateInitDb(Path.of(System.getProperty("user.dir")));
+          PackCoherenceRules.assertPackCatalogueIsCoherent(initdb);
+        });
   }
 }

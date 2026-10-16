@@ -20,7 +20,7 @@ public record UseCaseContext(
     Set<String> authorities,
     Map<String, Object> preferences) {
   public UseCaseContext {
-    authorities = (authorities == null) ? Set.of() : Set.copyOf(authorities);
-    preferences = (preferences == null) ? Map.of() : Map.copyOf(preferences);
+    authorities = authorities == null ? Set.of() : Set.copyOf(authorities);
+    preferences = preferences == null ? Map.of() : Map.copyOf(preferences);
   }
 }

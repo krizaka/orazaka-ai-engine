@@ -1,5 +1,7 @@
 package com.krizaka.orazaka.core.application.pipeline;
 
+import java.io.Serial;
+
 /**
  * Thrown by an interceptor that is <b>refusing</b> the request, not failing on it.
  *
@@ -17,7 +19,7 @@ package com.krizaka.orazaka.core.application.pipeline;
  */
 public class PipelineShortCircuitException extends RuntimeException {
 
-  private static final long serialVersionUID = 1L;
+  @Serial private static final long serialVersionUID = 1L;
 
   private final String reason;
   private final String interceptorId;

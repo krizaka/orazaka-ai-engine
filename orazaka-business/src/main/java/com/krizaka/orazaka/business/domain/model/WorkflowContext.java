@@ -43,17 +43,17 @@ public record WorkflowContext(
   public WorkflowContext {
     Objects.requireNonNull(contextId, "contextId must not be null");
     Objects.requireNonNull(systemInstructions, "systemInstructions must not be null");
-    userTier = (userTier == null || userTier.isBlank()) ? "DEFAULT" : userTier.strip();
+    userTier = userTier == null || userTier.isBlank() ? "DEFAULT" : userTier.strip();
     forcedInterceptors =
-        (forcedInterceptors != null)
+        forcedInterceptors != null
             ? Collections.unmodifiableSet(Set.copyOf(forcedInterceptors))
             : Collections.emptySet();
     skippedInterceptors =
-        (skippedInterceptors != null)
+        skippedInterceptors != null
             ? Collections.unmodifiableSet(Set.copyOf(skippedInterceptors))
             : Collections.emptySet();
     metadata =
-        (metadata != null)
+        metadata != null
             ? Collections.unmodifiableMap(Map.copyOf(metadata))
             : Collections.emptyMap();
   }

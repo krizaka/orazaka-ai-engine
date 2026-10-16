@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.krizaka.orazaka.assets.application.service.EnvelopeCodec;
 import com.krizaka.orazaka.assets.domain.port.MasterKeyProvider;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermission;
@@ -58,8 +57,7 @@ class FileMasterKeyProviderTest {
   @DisplayName("a keyring naming an active key it does not hold is refused")
   void refusesADanglingActiveKey(@TempDir Path dir) throws Exception {
     Path keyFile = dir.resolve("master.key");
-    Files.writeString(
-        keyFile, "active = k9\nk1 = " + "A".repeat(43) + "=\n", StandardCharsets.UTF_8);
+    Files.writeString(keyFile, "active = k9\nk1 = " + "A".repeat(43) + "=\n");
     Files.setPosixFilePermissions(
         keyFile, Set.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE));
 

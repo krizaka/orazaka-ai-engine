@@ -28,8 +28,8 @@ class UserMcpServerProviderAdapterTest {
     when(persistenceProvider.findByUserIdAndEnabledTrue("user-1")).thenReturn(List.of(dto));
     List<UserMcpServerProvider.UserMcpServer> result = provider.getActiveUserMcpServers("user-1");
     assertEquals(1, result.size());
-    assertEquals("My MCP", result.get(0).label());
-    assertEquals("http://localhost", result.get(0).url());
+    assertEquals("My MCP", result.getFirst().label());
+    assertEquals("http://localhost", result.getFirst().url());
   }
 
   @Test

@@ -1,7 +1,6 @@
 package com.krizaka.orazaka.core.architecture;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noFields;
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.domain.JavaField;
@@ -38,18 +37,15 @@ class PromptExternalizationTest {
   @Test
   @DisplayName("[ADR-012] Engine/pipeline must not contain static final String prompt constants")
   void engineMustNotContainHardcodedPromptConstants() {
-    assertDoesNotThrow(
-        () -> {
-          noFields()
-              .that()
-              .areDeclaredInClassesThat()
-              .resideInAnyPackage("com.krizaka.orazaka.core.application..")
-              .should(beStaticFinalStringExcludingSafePatterns())
-              .because(
-                  "All prompt text blocks must be externalized to .st resource files [ADR-012]."
-                      + " Static final String fields suggest hardcoded prompts.")
-              .check(engineClasses);
-        });
+    noFields()
+        .that()
+        .areDeclaredInClassesThat()
+        .resideInAnyPackage("com.krizaka.orazaka.core.application..")
+        .should(beStaticFinalStringExcludingSafePatterns())
+        .because(
+            "All prompt text blocks must be externalized to .st resource files [ADR-012]."
+                + " Static final String fields suggest hardcoded prompts.")
+        .check(engineClasses);
   }
 
   private static ArchCondition<JavaField> beStaticFinalStringExcludingSafePatterns() {

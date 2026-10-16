@@ -1,7 +1,6 @@
 package com.krizaka.orazaka.tools.architecture;
 
 import static com.krizaka.orazaka.test.architecture.GovernanceRules.*;
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import com.krizaka.orazaka.test.architecture.SourceFileScanner;
 import com.tngtech.archunit.core.domain.JavaClasses;
@@ -33,55 +32,37 @@ class ToolsGovernanceTest {
   @Test
   @DisplayName("[ERR-103] One top-level class per file")
   void oneClassPerFile() {
-    assertDoesNotThrow(
-        () -> {
-          assertOneTopLevelClassPerFile(toolsClasses, PKG);
-        });
+    assertOneTopLevelClassPerFile(toolsClasses, PKG);
   }
 
   @Test
   @DisplayName("[ERR-104] No redundant 'Orazaka' prefix")
   void noRedundantPrefix() {
-    assertDoesNotThrow(
-        () -> {
-          assertNoRedundantPrefix(toolsClasses, PKG);
-        });
+    assertNoRedundantPrefix(toolsClasses, PKG);
   }
 
   @Test
   @DisplayName("[ERR-112] No web controllers outside router")
   void noWebControllers() {
-    assertDoesNotThrow(
-        () -> {
-          assertNoWebControllers(toolsClasses, PKG);
-        });
+    assertNoWebControllers(toolsClasses, PKG);
   }
 
   @Test
   @DisplayName("[ERR-129] application/service holds only *Service")
   void servicePackageOnlyServices() {
-    assertDoesNotThrow(
-        () -> {
-          assertServicePackageOnlyServices(toolsClasses, PKG + ".application.service");
-        });
+    assertServicePackageOnlyServices(toolsClasses, PKG + ".application.service");
   }
 
   @Test
   @DisplayName("[HEX-001] Strict hexagonal layering (domain <- application <- infrastructure)")
   void strictHexagonalBoundaries() {
-    assertDoesNotThrow(
-        () -> {
-          assertStrictHexagonalBoundaries(toolsClasses, PKG);
-        });
+    assertStrictHexagonalBoundaries(toolsClasses, PKG);
   }
 
   @Test
   @DisplayName("[HEX-002] Domain layer is framework-free (no Spring/JPA/Jackson)")
   void domainPurity() {
-    assertDoesNotThrow(
-        () -> {
-          assertDomainPurity(toolsClasses, PKG);
-        });
+    assertDomainPurity(toolsClasses, PKG);
   }
 
   // GOV-006: [ERR-130] adapter-package-kind is not invoked here: no class sits directly in
@@ -92,45 +73,30 @@ class ToolsGovernanceTest {
   @Test
   @DisplayName("[ADR-009] Instance fields in concrete classes are private")
   void fieldsArePrivate() {
-    assertDoesNotThrow(
-        () -> {
-          assertFieldsPrivate(toolsClasses);
-        });
+    assertFieldsPrivate(toolsClasses);
   }
 
   @Test
   @DisplayName("[ADR-007] Collection fields are private final")
   void collectionFieldsPrivateFinal() {
-    assertDoesNotThrow(
-        () -> {
-          assertCollectionFieldsPrivateFinal(toolsClasses);
-        });
+    assertCollectionFieldsPrivateFinal(toolsClasses);
   }
 
   @Test
   @DisplayName("[GOV-001] No anonymous classes in production")
   void noAnonymousClasses() {
-    assertDoesNotThrow(
-        () -> {
-          assertNoAnonymousClasses(toolsClasses, PKG);
-        });
+    assertNoAnonymousClasses(toolsClasses, PKG);
   }
 
   @Test
   @DisplayName("[GOV-004] No standard streams (use SLF4J)")
   void noStandardStreams() {
-    assertDoesNotThrow(
-        () -> {
-          assertNoStandardStreams(toolsClasses);
-        });
+    assertNoStandardStreams(toolsClasses);
   }
 
   @Test
   @DisplayName("[ERR-113] No Environment injection in production beans")
   void noEnvironmentInjection() {
-    assertDoesNotThrow(
-        () -> {
-          SourceFileScanner.assertNoEnvironmentInjection(Path.of("src", "main", "java"));
-        });
+    SourceFileScanner.assertNoEnvironmentInjection(Path.of("src", "main", "java"));
   }
 }

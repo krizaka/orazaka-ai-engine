@@ -1,7 +1,6 @@
 package com.krizaka.orazaka.core.infrastructure.adapter.ai;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -307,11 +306,8 @@ class ImageGeneratorClientImplTest {
 
   @org.junit.jupiter.api.Test
   void requireRealImage_acceptsAPictureOrAHostedUrl() {
-    assertDoesNotThrow(
-        () -> {
-          ImageGeneratorClientImpl.requireRealImage(new byte[200_000], null);
-          ImageGeneratorClientImpl.requireRealImage(new byte[0], "https://cdn.example/x.png");
-        });
+    ImageGeneratorClientImpl.requireRealImage(new byte[200_000], null);
+    ImageGeneratorClientImpl.requireRealImage(new byte[0], "https://cdn.example/x.png");
   }
 
   @Test

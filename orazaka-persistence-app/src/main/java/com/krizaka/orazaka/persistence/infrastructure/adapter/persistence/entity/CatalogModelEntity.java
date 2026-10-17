@@ -157,4 +157,54 @@ public class CatalogModelEntity {
   public void setLocaleDefault(Boolean localeDefault) {
     this.localeDefault = localeDefault;
   }
+
+  /**
+   * {@code local} (the operator's hardware) or {@code provider} (a hosted API); null if unstated.
+   */
+  @Column(name = "runs_on")
+  private String runsOn;
+
+  /** {@code available}, {@code planned} or {@code internal}: only available models are offered. */
+  @Column(name = "status", nullable = false)
+  private String status = "available";
+
+  /** Typical seconds for one run, measured on this setup; null while unmeasured. */
+  @Column(name = "typical_seconds")
+  private Integer typicalSeconds;
+
+  /** What one run costs in US cents, null when it is free (the operator's own hardware). */
+  @Column(name = "price_cents")
+  private Integer priceCents;
+
+  public String getRunsOn() {
+    return runsOn;
+  }
+
+  public void setRunsOn(String runsOn) {
+    this.runsOn = runsOn;
+  }
+
+  public String getStatus() {
+    return status;
+  }
+
+  public void setStatus(String status) {
+    this.status = status;
+  }
+
+  public Integer getTypicalSeconds() {
+    return typicalSeconds;
+  }
+
+  public void setTypicalSeconds(Integer typicalSeconds) {
+    this.typicalSeconds = typicalSeconds;
+  }
+
+  public Integer getPriceCents() {
+    return priceCents;
+  }
+
+  public void setPriceCents(Integer priceCents) {
+    this.priceCents = priceCents;
+  }
 }

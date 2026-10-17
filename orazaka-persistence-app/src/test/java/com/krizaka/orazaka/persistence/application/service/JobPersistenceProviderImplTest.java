@@ -190,7 +190,8 @@ class JobPersistenceProviderImplTest {
   void getJobsByUserId_returnsPage() {
     JobEntity entity = buildEntity("j1", USER_1, IMAGE, "PENDING");
     Pageable pageable = PageRequest.of(0, 10);
-    when(repository.findByUserId(USER_1, pageable)).thenReturn(new PageImpl<>(List.of(entity)));
+    when(repository.findByUserIdAndStatusNot(USER_1, "DELETED", pageable))
+        .thenReturn(new PageImpl<>(List.of(entity)));
 
     Page<JobDto> result = provider.getJobsByUserId(USER_1, pageable);
 
@@ -200,7 +201,7 @@ class JobPersistenceProviderImplTest {
   @Test
   void getAllJobs_returnsPage() {
     Pageable pageable = PageRequest.of(0, 20);
-    when(repository.findAll(pageable)).thenReturn(new PageImpl<>(List.of()));
+    when(repository.findByStatusNot("DELETED", pageable)).thenReturn(new PageImpl<>(List.of()));
 
     Page<JobDto> result = provider.getAllJobs(pageable);
 
@@ -217,5 +218,29 @@ class JobPersistenceProviderImplTest {
   @Test
   void purgeJobsByUserId_nullUserId_throwsNpe() {
     assertThrows(NullPointerException.class, () -> provider.purgeJobsByUserId(null));
+  }
+
+  @Test
+  void getJobsByUserId_neverListsADeletedJob() {
+    Pageable pageable = PageRequest.of(0, 10);
+    JobEntity kept = buildEntity("kept", USER_1, IMAGE, "COMPLETED");
+    when(repository.findByUserIdAndStatusNot(USER_1, "DELETED", pageable))
+        .thenReturn(new PageImpl<>(List.of(kept), pageable, 1));
+
+    Page<JobDto> page = provider.getJobsByUserId(USER_1, pageable);
+
+    assertEquals(1, page.getTotalElements());
+    assertEquals("kept", page.getContent().getFirst().id());
+    verify(repository, never()).findByUserId(any(), any());
+  }
+
+  @Test
+  void getAllJobs_neverListsADeletedJob() {
+    Pageable pageable = PageRequest.of(0, 10);
+    when(repository.findByStatusNot("DELETED", pageable))
+        .thenReturn(new PageImpl<>(List.of(), pageable, 0));
+
+    assertEquals(0, provider.getAllJobs(pageable).getTotalElements());
+    verify(repository, never()).findAll(any(Pageable.class));
   }
 }

@@ -11,7 +11,23 @@ public enum JobStatus {
   PENDING,
   PROCESSING,
   COMPLETED,
-  FAILED;
+  FAILED,
+  /** Stopped by its owner (or by the run it belongs to) before it finished; never billed. */
+  CANCELLED,
+  /**
+   * Its owner deleted the result: the files are gone from every store and the row is kept only as a
+   * tombstone (id, owner, feature, timestamps), never listed.
+   */
+  DELETED;
+
+  /**
+   * Whether the job can no longer run: it finished, failed, was cancelled or was deleted.
+   *
+   * @return {@code true} for every state but PENDING and PROCESSING
+   */
+  public boolean isTerminal() {
+    return this != PENDING && this != PROCESSING;
+  }
 
   /**
    * Parses a case-insensitive status string into a {@code JobStatus}.

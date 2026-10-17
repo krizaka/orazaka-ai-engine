@@ -24,6 +24,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 class JobPersistenceProviderImpl implements JobPersistenceProvider {
 
+  /** A deleted job is a tombstone: it is never listed. */
+  private static final String DELETED = "DELETED";
+
   private final JobRepository repository;
   private final ApplicationEventPublisher eventPublisher;
 
@@ -103,14 +106,16 @@ class JobPersistenceProviderImpl implements JobPersistenceProvider {
   public Page<JobDto> getJobsByUserId(String userId, Pageable pageable) {
     Objects.requireNonNull(userId, "User ID cannot be null");
     Objects.requireNonNull(pageable, "Pageable cannot be null");
-    return repository.findByUserId(userId, pageable).map(JobPersistenceProviderImpl::toDto);
+    return repository
+        .findByUserIdAndStatusNot(userId, DELETED, pageable)
+        .map(JobPersistenceProviderImpl::toDto);
   }
 
   @Override
   @Transactional(readOnly = true)
   public Page<JobDto> getAllJobs(Pageable pageable) {
     Objects.requireNonNull(pageable, "Pageable cannot be null");
-    return repository.findAll(pageable).map(JobPersistenceProviderImpl::toDto);
+    return repository.findByStatusNot(DELETED, pageable).map(JobPersistenceProviderImpl::toDto);
   }
 
   @Override

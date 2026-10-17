@@ -85,6 +85,17 @@ class CatalogModelManagerImpl implements CatalogModelManager {
               stored -> {
                 entity.setLocale(stored.getLocale());
                 entity.setLocaleDefault(stored.getLocaleDefault());
+                // Same for the facts a picker shows (where it runs, status, measured time, price):
+                // an edit through the narrow DTO must not blank what the catalogue declares.
+                if (dto.runsOn() == null) {
+                  entity.setRunsOn(stored.getRunsOn());
+                }
+                if (dto.typicalSeconds() == null) {
+                  entity.setTypicalSeconds(stored.getTypicalSeconds());
+                }
+                if (dto.priceCents() == null) {
+                  entity.setPriceCents(stored.getPriceCents());
+                }
               });
     }
     CatalogModelEntity saved = repository.save(entity);
@@ -139,7 +150,11 @@ class CatalogModelManagerImpl implements CatalogModelManager {
         entity.getMaxSteps(),
         entity.getRecommendedFps(),
         entity.getSupportedHardware(),
-        entity.getDescription());
+        entity.getDescription(),
+        entity.getRunsOn(),
+        entity.getStatus(),
+        entity.getTypicalSeconds(),
+        entity.getPriceCents());
   }
 
   static CatalogModelEntity toEntity(CatalogModelDto dto) {
@@ -158,6 +173,10 @@ class CatalogModelManagerImpl implements CatalogModelManager {
     entity.setRecommendedFps(dto.recommendedFps());
     entity.setSupportedHardware(dto.supportedHardware());
     entity.setDescription(dto.description());
+    entity.setRunsOn(dto.runsOn());
+    entity.setStatus(dto.status());
+    entity.setTypicalSeconds(dto.typicalSeconds());
+    entity.setPriceCents(dto.priceCents());
     return entity;
   }
 }

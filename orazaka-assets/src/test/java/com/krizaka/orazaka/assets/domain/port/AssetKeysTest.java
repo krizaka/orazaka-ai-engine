@@ -23,4 +23,15 @@ class AssetKeysTest {
           .isInstanceOf(IllegalArgumentException.class);
     }
   }
+
+  @Test
+  void anUploadLivesUnderTheOwnersPseudoJob_soDeletingTheUserDeletesIt() {
+    assertThat(AssetKeys.uploadFile("default", "u1", "0f1e.png"))
+        .isEqualTo("t/default/u/u1/jobs/uploads/0f1e.png");
+    assertThat(AssetKeys.uploadPrefix("default", "u1")).isEqualTo("t/default/u/u1/jobs/uploads/");
+    assertThat(AssetKeys.userPrefix("default", "u1")).isEqualTo("t/default/u/u1/");
+    assertThat(AssetKeys.tenantUsersPrefix("default")).isEqualTo("t/default/u/");
+    assertThatThrownBy(() -> AssetKeys.uploadFile("t", "u", "../x"))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
 }

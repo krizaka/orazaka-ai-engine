@@ -49,7 +49,7 @@ class BunnyAssetStoreTest extends DurableAssetStoreContract {
                 status = 201;
               }
               case "GET" -> {
-                byte[] found = objects.get(key);
+                byte[] found = key.endsWith("/") || key.isEmpty() ? list(key) : objects.get(key);
                 status = found == null ? 404 : 200;
                 body = found == null ? body : found;
               }
@@ -77,6 +77,37 @@ class BunnyAssetStoreTest extends DurableAssetStoreContract {
   @AfterEach
   void stop() {
     server.stop(0);
+  }
+
+  /** Bunny's directory listing: a JSON array of the direct children, 404 when there are none. */
+  private byte[] list(String dir) {
+    java.util.Set<String> seen = new java.util.TreeSet<>();
+    StringBuilder json = new StringBuilder("[");
+    objects.forEach(
+        (k, v) -> {
+          if (!k.startsWith(dir)) {
+            return;
+          }
+          String rest = k.substring(dir.length());
+          int slash = rest.indexOf('/');
+          String name = slash < 0 ? rest : rest.substring(0, slash);
+          if (!seen.add(name)) {
+            return;
+          }
+          if (json.length() > 1) {
+            json.append(',');
+          }
+          json.append("{\"ObjectName\":\"")
+              .append(name)
+              .append("\",\"IsDirectory\":")
+              .append(slash >= 0)
+              .append(",\"LastChanged\":\"2026-10-17T21:09:16.911\",\"Path\":\"/")
+              .append(ZONE)
+              .append("/")
+              .append(dir)
+              .append("\"}");
+        });
+    return seen.isEmpty() ? null : json.append(']').toString().getBytes();
   }
 
   @Override

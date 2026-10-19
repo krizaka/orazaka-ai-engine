@@ -28,8 +28,9 @@ import reactor.core.publisher.Flux;
  * <p>Replaces the former static {@code AiModelConfiguration.activeTtsModel} bean (built from {@code
  * spring.ai.localai.*}). The speech provider's endpoint is resolved from the DB ({@code
  * orazaka_models} {@code is_default} for category {@code speech} → {@code ai_providers} base-url)
- * and an OpenAI-compatible {@link OpenAiAudioSpeechModel} is built against it. A request that names a speech model
- * of the catalogue goes to that model's provider while it answers, and to the default otherwise.
+ * and an OpenAI-compatible {@link OpenAiAudioSpeechModel} is built against it. A request that names
+ * a speech model of the catalogue goes to that model's provider while it answers, and to the
+ * default otherwise.
  *
  * @see CatalogModelEndpointResolver
  */
@@ -54,10 +55,11 @@ public class RoutedTextToSpeechModel implements TextToSpeechModel {
   }
 
   /**
-   * Routes by availability, from the catalogue: the speech model the request names, when the catalogue knows it and
-   * its provider answers; the category's default ({@code is_default}) otherwise. A host that is only up some of the
-   * time (a GPU pod serving Kokoro) can never take speech down with it: an unreachable provider falls back to the
-   * default, any other failure is the caller's to see.
+   * Routes by availability, from the catalogue: the speech model the request names, when the
+   * catalogue knows it and its provider answers; the category's default ({@code is_default})
+   * otherwise. A host that is only up some of the time (a GPU pod serving Kokoro) can never take
+   * speech down with it: an unreachable provider falls back to the default, any other failure is
+   * the caller's to see.
    */
   @Override
   public TextToSpeechResponse call(TextToSpeechPrompt prompt) {
@@ -98,11 +100,17 @@ public class RoutedTextToSpeechModel implements TextToSpeechModel {
       format = options.getResponseFormat();
     }
     OpenAiAudioSpeechOptions options =
-        OpenAiAudioSpeechOptions.builder().responseFormat(format).model(endpoint.modelName()).build();
+        OpenAiAudioSpeechOptions.builder()
+            .responseFormat(format)
+            .model(endpoint.modelName())
+            .build();
     return new TextToSpeechPrompt(prompt.getInstructions().getText(), options);
   }
 
-  /** Whether a failure is a provider that did not answer (refused, unreachable), at any depth of its causes. */
+  /**
+   * Whether a failure is a provider that did not answer (refused, unreachable), at any depth of its
+   * causes.
+   */
   static boolean unreachable(Throwable failure) {
     for (Throwable cause = failure; cause != null; cause = cause.getCause()) {
       if (cause instanceof ConnectException
@@ -114,7 +122,8 @@ public class RoutedTextToSpeechModel implements TextToSpeechModel {
     return false;
   }
 
-  // Spring AI 2.0 derives the com.openai client from the options via OpenAiSetup, so the speech provider endpoint
+  // Spring AI 2.0 derives the com.openai client from the options via OpenAiSetup, so the speech
+  // provider endpoint
   // (base-url + api-key) is set on the OpenAiAudioSpeechOptions.
   private static TextToSpeechModel openAiCompatible(ModelEndpoint endpoint) {
     return OpenAiAudioSpeechModel.builder()

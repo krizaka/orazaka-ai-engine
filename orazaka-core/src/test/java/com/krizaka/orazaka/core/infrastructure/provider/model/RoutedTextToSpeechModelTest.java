@@ -20,13 +20,15 @@ import org.springframework.ai.openai.OpenAiAudioSpeechOptions;
 import reactor.core.publisher.Flux;
 
 /**
- * Speech is routed by availability, from the catalogue: the model a request names when its provider answers, the
- * category's default otherwise — so speech keeps working when an optional host (a GPU pod serving Kokoro) is down.
+ * Speech is routed by availability, from the catalogue: the model a request names when its provider
+ * answers, the category's default otherwise — so speech keeps working when an optional host (a GPU
+ * pod serving Kokoro) is down.
  */
 class RoutedTextToSpeechModelTest {
 
   private static final ModelEndpoint PIPER =
-      new ModelEndpoint("localai", "http://localai:8085", "not-required", "piper-en-medium-ljspeech");
+      new ModelEndpoint(
+          "localai", "http://localai:8085", "not-required", "piper-en-medium-ljspeech");
   private static final ModelEndpoint KOKORO =
       new ModelEndpoint("gpu-speech", "http://gpu-relay:8086/v1", "not-required", "kokoro-82m");
 
@@ -45,7 +47,8 @@ class RoutedTextToSpeechModelTest {
     public TextToSpeechResponse call(TextToSpeechPrompt prompt) {
       models.add(prompt.getOptions().getModel());
       if (!up) {
-        throw new IllegalStateException("Request failed", new ConnectException("Connection refused"));
+        throw new IllegalStateException(
+            "Request failed", new ConnectException("Connection refused"));
       }
       return new TextToSpeechResponse(List.of(new Speech(name.getBytes())));
     }

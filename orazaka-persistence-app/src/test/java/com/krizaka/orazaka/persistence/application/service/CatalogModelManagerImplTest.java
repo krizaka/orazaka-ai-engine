@@ -165,4 +165,49 @@ class CatalogModelManagerImplTest {
     assertEquals("sk-test", manager.getProviderApiKey("do-inference"));
     assertNull(manager.getProviderApiKey("nope"));
   }
+
+  @Test
+  @DisplayName("a model is read with where it runs, its status, typical time and price")
+  void readsUserFacingFacts() {
+    CatalogModelEntity entity = new CatalogModelEntity();
+    entity.setId(7);
+    entity.setModelName("sd-hosted");
+    entity.setModelLabel("SD hosted");
+    entity.setCategory("image");
+    entity.setRunsOn("provider");
+    entity.setStatus("available");
+    entity.setTypicalSeconds(8);
+    entity.setPriceCents(8);
+    when(repository.findByCategory("image")).thenReturn(List.of(entity));
+
+    CatalogModelDto dto = manager.getModelsByCategory("image").getFirst();
+
+    assertTrue(dto.isHosted());
+    assertTrue(dto.isOffered());
+    assertEquals(8, dto.typicalSeconds());
+    assertEquals(8, dto.priceCents());
+  }
+
+  @Test
+  @DisplayName("editing through the narrow DTO keeps the stored facts")
+  void editKeepsStoredFacts() {
+    CatalogModelEntity stored = new CatalogModelEntity();
+    stored.setId(7);
+    stored.setModelName("sd-hosted");
+    stored.setModelLabel("SD hosted");
+    stored.setCategory("image");
+    stored.setRunsOn("provider");
+    stored.setTypicalSeconds(8);
+    stored.setPriceCents(8);
+    when(repository.findById(7)).thenReturn(Optional.of(stored));
+    when(repository.save(any(CatalogModelEntity.class))).thenAnswer(call -> call.getArgument(0));
+
+    CatalogModelDto saved =
+        manager.saveModel(new CatalogModelDto(7, "sd-hosted", "SD renamed", "image", null, false));
+
+    assertEquals("SD renamed", saved.modelLabel());
+    assertTrue(saved.isHosted());
+    assertEquals(8, saved.typicalSeconds());
+    assertEquals(8, saved.priceCents());
+  }
 }

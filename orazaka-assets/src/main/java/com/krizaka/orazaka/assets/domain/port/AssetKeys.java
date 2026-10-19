@@ -47,6 +47,53 @@ public final class AssetKeys {
         + "/";
   }
 
+  /** The pseudo job every upload of a user lives under; uploads belong to no job. */
+  private static final String UPLOADS = "uploads";
+
+  /**
+   * The key of one file a user uploaded.
+   *
+   * @param tenant the tenant id
+   * @param userId the uploader
+   * @param file the stored file name ({@code <assetId><extension>})
+   * @return the object key
+   */
+  public static String uploadFile(String tenant, String userId, String file) {
+    return uploadPrefix(tenant, userId) + segment("file", file);
+  }
+
+  /**
+   * The prefix holding a user's uploads; ends with {@code /}.
+   *
+   * @param tenant the tenant id
+   * @param userId the uploader
+   * @return the prefix
+   */
+  public static String uploadPrefix(String tenant, String userId) {
+    return jobPrefix(tenant, userId, UPLOADS);
+  }
+
+  /**
+   * Everything a user has; ends with {@code /}.
+   *
+   * @param tenant the tenant id
+   * @param userId the user
+   * @return the prefix
+   */
+  public static String userPrefix(String tenant, String userId) {
+    return tenantUsersPrefix(tenant) + segment("user", userId) + "/";
+  }
+
+  /**
+   * The prefix whose children are the tenant's users; ends with {@code /}.
+   *
+   * @param tenant the tenant id
+   * @return the prefix
+   */
+  public static String tenantUsersPrefix(String tenant) {
+    return "t/" + segment("tenant", tenant) + "/u/";
+  }
+
   private static String segment(String what, String value) {
     if (value == null || value.contains("..") || !SEGMENT.matcher(value).matches()) {
       throw new IllegalArgumentException("not a valid " + what + " segment for a storage key");

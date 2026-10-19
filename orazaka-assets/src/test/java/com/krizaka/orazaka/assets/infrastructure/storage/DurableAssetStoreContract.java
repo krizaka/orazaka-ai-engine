@@ -3,9 +3,11 @@ package com.krizaka.orazaka.assets.infrastructure.storage;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.krizaka.orazaka.assets.domain.port.DurableAssetStore;
+import com.krizaka.orazaka.assets.domain.port.StoredObject;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -59,6 +61,30 @@ abstract class DurableAssetStoreContract {
     assertThat(store().fetch("t/x/u/1/jobs/j4/a", work.resolve("o1"))).isFalse();
     assertThat(store().fetch("t/x/u/1/jobs/j4/b", work.resolve("o2"))).isFalse();
     assertThat(store().fetch("t/x/u/1/jobs/j5/a", work.resolve("o3"))).isTrue();
+  }
+
+  @Test
+  void listingAPrefixNamesItsDirectChildren_filesWithADate_directoriesWithASlash()
+      throws IOException {
+    store().put("t/x/u/1/jobs/uploads/aaa.png", file("a", "a"));
+    store().put("t/x/u/1/jobs/uploads/bbb.mp4", file("b", "b"));
+    store().put("t/x/u/1/jobs/j9/deep/file", file("c", "c"));
+    store().put("t/x/u/2/jobs/uploads/other.png", file("d", "d"));
+
+    List<StoredObject> uploads = store().list("t/x/u/1/jobs/uploads/");
+    assertThat(uploads)
+        .extracting(StoredObject::key)
+        .containsExactlyInAnyOrder("t/x/u/1/jobs/uploads/aaa.png", "t/x/u/1/jobs/uploads/bbb.mp4");
+    assertThat(uploads).allSatisfy(o -> assertThat(o.lastModified()).isNotNull());
+
+    assertThat(store().list("t/x/u/"))
+        .extracting(StoredObject::key)
+        .containsExactlyInAnyOrder("t/x/u/1/", "t/x/u/2/");
+  }
+
+  @Test
+  void listingAnAbsentPrefixIsEmpty() throws IOException {
+    assertThat(store().list("t/x/u/nobody/jobs/uploads/")).isEmpty();
   }
 
   @Test

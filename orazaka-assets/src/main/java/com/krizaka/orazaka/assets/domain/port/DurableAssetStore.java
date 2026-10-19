@@ -2,6 +2,7 @@ package com.krizaka.orazaka.assets.domain.port;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.List;
 
 /**
  * Where an asset lives when the container's own disk is not enough to keep it.
@@ -48,4 +49,16 @@ public interface DurableAssetStore {
    * @throws IOException if the store refused
    */
   void delete(String key) throws IOException;
+
+  /**
+   * The direct children of a prefix: files (with their last change) and directories (keys ending
+   * with {@code /}). Absent is empty, not an error. The default is for a store that keeps nothing.
+   *
+   * @param prefix a prefix ending in {@code /}
+   * @return the children, in no particular order
+   * @throws IOException if the store refused
+   */
+  default List<StoredObject> list(String prefix) throws IOException {
+    return List.of();
+  }
 }

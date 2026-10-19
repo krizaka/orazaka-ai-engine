@@ -1,12 +1,16 @@
 package com.krizaka.orazaka.assets.infrastructure.storage;
 
 import com.krizaka.orazaka.assets.domain.port.DurableAssetStore;
+import com.krizaka.orazaka.assets.domain.port.StoredObject;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.List;
 import java.util.stream.Stream;
 
 /**
@@ -79,6 +83,28 @@ public final class DirectoryAssetStore implements DurableAssetStore {
     } catch (UncheckedIOException e) {
       throw e.getCause();
     }
+  }
+
+  @Override
+  public List<StoredObject> list(String prefix) throws IOException {
+    Path dir = resolve(prefix);
+    if (!Files.isDirectory(dir)) {
+      return List.of();
+    }
+    List<StoredObject> children = new ArrayList<>();
+    try (Stream<Path> entries = Files.list(dir)) {
+      for (Path entry : (Iterable<Path>) entries::iterator) {
+        if (entry.getFileName().toString().startsWith(".orz-")) {
+          continue;
+        }
+        boolean isDir = Files.isDirectory(entry);
+        children.add(
+            new StoredObject(
+                prefix + entry.getFileName() + (isDir ? "/" : ""),
+                Instant.ofEpochMilli(Files.getLastModifiedTime(entry).toMillis())));
+      }
+    }
+    return children;
   }
 
   private Path resolve(String key) {

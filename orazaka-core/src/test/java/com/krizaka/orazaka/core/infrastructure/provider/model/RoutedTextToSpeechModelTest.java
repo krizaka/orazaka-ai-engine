@@ -1,8 +1,6 @@
 package com.krizaka.orazaka.core.infrastructure.provider.model;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.*;
 
 import com.krizaka.orazaka.core.domain.model.ModelEndpoint;
 import com.krizaka.orazaka.core.domain.ports.outbound.ModelEndpointResolver;

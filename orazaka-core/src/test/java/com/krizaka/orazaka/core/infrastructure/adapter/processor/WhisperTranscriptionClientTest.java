@@ -181,4 +181,46 @@ class WhisperTranscriptionClientTest {
 
     assertThat(a).isEqualTo(b).isNotEqualTo(c).hasSameHashCodeAs(b);
   }
+
+  @Test
+  void theVersionPathIsJoinedOnceWhateverTheConfiguredBaseEndsWith() {
+    // dev (2026-10-20): the provider's base is http://gpu-relay:8086/v1 (the image client wants the
+    // /v1) and this client appended
+    // /v1/audio/transcriptions again: /v1/v1/... answered 404 and a local proxy papered over it.
+    org.mockito.ArgumentCaptor<String> base = org.mockito.ArgumentCaptor.forClass(String.class);
+    RestClient.RequestBodyUriSpec uriSpec = mock(RestClient.RequestBodyUriSpec.class);
+    RestClient.RequestBodySpec bodySpec = mock(RestClient.RequestBodySpec.class);
+    RestClient.ResponseSpec responseSpec = mock(RestClient.ResponseSpec.class);
+    when(restClient.post()).thenReturn(uriSpec);
+    when(uriSpec.uri("/v1/audio/transcriptions")).thenReturn(bodySpec);
+    when(bodySpec.contentType(any())).thenReturn(bodySpec);
+    when(bodySpec.body(any(Object.class))).thenReturn(bodySpec);
+    when(bodySpec.retrieve()).thenReturn(responseSpec);
+    when(responseSpec.body(String.class)).thenReturn("{\"text\":\"ok\"}");
+
+    for (String configured :
+        new String[] {
+          "http://gpu-relay:8086/v1",
+          "http://gpu-relay:8086/v1/",
+          "http://gpu-relay:8086/",
+          "http://gpu-relay:8086",
+          "http://gpu-relay:8086/V1"
+        }) {
+      client.transcribe(configured, new byte[] {1}, "a.mp3", "whisper-1");
+    }
+
+    org.mockito.Mockito.verify(restClientBuilder, org.mockito.Mockito.times(5))
+        .baseUrl(base.capture());
+    assertThat(base.getAllValues()).containsOnly("http://gpu-relay:8086");
+  }
+
+  @Test
+  void aBaseWithAPrefixKeepsIt() {
+    assertThat(WhisperTranscriptionClient.withoutVersionSuffix("https://host/ai/v1/"))
+        .isEqualTo("https://host/ai");
+    assertThat(WhisperTranscriptionClient.withoutVersionSuffix("https://host/ai"))
+        .isEqualTo("https://host/ai");
+    assertThat(WhisperTranscriptionClient.withoutVersionSuffix("http://h:1/v10"))
+        .isEqualTo("http://h:1/v10");
+  }
 }

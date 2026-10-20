@@ -62,7 +62,11 @@ public final class WhisperTranscriptionClient {
     requestFactory.setReadTimeout(READ_TIMEOUT_MS);
 
     RestClient client =
-        restClientBuilder.clone().baseUrl(baseUrl).requestFactory(requestFactory).build();
+        restClientBuilder
+            .clone()
+            .baseUrl(withoutVersionSuffix(baseUrl))
+            .requestFactory(requestFactory)
+            .build();
 
     ByteArrayResource fileResource = new NamedByteArrayResource(audioBytes, filename);
 
@@ -99,6 +103,19 @@ public final class WhisperTranscriptionClient {
     // before it is parsed.
     logger.info("Whisper transcription response received ({} chars)", responseBody.length());
     return parseTranscription(responseBody);
+  }
+
+  /**
+   * The base the request path is joined to: the provider's own, without a trailing {@code /v1}. The
+   * endpoint below carries {@code /v1/audio/transcriptions} itself, while the same provider row is
+   * read as {@code …/v1} by clients that append only {@code /images/generations} or {@code
+   * /audio/speech}: joined blindly, {@code …/v1} answered 404 from {@code
+   * …/v1/v1/audio/transcriptions} (dev, 2026-10-20). So the path is joined once, with or without
+   * the suffix.
+   */
+  static String withoutVersionSuffix(String baseUrl) {
+    String trimmed = baseUrl.strip().replaceAll("/+$", "");
+    return trimmed.replaceFirst("(?i)/v1$", "");
   }
 
   private String post(

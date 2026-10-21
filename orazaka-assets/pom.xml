@@ -16,6 +16,12 @@
     <description>Tier-2 SDK — envelope encryption for the asset store: a per-file data key wrapped by a master key nobody but a key provider ever sees, block-addressable so a Range request decrypts one block instead of a file</description>
 
     <dependencies>
+        <!-- The master keyring moved out so a service that only seals a secret does not need the store. -->
+        <dependency>
+            <groupId>com.krizaka.orazaka</groupId>
+            <artifactId>orazaka-crypto</artifactId>
+            <version>${project.version}</version>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-autoconfigure</artifactId>

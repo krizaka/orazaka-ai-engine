@@ -74,4 +74,55 @@ class MemoryInterceptorTest {
     assertThat(added.get(1)).isInstanceOf(AssistantMessage.class);
     assertThat(added.get(1).getText()).isEqualTo("AI Response");
   }
+
+  private static Context retained(String retention) {
+    java.util.Map<String, Object> platform = new java.util.HashMap<>();
+    if (retention != null) {
+      platform.put(Context.RETENTION_KEY, retention);
+    }
+    return new Context("user-1", "conv-9", platform, java.util.Set.of());
+  }
+
+  @Test
+  @DisplayName("retention none: what the person said and what was answered are never written")
+  void retentionNoneWritesNothing() {
+    MemoryResolver resolver = mock(MemoryResolver.class);
+    MemoryInterceptor interceptor = new MemoryInterceptor(resolver);
+    InternalChatRequest request = mock(InternalChatRequest.class);
+    when(request.context()).thenReturn(retained(Context.RETENTION_NONE));
+
+    interceptor.postProcess(request, "a private sentence", "a private answer");
+
+    verifyNoInteractions(resolver);
+  }
+
+  @Test
+  @DisplayName("retention none: no stored history is read back into the prompt either")
+  void retentionNoneReadsNothing() {
+    MemoryResolver resolver = mock(MemoryResolver.class);
+    MemoryInterceptor interceptor = new MemoryInterceptor(resolver);
+    InternalChatRequest request = mock(InternalChatRequest.class);
+    when(request.context()).thenReturn(retained(Context.RETENTION_NONE));
+    List<Message> messages = new ArrayList<>(List.of(new UserMessage("Current query")));
+
+    interceptor.preProcess(request, "Current query", messages, mock(ChatOptions.class));
+
+    assertThat(messages).hasSize(1);
+    verifyNoInteractions(resolver);
+  }
+
+  @Test
+  @DisplayName("any other retention value keeps the default: the turn is remembered")
+  void otherRetentionKeepsDefault() {
+    MemoryResolver resolver = mock(MemoryResolver.class);
+    ChatMemory chatMemory = mock(ChatMemory.class);
+    when(resolver.resolve("conv-9")).thenReturn(chatMemory);
+    MemoryInterceptor interceptor = new MemoryInterceptor(resolver);
+    InternalChatRequest request = mock(InternalChatRequest.class);
+    when(request.context()).thenReturn(retained("standard"));
+
+    interceptor.postProcess(request, "q", "a");
+
+    verify(chatMemory).add(eq("conv-9"), anyList());
+  }
 }

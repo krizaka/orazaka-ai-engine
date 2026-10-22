@@ -104,4 +104,21 @@ class ContextTest {
     var newAuth = new Authority("NEW");
     assertThrows(UnsupportedOperationException.class, () -> auths.add(newAuth));
   }
+
+  @Test
+  void retentionNone_isDeclaredByThePlatformNamespaceOnly() {
+    var declared = new Context("user", "conv", Map.of(Context.RETENTION_KEY, "none"), Set.of());
+    assertTrue(declared.retentionNone());
+
+    // What a user wrote about themselves is namespaced, so it can never declare the mode.
+    var written =
+        new Context(
+            "user", "conv", Context.userPreferences(Map.of("orazaka.retention", "none")), Set.of());
+    assertFalse(written.retentionNone());
+
+    assertFalse(new Context("user", "conv", Map.of(), Set.of()).retentionNone());
+    assertFalse(
+        new Context("user", "conv", Map.of(Context.RETENTION_KEY, "standard"), Set.of())
+            .retentionNone());
+  }
 }

@@ -21,6 +21,9 @@ import org.springframework.ai.chat.prompt.ChatOptions;
  * <p>Uses {@link MemoryResolver} to obtain a per-conversation {@link ChatMemory} store, enabling
  * multi-turn context within a single conversation thread.
  *
+ * <p>A turn in no-storage mode ({@link Context#retentionNone()}) is neither read from nor written
+ * to memory.
+ *
  * @see MemoryResolver
  */
 class MemoryInterceptor implements PromptContextInterceptor {
@@ -59,8 +62,13 @@ class MemoryInterceptor implements PromptContextInterceptor {
             });
   }
 
+  /**
+   * The conversation to remember in — empty when the turn runs in no-storage mode ({@code
+   * retention: none}): nothing is read back, and neither the prompt nor the completion is written.
+   */
   private Optional<String> resolveConversationId(InternalChatRequest request) {
     return Optional.ofNullable(request.context())
+        .filter(context -> !context.retentionNone())
         .map(Context::conversationId)
         .filter(id -> !id.isBlank());
   }

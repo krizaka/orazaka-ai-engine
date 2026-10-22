@@ -39,6 +39,16 @@ public record Context(
    */
   public static final String PLATFORM_NAMESPACE = "orazaka.";
 
+  /**
+   * How long the content of a turn may live, declared by the host service from the actor's plan
+   * (the {@code retention.none} entitlement). Absent means the engine's default; {@value
+   * #RETENTION_NONE} means the turn is processed and forgotten (see {@link #retentionNone()}).
+   */
+  public static final String RETENTION_KEY = PLATFORM_NAMESPACE + "retention";
+
+  /** The value of {@link #RETENTION_KEY} that keeps only counters and metadata. */
+  public static final String RETENTION_NONE = "none";
+
   /** What a user wrote about themselves, which the platform carries and never takes as its own. */
   public static final String USER_PREFERENCE_NAMESPACE = "preference.";
 
@@ -59,6 +69,18 @@ public record Context(
         authorities != null
             ? Collections.unmodifiableSet(Set.copyOf(authorities))
             : Collections.emptySet();
+  }
+
+  /**
+   * Whether this turn runs in no-storage mode ({@code retention: none}): the engine keeps counters
+   * and metadata — never the prompt, the completion or a transcript — and its logs carry no
+   * content. Only the platform namespace can declare it, so a user preference cannot lower or raise
+   * it (ADR-064).
+   *
+   * @return {@code true} when the host declared {@value #RETENTION_NONE}
+   */
+  public boolean retentionNone() {
+    return RETENTION_NONE.equals(preferences.get(RETENTION_KEY));
   }
 
   /**

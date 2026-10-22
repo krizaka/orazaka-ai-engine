@@ -5,8 +5,10 @@ import com.krizaka.orazaka.core.application.pipeline.DynamicPipelineExecutor;
 import com.krizaka.orazaka.core.application.pipeline.EnginePipelineBridge;
 import com.krizaka.orazaka.core.application.pipeline.EnginePipelineContext;
 import com.krizaka.orazaka.core.application.pipeline.EngineStreamBridge;
+import com.krizaka.orazaka.core.application.pipeline.ResponseScreen;
 import com.krizaka.orazaka.core.application.routing.ProviderClassifier;
 import com.krizaka.orazaka.core.domain.event.ChatCompletedEvent;
+import com.krizaka.orazaka.core.domain.model.CachedResponse;
 import com.krizaka.orazaka.core.domain.model.audio.AudioRequest;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatResponse;
@@ -121,6 +123,9 @@ public abstract sealed class AbstractEngine permits Engine {
   public InternalChatResponse chat(InternalChatRequest request) {
     var context =
         infra.pipelineBridge().compileContext(request, pipeline, defaultProvider, interceptors);
+    if (context.cachedResponse() != null) {
+      return serveCached(request, context);
+    }
     // What is logged is the call's shape, never its content: prompts and responses were written
     // here
     // at INFO, for every turn of every data class, to a file with no retention and no audit — the
@@ -149,7 +154,10 @@ public abstract sealed class AbstractEngine permits Engine {
       closeContextResources(context);
     }
     long durationMs = (System.nanoTime() - startTime) / 1_000_000;
-    String text = extractResponseText(response);
+    // Every answer is screened before it leaves — this one and a cached one take the same path.
+    String text =
+        ResponseScreen.apply(interceptors, context.promptContext(), extractResponseText(response));
+    ResponseScreen.served(interceptors, context.promptContext(), text);
 
     interceptors.forEach(i -> i.postProcess(request, context.promptText(), text));
 
@@ -157,6 +165,30 @@ public abstract sealed class AbstractEngine permits Engine {
     var out =
         new InternalChatResponse(
             text, context.conversationId(), extractUsage(response), Map.copyOf(metadata));
+    eventPublisher.publishEvent(new ChatCompletedEvent(request, out, context.holdId()));
+    return out;
+  }
+
+  /**
+   * Serves an answer a cache found before inference: no model call, no usage reported (the turn's
+   * hold is released, not billed), the same output screens as a fresh answer.
+   */
+  private InternalChatResponse serveCached(
+      InternalChatRequest request, EnginePipelineContext context) {
+    var cached = context.cachedResponse();
+    logger.info(
+        "Engine answered from cache: tier={}, conversation={}",
+        cached.tier(),
+        context.conversationId());
+    String text = ResponseScreen.apply(interceptors, context.promptContext(), cached.text());
+    Map<String, Object> metadata = new HashMap<>();
+    metadata.put("provider", CachedResponse.PROVIDER);
+    metadata.put("cache", cached.tier());
+    metadata.put("cacheSimilarity", cached.similarity());
+    metadata.put("durationMs", 0L);
+    var out =
+        new InternalChatResponse(
+            text, context.conversationId(), TokenUsage.none(), Map.copyOf(metadata));
     eventPublisher.publishEvent(new ChatCompletedEvent(request, out, context.holdId()));
     return out;
   }

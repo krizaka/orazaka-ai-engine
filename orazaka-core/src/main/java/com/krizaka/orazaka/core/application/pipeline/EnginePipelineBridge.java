@@ -4,6 +4,7 @@ import com.krizaka.orazaka.core.application.engine.AbstractEngine;
 import com.krizaka.orazaka.core.application.interceptor.PromptContextInterceptor;
 import com.krizaka.orazaka.core.application.routing.ChatOptionsResolver;
 import com.krizaka.orazaka.core.application.routing.ProviderClassifier;
+import com.krizaka.orazaka.core.domain.model.CachedResponse;
 import com.krizaka.orazaka.core.domain.model.PromptContext;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
 import com.krizaka.orazaka.core.domain.ports.outbound.ModelCatalogProvider;
@@ -109,6 +110,19 @@ public final class EnginePipelineBridge {
             .map(PromptContext::refinedPrompt)
             .orElse(queryForPipeline);
 
+    if (pipelineContext != null && pipelineContext.cachedResponse().isPresent()) {
+      // Answered before inference: no provider, no messages, no MCP client to open.
+      return new EnginePipelineContext(
+          CachedResponse.PROVIDER,
+          request.context().conversationId(),
+          promptText,
+          null,
+          List.of(),
+          resolveHoldId(pipelineContext),
+          pipelineContext.cachedResponse().orElseThrow(),
+          pipelineContext);
+    }
+
     String provider = resolveProvider(pipelineContext, request.options(), defaultProvider);
     String ollamaChatModel = resolveOllamaChatModel(provider);
 
@@ -147,7 +161,14 @@ public final class EnginePipelineBridge {
     String conversationId = request.context().conversationId();
 
     return new EnginePipelineContext(
-        provider, conversationId, promptText, prompt, closeables, resolveHoldId(pipelineContext));
+        provider,
+        conversationId,
+        promptText,
+        prompt,
+        closeables,
+        resolveHoldId(pipelineContext),
+        null,
+        pipelineContext);
   }
 
   /**

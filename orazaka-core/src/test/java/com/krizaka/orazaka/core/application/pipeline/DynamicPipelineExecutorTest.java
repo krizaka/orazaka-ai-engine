@@ -73,6 +73,14 @@ class DynamicPipelineExecutorTest {
     }
   }
 
+  /** A cache: answers the turn itself (not a refusal), so nothing after it should run. */
+  private static class AnsweringInterceptor implements PromptContextInterceptor {
+    @Override
+    public PromptContext beforeExecution(PromptContext context) {
+      return context.withCachedResponse(new CachedResponse("cached", "EXACT", 1.0));
+    }
+  }
+
   /** An enrichment step that breaks: must degrade the answer, never lose the turn. */
   private static class BrokenInterceptor implements PromptContextInterceptor {
     @Override
@@ -362,6 +370,27 @@ class DynamicPipelineExecutorTest {
       assertThrows(
           PipelineShortCircuitException.class,
           () -> executor.process("hello", 0, context, "default"));
+    }
+
+    @Test
+    @DisplayName(
+        "a cached answer ends the dynamic chain: nothing after it runs, nothing before is skipped")
+    void aCachedAnswerStopsTheDynamicChain() {
+      var answering = new AnsweringInterceptor();
+      initExecutor(List.of(mockInterceptor1, answering, mockInterceptor2));
+
+      var coreConfig = new InterceptorConfig("MockInterceptor1", "Mock 1", 1, true, "");
+      var cache = new InterceptorConfig("AnsweringInterceptor", "Cache", 2, true, "");
+      var after = new InterceptorConfig("MockInterceptor2", "Mock 2", 3, true, "");
+      var config =
+          new PipelineConfig("default", List.of(coreConfig), List.of(cache, after), List.of());
+      when(pipelineRegistry.getConfig(any())).thenReturn(config);
+
+      var result = executor.process("hello", 0, Context.anonymous(), "default");
+
+      assertTrue(mockInterceptor1.intercepted, "the core chain ran in full");
+      assertFalse(mockInterceptor2.intercepted, "nothing runs after the answer");
+      assertEquals("cached", result.cachedResponse().orElseThrow().text());
     }
 
     @Test

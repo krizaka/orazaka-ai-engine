@@ -2,6 +2,7 @@ package com.krizaka.orazaka.core.domain.model;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * State machine context holding user and system matrices for prompt refinement and routing.
@@ -205,6 +206,33 @@ public record PromptContext(
    */
   public String billingHoldId() {
     return systemMetadata.get(BILLING_HOLD_ID_KEY) instanceof String s && !s.isBlank() ? s : null;
+  }
+
+  /** System-metadata key under which a cache records the answer it found (read by the engine). */
+  private static final String CACHED_RESPONSE_KEY = "cache.response";
+
+  /**
+   * Returns a copy of this context carrying an answer found before inference. The engine then skips
+   * the model; the output screens still run on the answer, and the turn's hold is released.
+   *
+   * @param response the cached answer
+   * @return A new PromptContext instance.
+   */
+  public PromptContext withCachedResponse(CachedResponse response) {
+    var metadata = new HashMap<>(systemMetadata);
+    metadata.put(CACHED_RESPONSE_KEY, response);
+    return withSystemMetadata(metadata);
+  }
+
+  /**
+   * The answer a cache found for this turn, if any.
+   *
+   * @return the cached answer, or empty when the turn must be inferred
+   */
+  public Optional<CachedResponse> cachedResponse() {
+    return systemMetadata.get(CACHED_RESPONSE_KEY) instanceof CachedResponse c
+        ? Optional.of(c)
+        : Optional.empty();
   }
 
   /**

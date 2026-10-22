@@ -22,7 +22,7 @@ class PipelineConfigManagerImpl implements PipelineConfigManager {
   @Override
   @Transactional(readOnly = true)
   public List<InterceptorConfigDto> findAllOrdered() {
-    return repository.findAllByOrderByExecutionOrderAsc().stream()
+    return repository.findAllByOrderByExecutionOrderAscIdAsc().stream()
         .map(PipelineConfigManagerImpl::toDto)
         .toList();
   }

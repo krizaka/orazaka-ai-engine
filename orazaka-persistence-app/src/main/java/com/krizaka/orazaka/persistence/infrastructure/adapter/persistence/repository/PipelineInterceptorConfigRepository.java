@@ -14,7 +14,7 @@ public interface PipelineInterceptorConfigRepository
    *
    * @return Ordered list of pipeline interceptor config entities.
    */
-  List<PipelineInterceptorConfigEntity> findAllByOrderByExecutionOrderAsc();
+  List<PipelineInterceptorConfigEntity> findAllByOrderByExecutionOrderAscIdAsc();
 
   /**
    * Finds a single interceptor configuration by its unique key.

@@ -59,7 +59,7 @@ public final class SemanticCacheInterceptor implements PromptContextInterceptor 
   public static final String MODEL_TIER_KEY = "orazaka.cache.modelTier";
 
   /** Platform keys naming the tenant, first found wins. */
-  public static final List<String> TENANT_KEYS = List.of("orazaka.tenantId", "orazaka.studioId");
+  private static final List<String> TENANT_KEYS = List.of("orazaka.tenantId", "orazaka.studioId");
 
   /** The lowest cosine accepted for a semantic hit. */
   public static final double MIN_THRESHOLD = 0.94;

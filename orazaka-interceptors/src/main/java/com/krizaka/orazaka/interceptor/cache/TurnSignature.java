@@ -95,8 +95,7 @@ public final class TurnSignature {
           "soixante",
           "cent",
           "cents",
-          "mille",
-          "million");
+          "mille");
 
   private TurnSignature() {}
 

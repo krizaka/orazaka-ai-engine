@@ -33,9 +33,9 @@ class SemanticCacheInterceptorTest {
       calls.incrementAndGet();
       float[] v = new float[8];
       for (String w : text.toLowerCase().replaceAll("[^\\p{L}\\d' ]", " ").split("\\s+")) {
-        // Numbers and negations barely move an embedding: only the letters of the word's first char
-        // count.
-        if (!w.isEmpty() && !w.matches("\\d+")) {
+        // Numbers and negations barely move an embedding (the failure a cache must survive): a word
+        // that carries one is invisible to this stub, the others count by their first letter.
+        if (!w.isEmpty() && TurnSignature.of(w).isEmpty()) {
           v[Math.abs(w.charAt(0)) % 8] += 1;
         }
       }
@@ -71,6 +71,18 @@ class SemanticCacheInterceptorTest {
   private final InMemorySemanticCacheStore store = new InMemorySemanticCacheStore(100);
   private final SemanticCacheInterceptor cache =
       new SemanticCacheInterceptor(store, embedder, clock, 0.94);
+
+  private static double cosine(float[] a, float[] b) {
+    double dot = 0;
+    double na = 0;
+    double nb = 0;
+    for (int i = 0; i < a.length; i++) {
+      dot += a[i] * b[i];
+      na += a[i] * a[i];
+      nb += b[i] * b[i];
+    }
+    return dot / (Math.sqrt(na) * Math.sqrt(nb));
+  }
 
   private static PromptContext turn(
       String text, String tenant, String mode, Map<String, Object> more) {
@@ -342,10 +354,11 @@ class SemanticCacheInterceptorTest {
   @DisplayName("6. two prompts differing only by a number or a negation do not hit")
   class NumbersAndNegations {
     private void assertNoHit(String stored, String asked) {
-      // The stub embedder gives both exactly the same vector (cosine 1.0): only the signature can
-      // separate them.
+      // The stub embedder sees both as (nearly) the same text, above the threshold: only the
+      // signature can separate them.
       remember(turn(stored, "acme", "semantic"), "answer to: " + stored);
-      assertThat(embedder.embed(stored)).isEqualTo(embedder.embed(asked));
+      assertThat(cosine(embedder.embed(stored), embedder.embed(asked)))
+          .isGreaterThanOrEqualTo(0.94);
       assertThat(hit(cache.beforeExecution(turn(asked, "acme", "semantic"))))
           .as("%s  vs  %s", stored, asked)
           .isFalse();

@@ -230,7 +230,7 @@ class EngineCachedResponseTest {
             .block();
 
     assertThat(chunks).hasSize(1);
-    assertThat(chunks.get(0).content()).isEqualTo("streamed from cache");
+    assertThat(chunks.getFirst().content()).isEqualTo("streamed from cache");
     assertThat(screened).containsExactly("streamed from cache");
     verifyNoInteractions(chatModel);
     verify(eventPublisher, times(1)).publishEvent(any(ChatCompletedEvent.class));

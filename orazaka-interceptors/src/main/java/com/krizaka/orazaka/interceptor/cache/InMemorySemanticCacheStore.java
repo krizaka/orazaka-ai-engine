@@ -59,7 +59,7 @@ public final class InMemorySemanticCacheStore implements SemanticCacheStore {
     entries.removeIf(e -> e.partition().equals(partition) && e.exactKey().equals(exactKey));
     entries.add(new Entry(partition, exactKey, embedding, signature, response, expiresAt));
     while (entries.size() > capacity) {
-      entries.remove(0);
+      entries.removeFirst();
     }
   }
 

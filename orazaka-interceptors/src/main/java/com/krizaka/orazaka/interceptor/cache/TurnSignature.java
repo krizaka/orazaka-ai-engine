@@ -119,7 +119,7 @@ public final class TurnSignature {
       if (word.endsWith("n't")) {
         parts.add("x:not");
       } else if (NEGATIONS.contains(word)) {
-        parts.add("x:" + (word.equals("cannot") ? "not" : word));
+        parts.add("x:" + ("cannot".equals(word) ? "not" : word));
       } else if (NUMBER_WORDS.contains(word)) {
         parts.add("w:" + word);
       }

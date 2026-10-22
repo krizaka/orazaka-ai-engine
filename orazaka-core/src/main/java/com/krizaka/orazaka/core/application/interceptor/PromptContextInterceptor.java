@@ -102,6 +102,16 @@ public interface PromptContextInterceptor {
   }
 
   /**
+   * Called once a <b>fresh</b> model answer has passed every output screen and is being served: the
+   * moment a cache may keep it. Never called for a refused answer, nor for an answer that was
+   * itself served from a cache. A failure here never loses the turn.
+   *
+   * @param context the prompt context of the turn
+   * @param servedText the answer as served (after the screens)
+   */
+  default void responseServed(PromptContext context, String servedText) {}
+
+  /**
    * Indicates whether this interceptor depends on AI model inference calls. Interceptors returning
    * {@code true} will be blocked by the security governance kill-switch when {@code
    * orazaka.security.disable-ai=true} is set.

@@ -53,4 +53,25 @@ public final class ResponseScreen {
     }
     return text;
   }
+
+  /**
+   * Tells every interceptor a fresh answer passed the screens and is served ({@code
+   * responseServed}). A failure is logged and never reaches the user.
+   */
+  public static void served(
+      List<PromptContextInterceptor> interceptors, PromptContext context, String servedText) {
+    if (context == null || servedText == null) {
+      return;
+    }
+    for (PromptContextInterceptor interceptor : interceptors) {
+      try {
+        interceptor.responseServed(context, servedText);
+      } catch (RuntimeException failure) {
+        logger.warn(
+            "responseServed of '{}' failed — the turn is unaffected.",
+            interceptor.getClass().getSimpleName(),
+            failure);
+      }
+    }
+  }
 }

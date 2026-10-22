@@ -10,6 +10,9 @@ package com.krizaka.orazaka.core.domain.model;
  */
 public record CachedResponse(String text, String tier, double similarity) {
 
+  /** The provider name a cached answer reports (no model ran). */
+  public static final String PROVIDER = "cache";
+
   /** Compact constructor: an answer must have text, a tier and a similarity in [0, 1]. */
   public CachedResponse {
     if (text == null || text.isBlank()) {

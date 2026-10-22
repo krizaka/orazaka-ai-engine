@@ -4,6 +4,7 @@ import com.krizaka.orazaka.core.application.engine.AbstractEngine;
 import com.krizaka.orazaka.core.application.interceptor.PromptContextInterceptor;
 import com.krizaka.orazaka.core.application.routing.ChatOptionsResolver;
 import com.krizaka.orazaka.core.application.routing.ProviderClassifier;
+import com.krizaka.orazaka.core.domain.model.CachedResponse;
 import com.krizaka.orazaka.core.domain.model.PromptContext;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
 import com.krizaka.orazaka.core.domain.ports.outbound.ModelCatalogProvider;
@@ -41,9 +42,6 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public final class EnginePipelineBridge {
-
-  /** The provider name a cached answer reports (no model ran). */
-  public static final String CACHE_PROVIDER = "cache";
 
   private final ModelCatalogProvider modelCatalogProvider;
   private final PlatformMcpServerProvider platformMcpServerProvider;
@@ -115,7 +113,7 @@ public final class EnginePipelineBridge {
     if (pipelineContext != null && pipelineContext.cachedResponse().isPresent()) {
       // Answered before inference: no provider, no messages, no MCP client to open.
       return new EnginePipelineContext(
-          CACHE_PROVIDER,
+          CachedResponse.PROVIDER,
           request.context().conversationId(),
           promptText,
           null,

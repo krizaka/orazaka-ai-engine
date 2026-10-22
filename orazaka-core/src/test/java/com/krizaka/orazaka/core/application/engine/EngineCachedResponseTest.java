@@ -59,6 +59,15 @@ class EngineCachedResponseTest {
 
   private final List<String> screened = new ArrayList<>();
   private final List<String> postProcessed = new ArrayList<>();
+  private final List<String> served = new ArrayList<>();
+
+  /** What a cache needs: to hear about a fresh answer once it is served. */
+  private class Listener implements PromptContextInterceptor {
+    @Override
+    public void responseServed(PromptContext context, String servedText) {
+      served.add(servedText);
+    }
+  }
 
   /** An output screen that records what it saw, and may rewrite or refuse. */
   private class Screen implements PromptContextInterceptor {
@@ -225,5 +234,34 @@ class EngineCachedResponseTest {
     assertThat(screened).containsExactly("streamed from cache");
     verifyNoInteractions(chatModel);
     verify(eventPublisher, times(1)).publishEvent(any(ChatCompletedEvent.class));
+  }
+
+  @Test
+  void aFreshAnswerIsAnnouncedOnceServedAfterTheScreens() {
+    pipelineAnswers(null);
+    modelAnswers("fresh text");
+
+    engine(new Screen(null, "screened"), new Listener()).chat(InternalChatRequest.simple("hello"));
+
+    assertThat(served).containsExactly("screened");
+  }
+
+  @Test
+  void aRefusedFreshAnswerIsNeverAnnounced() {
+    pipelineAnswers(null);
+    modelAnswers("fresh self-harm text");
+    var engine = engine(new Screen("self-harm", null), new Listener());
+
+    assertThrows(
+        PipelineShortCircuitException.class,
+        () -> engine.chat(InternalChatRequest.simple("hello")));
+    assertThat(served).isEmpty();
+  }
+
+  @Test
+  void aCachedAnswerIsNeverAnnouncedAgain() {
+    pipelineAnswers(new CachedResponse("cached", "EXACT", 1.0));
+    engine(new Listener()).chat(InternalChatRequest.simple("hello"));
+    assertThat(served).isEmpty();
   }
 }

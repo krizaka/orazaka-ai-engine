@@ -5,6 +5,7 @@ import com.krizaka.orazaka.core.application.interceptor.PromptContextInterceptor
 import com.krizaka.orazaka.core.application.routing.DynamicChatModelFactory;
 import com.krizaka.orazaka.core.application.routing.ProviderClassifier;
 import com.krizaka.orazaka.core.domain.event.ChatCompletedEvent;
+import com.krizaka.orazaka.core.domain.model.CachedResponse;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatResponse;
 import com.krizaka.orazaka.core.domain.model.chat.TokenUsage;
@@ -156,7 +157,7 @@ public final class EngineStreamBridge {
     String text = ResponseScreen.apply(interceptors, context.promptContext(), cached.text());
     Map<String, Object> metadata =
         Map.of(
-            "provider", EnginePipelineBridge.CACHE_PROVIDER,
+            "provider", CachedResponse.PROVIDER,
             "cache", cached.tier(),
             "cacheSimilarity", cached.similarity());
     var chunk = new InternalChatResponse(text, context.conversationId(), metadata);

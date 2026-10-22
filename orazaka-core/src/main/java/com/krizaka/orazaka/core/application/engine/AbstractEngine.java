@@ -8,6 +8,7 @@ import com.krizaka.orazaka.core.application.pipeline.EngineStreamBridge;
 import com.krizaka.orazaka.core.application.pipeline.ResponseScreen;
 import com.krizaka.orazaka.core.application.routing.ProviderClassifier;
 import com.krizaka.orazaka.core.domain.event.ChatCompletedEvent;
+import com.krizaka.orazaka.core.domain.model.CachedResponse;
 import com.krizaka.orazaka.core.domain.model.audio.AudioRequest;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatResponse;
@@ -156,6 +157,7 @@ public abstract sealed class AbstractEngine permits Engine {
     // Every answer is screened before it leaves — this one and a cached one take the same path.
     String text =
         ResponseScreen.apply(interceptors, context.promptContext(), extractResponseText(response));
+    ResponseScreen.served(interceptors, context.promptContext(), text);
 
     interceptors.forEach(i -> i.postProcess(request, context.promptText(), text));
 
@@ -180,7 +182,7 @@ public abstract sealed class AbstractEngine permits Engine {
         context.conversationId());
     String text = ResponseScreen.apply(interceptors, context.promptContext(), cached.text());
     Map<String, Object> metadata = new HashMap<>();
-    metadata.put("provider", EnginePipelineBridge.CACHE_PROVIDER);
+    metadata.put("provider", CachedResponse.PROVIDER);
     metadata.put("cache", cached.tier());
     metadata.put("cacheSimilarity", cached.similarity());
     metadata.put("durationMs", 0L);

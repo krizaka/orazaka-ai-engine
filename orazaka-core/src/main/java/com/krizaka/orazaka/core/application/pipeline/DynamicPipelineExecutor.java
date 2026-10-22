@@ -228,6 +228,13 @@ public final class DynamicPipelineExecutor {
         failOrDegrade("Phase 2", interceptor, e);
       }
       emitStageCompleted(context, interceptor);
+      if (promptContext.cachedResponse().isPresent()) {
+        // The turn is answered (not refused): nothing after the cache has anything left to do.
+        logger.info(
+            "Phase 2 interceptor '{}' answered the turn; the rest of the chain is skipped.",
+            interceptor.getClass().getSimpleName());
+        break;
+      }
     }
 
     logger.debug(

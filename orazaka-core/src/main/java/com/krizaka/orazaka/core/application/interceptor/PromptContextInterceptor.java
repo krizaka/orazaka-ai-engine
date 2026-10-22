@@ -85,6 +85,23 @@ public interface PromptContextInterceptor {
   }
 
   /**
+   * Output screen. Runs on <b>every</b> answer the engine is about to serve, a fresh model answer
+   * and a cached one alike, before it leaves: a control that reads answers implements it. It may
+   * return the text to serve instead (a reviewed text, a redaction) or refuse with a {@link
+   * com.krizaka.orazaka.core.application.pipeline.PipelineShortCircuitException}.
+   *
+   * <p>Distinct from {@link #afterExecution}/{@link #postProcess}, which observe an answer already
+   * served and cannot stop it.
+   *
+   * @param context the prompt context of the turn
+   * @param responseText the answer about to be served
+   * @return the text to serve (the argument when unchanged)
+   */
+  default String screenResponse(PromptContext context, String responseText) {
+    return responseText;
+  }
+
+  /**
    * Indicates whether this interceptor depends on AI model inference calls. Interceptors returning
    * {@code true} will be blocked by the security governance kill-switch when {@code
    * orazaka.security.disable-ai=true} is set.

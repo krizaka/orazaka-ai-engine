@@ -42,6 +42,9 @@ import org.springframework.stereotype.Component;
 @Component
 public final class EnginePipelineBridge {
 
+  /** The provider name a cached answer reports (no model ran). */
+  public static final String CACHE_PROVIDER = "cache";
+
   private final ModelCatalogProvider modelCatalogProvider;
   private final PlatformMcpServerProvider platformMcpServerProvider;
   private final UserMcpServerProvider userMcpServerProvider;
@@ -109,6 +112,19 @@ public final class EnginePipelineBridge {
             .map(PromptContext::refinedPrompt)
             .orElse(queryForPipeline);
 
+    if (pipelineContext != null && pipelineContext.cachedResponse().isPresent()) {
+      // Answered before inference: no provider, no messages, no MCP client to open.
+      return new EnginePipelineContext(
+          CACHE_PROVIDER,
+          request.context().conversationId(),
+          promptText,
+          null,
+          List.of(),
+          resolveHoldId(pipelineContext),
+          pipelineContext.cachedResponse().orElseThrow(),
+          pipelineContext);
+    }
+
     String provider = resolveProvider(pipelineContext, request.options(), defaultProvider);
     String ollamaChatModel = resolveOllamaChatModel(provider);
 
@@ -147,7 +163,14 @@ public final class EnginePipelineBridge {
     String conversationId = request.context().conversationId();
 
     return new EnginePipelineContext(
-        provider, conversationId, promptText, prompt, closeables, resolveHoldId(pipelineContext));
+        provider,
+        conversationId,
+        promptText,
+        prompt,
+        closeables,
+        resolveHoldId(pipelineContext),
+        null,
+        pipelineContext);
   }
 
   /**

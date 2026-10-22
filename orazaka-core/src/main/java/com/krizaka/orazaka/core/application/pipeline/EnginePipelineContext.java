@@ -1,5 +1,7 @@
 package com.krizaka.orazaka.core.application.pipeline;
 
+import com.krizaka.orazaka.core.domain.model.CachedResponse;
+import com.krizaka.orazaka.core.domain.model.PromptContext;
 import java.util.List;
 import org.springframework.ai.chat.prompt.Prompt;
 
@@ -18,6 +20,10 @@ import org.springframework.ai.chat.prompt.Prompt;
  * @param holdId The credit reservation the entitlement gate took for this turn, or {@code null}
  *     when it was not metered. Carried through compilation because the gate runs in the pipeline
  *     while settlement happens after inference — this is what joins the two halves (ADR-033 §6.2).
+ * @param cachedResponse The answer a cache found before inference, or {@code null}: the engine then
+ *     serves it without calling the model (the output screens still run).
+ * @param promptContext The pipeline's final context (what the output screens read), or {@code null}
+ *     when no pipeline ran.
  */
 public record EnginePipelineContext(
     String provider,
@@ -25,7 +31,19 @@ public record EnginePipelineContext(
     String promptText,
     Prompt toPrompt,
     List<AutoCloseable> closeables,
-    String holdId) {
+    String holdId,
+    CachedResponse cachedResponse,
+    PromptContext promptContext) {
+
+  public EnginePipelineContext(
+      String provider,
+      String conversationId,
+      String promptText,
+      Prompt toPrompt,
+      List<AutoCloseable> closeables,
+      String holdId) {
+    this(provider, conversationId, promptText, toPrompt, closeables, holdId, null, null);
+  }
 
   public EnginePipelineContext(
       String provider, String conversationId, String promptText, Prompt toPrompt) {

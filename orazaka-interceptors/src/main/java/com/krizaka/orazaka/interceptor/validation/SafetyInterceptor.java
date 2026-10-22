@@ -85,6 +85,28 @@ public class SafetyInterceptor implements PromptContextInterceptor {
   }
 
   /**
+   * The same guard, read on the way out: an answer that carries a declared crisis term — a fresh
+   * model answer or a cached one, both take this path — is replaced by the reviewed text, never
+   * served. A cache must not be a way around this control.
+   */
+  @Override
+  public String screenResponse(PromptContext context, String responseText) {
+    List<String> terms = declaredTerms(context);
+    if (terms.isEmpty() || responseText == null || responseText.isBlank()) {
+      return responseText;
+    }
+    if (firstMatch(terms, responseText) != null) {
+      log.info("Crisis guard fired on an answer ({}); serving the reviewed text", REASON);
+      throw new PipelineShortCircuitException(
+          getId(),
+          REASON,
+          String.valueOf(context.userMetadata().get(JobCommand.SAFETY_RESPONSE_KEY)),
+          null);
+    }
+    return responseText;
+  }
+
+  /**
    * Runs whatever the kill-switch is doing.
    *
    * @return always {@code false} — a safety control that switches off with the models is a safety

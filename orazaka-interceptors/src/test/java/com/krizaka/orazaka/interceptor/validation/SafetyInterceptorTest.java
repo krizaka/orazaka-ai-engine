@@ -191,4 +191,30 @@ class SafetyInterceptorTest {
           .doesNotContain("je ne veux plus vivre");
     }
   }
+
+  @Test
+  @DisplayName("an answer that carries a declared crisis term is replaced by the reviewed text")
+  void screensAnAnswerThatEchoesACrisisTerm() {
+    PromptContext ctx = turn("bonjour", declaring("en finir"));
+
+    assertThatThrownBy(() -> interceptor.screenResponse(ctx, "Pour en finir avec cela, voici..."))
+        .isInstanceOf(PipelineShortCircuitException.class)
+        .hasMessage(RESPONSE);
+  }
+
+  @Test
+  @DisplayName("a clean answer passes the output screen unchanged")
+  void passesACleanAnswer() {
+    PromptContext ctx = turn("bonjour", declaring("en finir"));
+
+    assertThat(interceptor.screenResponse(ctx, "Voici votre facture."))
+        .isEqualTo("Voici votre facture.");
+  }
+
+  @Test
+  @DisplayName("a pack that declares nothing screens nothing")
+  void aPackThatDeclaresNothingScreensNothing() {
+    assertThat(interceptor.screenResponse(turn("bonjour", Map.of()), "en finir"))
+        .isEqualTo("en finir");
+  }
 }

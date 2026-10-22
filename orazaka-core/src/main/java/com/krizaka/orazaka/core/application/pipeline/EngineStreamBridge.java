@@ -93,6 +93,9 @@ public final class EngineStreamBridge {
         () -> {
           var context =
               pipelineBridge.compileContext(request, pipeline, defaultProvider, interceptors);
+          if (context.cachedResponse() != null) {
+            return servedFromCache(request, context, interceptors, eventPublisher);
+          }
           var responseBuilder = new StringBuilder();
           long startTime = System.nanoTime();
           // Usage arrives once, on the last chunk of a stream — captured here so the completion
@@ -141,6 +144,31 @@ public final class EngineStreamBridge {
                   })
               .doFinally(signalType -> closeResources(context));
         });
+  }
+
+  /** A cached answer as a stream of one screened chunk, then the completion event (no usage). */
+  private static Flux<InternalChatResponse> servedFromCache(
+      InternalChatRequest request,
+      EnginePipelineContext context,
+      List<PromptContextInterceptor> interceptors,
+      ApplicationEventPublisher eventPublisher) {
+    var cached = context.cachedResponse();
+    String text = ResponseScreen.apply(interceptors, context.promptContext(), cached.text());
+    Map<String, Object> metadata =
+        Map.of(
+            "provider", EnginePipelineBridge.CACHE_PROVIDER,
+            "cache", cached.tier(),
+            "cacheSimilarity", cached.similarity());
+    var chunk = new InternalChatResponse(text, context.conversationId(), metadata);
+    return Flux.just(chunk)
+        .doOnComplete(
+            () ->
+                eventPublisher.publishEvent(
+                    new ChatCompletedEvent(
+                        request,
+                        new InternalChatResponse(
+                            text, context.conversationId(), TokenUsage.none(), metadata),
+                        context.holdId())));
   }
 
   private ChatModel resolveActiveModel(InternalChatRequest request, EnginePipelineContext context) {

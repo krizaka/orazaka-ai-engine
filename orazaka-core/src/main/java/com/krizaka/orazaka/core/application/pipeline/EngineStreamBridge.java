@@ -100,18 +100,7 @@ public final class EngineStreamBridge {
           final AtomicReference<TokenUsage> tokenUsage = new AtomicReference<>(TokenUsage.none());
 
           ChatModel activeModel = resolveActiveModel(request, context);
-          logger.debug(
-              "OLLAMA_DEBUG: context.toPrompt().getOptions() = {}",
-              context.toPrompt().getOptions());
-          logger.debug(
-              "OLLAMA_DEBUG: context.toPrompt().getOptions().getClass() = {}",
-              context.toPrompt().getOptions() != null
-                  ? context.toPrompt().getOptions().getClass().getName()
-                  : "null");
-          logger.debug(
-              "OLLAMA_DEBUG: context.toPrompt().getInstructions() = {}",
-              context.toPrompt().getInstructions());
-
+          // Never the prompt, not even at DEBUG: a log keeps no data class (ADR-064).
           Flux<ChatResponse> streamFlux = initStream(activeModel, context);
 
           final ChatModel finalActiveModel = activeModel;

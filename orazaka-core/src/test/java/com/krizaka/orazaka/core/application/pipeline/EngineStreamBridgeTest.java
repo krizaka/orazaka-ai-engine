@@ -304,4 +304,28 @@ class EngineStreamBridgeTest {
     verify(modelFactory).createChatModel("anthropic", "claude-3", "mock-key");
     verify(modelFactory).createChatModel("google", "gemini-pro", "mock-key");
   }
+
+  /**
+   * The bridge sees the prompt and the whole completion; its logs may carry neither, not even at
+   * DEBUG (a log keeps no data class, ADR-064). A source guard: no log statement of the bridge
+   * mentions the prompt's instructions, the prompt text or the assembled completion.
+   */
+  @Test
+  void shouldNeverLogWhatThePersonSaidEvenAtDebug() throws Exception {
+    var source =
+        java.nio.file.Files.readString(
+            java.nio.file.Path.of(
+                "src/main/java/com/krizaka/orazaka/core/application/pipeline/EngineStreamBridge.java"));
+    var statements =
+        java.util.regex.Pattern.compile("logger\\.\\w+\\((?:[^;]|\\n)*?;").matcher(source);
+    int seen = 0;
+    while (statements.find()) {
+      seen++;
+      assertThat(statements.group())
+          .as("log statement must not carry content")
+          .doesNotContain(
+              "getInstructions()", "promptText", "fullText", "responseBuilder", "getText");
+    }
+    assertThat(seen).isPositive();
+  }
 }

@@ -47,16 +47,16 @@ public final class SemanticCacheInterceptor implements PromptContextInterceptor 
   private static final Logger log = LoggerFactory.getLogger(SemanticCacheInterceptor.class);
 
   /** Platform key: {@code off} (default), {@code exact} or {@code semantic}. */
-  public static final String MODE_KEY = "orazaka.cache.mode";
+  public static final String MODE_KEY = "orazaka.pipeline.cache.mode";
 
   /** Platform key: {@code true} when the turn must never be cached whatever the mode. */
-  public static final String VOLATILE_KEY = "orazaka.cache.volatile";
+  public static final String VOLATILE_KEY = "orazaka.pipeline.cache.volatile";
 
   /** Platform key: seconds an answer is kept (default one day). */
-  public static final String TTL_SECONDS_KEY = "orazaka.cache.ttlSeconds";
+  public static final String TTL_SECONDS_KEY = "orazaka.pipeline.cache.ttlSeconds";
 
   /** Platform key: the declared model tier (default {@code default}). */
-  public static final String MODEL_TIER_KEY = "orazaka.cache.modelTier";
+  public static final String MODEL_TIER_KEY = "orazaka.pipeline.cache.modelTier";
 
   /** Platform keys naming the tenant, first found wins. */
   private static final List<String> TENANT_KEYS = List.of("orazaka.tenantId", "orazaka.studioId");

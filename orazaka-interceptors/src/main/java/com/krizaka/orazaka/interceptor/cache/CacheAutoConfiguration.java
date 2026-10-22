@@ -32,7 +32,7 @@ public class CacheAutoConfiguration {
   @ConditionalOnBean(JdbcTemplate.class)
   @ConditionalOnMissingBean(SemanticCacheStore.class)
   @ConditionalOnProperty(
-      prefix = "orazaka.interceptor.cache",
+      prefix = "orazaka.pipeline.cache",
       name = "store",
       havingValue = "pgvector",
       matchIfMissing = true)
@@ -43,10 +43,7 @@ public class CacheAutoConfiguration {
   /** One node, no database: a bounded in-memory store, only when the host asks for it. */
   @Bean
   @ConditionalOnMissingBean(SemanticCacheStore.class)
-  @ConditionalOnProperty(
-      prefix = "orazaka.interceptor.cache",
-      name = "store",
-      havingValue = "memory")
+  @ConditionalOnProperty(prefix = "orazaka.pipeline.cache", name = "store", havingValue = "memory")
   SemanticCacheStore inMemorySemanticCacheStore() {
     return new InMemorySemanticCacheStore(5_000);
   }
@@ -65,7 +62,7 @@ public class CacheAutoConfiguration {
       SemanticCacheStore store,
       TextEmbedder embedder,
       ObjectProvider<Clock> clock,
-      @Value("${orazaka.interceptor.cache.threshold:" + DEFAULT_THRESHOLD + "}") double threshold) {
+      @Value("${orazaka.pipeline.cache.threshold:" + DEFAULT_THRESHOLD + "}") double threshold) {
     return new SemanticCacheInterceptor(
         store, embedder, clock.getIfAvailable(Clock::systemUTC), threshold);
   }

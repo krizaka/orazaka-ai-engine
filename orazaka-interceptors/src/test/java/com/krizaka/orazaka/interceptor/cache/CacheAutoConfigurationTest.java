@@ -54,7 +54,7 @@ class CacheAutoConfigurationTest {
   void memoryOnRequest() {
     runner
         .withBean(EmbeddingClient.class, () -> mock(EmbeddingClient.class))
-        .withPropertyValues("orazaka.interceptor.cache.store=memory")
+        .withPropertyValues("orazaka.pipeline.cache.store=memory")
         .run(
             ctx ->
                 assertThat(ctx.getBean(SemanticCacheStore.class))

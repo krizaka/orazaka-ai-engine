@@ -1,0 +1,51 @@
+package com.krizaka.orazaka.tools.domain.port;
+
+import com.krizaka.orazaka.tools.domain.model.research.FetchLimits;
+import com.krizaka.orazaka.tools.domain.model.research.FetchRefusal;
+import java.net.URI;
+import java.util.Optional;
+import java.util.function.Function;
+
+/**
+ * An HTTP GET that cannot be pointed at the inside (ADR-087 §4): one resolution per hop, the
+ * connection pinned to the address that was checked, every redirect checked again — by the address
+ * policy and by {@code hopCheck} — and time and size caps.
+ */
+public interface SafeHttp {
+
+  /**
+   * An answer read within the caps.
+   *
+   * @param finalUri the URI after redirects
+   * @param status the status
+   * @param contentType the media type without parameters, or empty
+   * @param body the body, at most {@code maxBytes}
+   * @param etag the ETag, or {@code null}
+   * @param lastModified the Last-Modified, or {@code null}
+   */
+  record Response(
+      URI finalUri,
+      int status,
+      String contentType,
+      byte[] body,
+      String etag,
+      String lastModified) {}
+
+  /**
+   * The answer, or why there is none.
+   *
+   * @param response the answer
+   * @param refusal the reason
+   */
+  record Outcome(Optional<Response> response, Optional<FetchRefusal> refusal) {}
+
+  /**
+   * Reads a URI.
+   *
+   * @param uri the first hop
+   * @param limits the caps and the user agent
+   * @param hopCheck applied to every hop, the first included: a reason refuses the hop
+   * @return the outcome
+   */
+  Outcome get(URI uri, FetchLimits limits, Function<URI, Optional<FetchRefusal>> hopCheck);
+}

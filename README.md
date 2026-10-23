@@ -107,6 +107,25 @@ the generator and generated documentation are not present in this standalone rep
 - **`searchKnowledge`** searches the organisation's knowledge base, not the web (it was called `searchWeb`, #59).
   Searching and reading the web is ADR-087's grounded research.
 
+## Grounded research: reading a page safely (ADR-087 slice 1)
+
+`PageFetcher` (`orazaka-tools`, `PageFetchService`) reads one page for grounded research through an
+administrator-declared `research_source`, with every guard of ADR-087 §4, in order:
+
+1. research on (`research.enabled`) and the source enabled;
+2. https, or http where the source allows it;
+3. the source's allow and deny patterns;
+4. the cache (`research_document`, by URL and content hash, within the source's freshness);
+5. the source's and the host's rate;
+6. robots.txt, always honoured and cached at most 24 h (RFC 9309).
+
+`PinnedHttpClient` then resolves each hop **once** and refuses any non-public address (loopback,
+private, link-local and the metadata endpoint, CGNAT, IPv6 ULA, mapped forms…). It connects to exactly the address it
+checked, so DNS rebinding cannot reach the connection. It re-checks every redirect, sends no cookies, and caps time and
+size. `HtmlTextExtractor` keeps the main content and drops what a reader does not see. Every call writes one
+`research_fetch` audit line, with a path hash, never the query. The limits are `research.fetch.*` rows read at call time.
+Nothing calls the fetcher yet: the citations and the verifier are slice 2.
+
 ## Position in the platform
 
 | | |

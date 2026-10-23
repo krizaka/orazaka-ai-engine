@@ -106,6 +106,23 @@ class PinnedHttpClientTest {
                 "",
                 Map.of("Location", "http://inside.test:" + port + "/page")));
     server.createContext("/loop", e -> reply(e, 302, "text/html", "", Map.of("Location", "/loop")));
+    server.createContext(
+        "/trickle",
+        e -> {
+          // One byte well inside the socket timeout, for far longer than the whole-call cap.
+          hits.incrementAndGet();
+          e.getResponseHeaders().add("Content-Type", "text/html");
+          e.sendResponseHeaders(200, 0);
+          try (OutputStream out = e.getResponseBody()) {
+            for (int i = 0; i < 40; i++) {
+              out.write('x');
+              out.flush();
+              Thread.sleep(250);
+            }
+          } catch (IOException | InterruptedException gone) {
+            Thread.currentThread().interrupt();
+          }
+        });
     server.start();
     port = server.getAddress().getPort();
   }
@@ -173,6 +190,8 @@ class PinnedHttpClientTest {
     assertThat(first.response()).isPresent();
     assertThat(first.response().get().status()).isEqualTo(200);
     assertThat(first.response().get().contentType()).isEqualTo("text/html");
+    assertThat(first.response().get().charset()).isEqualTo("utf-8");
+    assertThat(second.response().get().charset()).isNull();
     assertThat(new String(first.response().get().body(), StandardCharsets.UTF_8))
         .isEqualTo("<p>hello</p>");
     assertThat(second.response()).isPresent();
@@ -242,6 +261,20 @@ class PinnedHttpClientTest {
     assertThat(get(http, uri("site.test", "/loop")).refusal()).contains(FetchRefusal.REDIRECTS);
     assertThat(get(http, uri("site.test", "/big")).refusal()).contains(FetchRefusal.SIZE);
     assertThat(get(http, uri("site.test", "/slow")).refusal()).contains(FetchRefusal.TIMEOUT);
+  }
+
+  @Test
+  @DisplayName(
+      "a body that trickles in stops at the whole-call deadline, not at the socket timeout")
+  void slowTrickleStopsAtTheDeadline() {
+    TableResolver resolver = new TableResolver().answer("site.test", "127.0.0.1");
+    long started = System.nanoTime();
+    SafeHttp.Outcome outcome =
+        get(new PinnedHttpClient(resolver, LOOPBACK_ONLY), uri("site.test", "/trickle"));
+    long elapsedMs = (System.nanoTime() - started) / 1_000_000;
+    assertThat(outcome.refusal()).contains(FetchRefusal.TIMEOUT);
+    // The cap is 1.5 s; the server would have kept the read busy for 10 s.
+    assertThat(elapsedMs).isLessThan(5_000);
   }
 
   @Test

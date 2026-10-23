@@ -48,4 +48,17 @@ class SourcePatternsTest {
     assertThat(SourcePatterns.allows(s, "example.org", "/public/a")).isTrue();
     assertThat(SourcePatterns.allows(s, "example.org", "/private/a")).isFalse();
   }
+
+  @Test
+  @DisplayName("a percent-escaped letter is that letter: %70rivate is denied like private")
+  void encodedPathsCompareInCanonicalForm() {
+    ResearchSource s = source(List.of("example.org/**"), List.of("example.org/private/**"));
+    assertThat(SourcePatterns.allows(s, "example.org", "/%70rivate/secret")).isFalse();
+    assertThat(SourcePatterns.allows(s, "example.org", "/%50ublic/a")).isTrue();
+    // A pattern written with escapes reads the same way; an escaped slash stays one segment.
+    ResearchSource escaped = source(List.of("example.org/%64ocs/*"), List.of());
+    assertThat(SourcePatterns.allows(escaped, "example.org", "/docs/a")).isTrue();
+    assertThat(SourcePatterns.allows(escaped, "example.org", "/docs/a%2Fb")).isTrue();
+    assertThat(SourcePatterns.allows(escaped, "example.org", "/docs/a/b")).isFalse();
+  }
 }

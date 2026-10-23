@@ -41,18 +41,19 @@ class JpaResearchStore implements ResearchStore {
   }
 
   @Override
-  public Optional<FetchedDocument> freshDocument(String url, Instant now) {
+  public Optional<FetchedDocument> freshDocument(UUID sourceId, String url, Instant notBefore) {
     return documents
-        .findFirstByIdUrlAndExpiresAtAfterOrderByFetchedAtDesc(url, now)
+        .findFirstByIdSourceIdAndIdUrlAndFetchedAtGreaterThanEqualOrderByFetchedAtDesc(
+            sourceId, url, notBefore)
         .map(JpaResearchStore::toDocument);
   }
 
   @Override
   public void saveDocument(FetchedDocument document, String requestedUrl, UUID sourceId) {
-    documents.save(toEntity(document, document.url(), sourceId));
+    documents.save(toEntity(document, requestedUrl, sourceId));
     if (!requestedUrl.equals(document.url())) {
-      // A redirected URL is cached under the URL that was asked for too: the next ask is a hit.
-      documents.save(toEntity(document, requestedUrl, sourceId));
+      // Asked for directly, the final URL is a hit too; both rows keep the final URL.
+      documents.save(toEntity(document, document.url(), sourceId));
     }
   }
 
@@ -91,7 +92,7 @@ class JpaResearchStore implements ResearchStore {
 
   private static FetchedDocument toDocument(ResearchDocumentEntity e) {
     return new FetchedDocument(
-        e.getId().getUrl(),
+        e.getFinalUrl() == null ? e.getId().getUrl() : e.getFinalUrl(),
         e.getId().getContentHash(),
         e.getFetchedAt(),
         e.getHttpStatus(),
@@ -104,8 +105,8 @@ class JpaResearchStore implements ResearchStore {
 
   private static ResearchDocumentEntity toEntity(FetchedDocument d, String url, UUID sourceId) {
     ResearchDocumentEntity e = new ResearchDocumentEntity();
-    e.setId(new ResearchDocumentId(url, d.contentHash()));
-    e.setSourceId(sourceId);
+    e.setId(new ResearchDocumentId(sourceId, url, d.contentHash()));
+    e.setFinalUrl(d.url());
     e.setFetchedAt(d.fetchedAt());
     e.setHttpStatus(d.httpStatus());
     e.setContentType(d.contentType());

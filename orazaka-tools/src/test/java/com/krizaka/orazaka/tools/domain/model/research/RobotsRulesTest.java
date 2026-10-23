@@ -52,6 +52,20 @@ class RobotsRulesTest {
   }
 
   @Test
+  @DisplayName("RFC 9309 §2.2.2: rules and paths compare with unreserved escapes decoded")
+  void encodedPaths() {
+    RobotsRules star = RobotsRules.parse(FILE, "SomeoneElse");
+    assertThat(star.allows("/%70rivate/secret")).isFalse();
+    assertThat(star.allows("/%70rivate/%6Fpen")).isTrue();
+    RobotsRules escapedRule = RobotsRules.parse("User-agent: *\nDisallow: /%70rivate/\n", "x");
+    assertThat(escapedRule.allows("/private/x")).isFalse();
+    assertThat(escapedRule.allows("/public/x")).isTrue();
+    // A reserved escape keeps its meaning: %2F is not a path separator.
+    RobotsRules slash = RobotsRules.parse("User-agent: *\nDisallow: /a/b\n", "x");
+    assertThat(slash.allows("/a%2Fb")).isTrue();
+  }
+
+  @Test
   @DisplayName("4xx allows everything, 5xx or unreachable allows nothing")
   void unavailableAndUnreachable() {
     assertThat(RobotsRules.allowAll().allows("/anything")).isTrue();

@@ -4,6 +4,7 @@ import com.krizaka.orazaka.tools.infrastructure.adapter.persistence.entity.Resea
 import com.krizaka.orazaka.tools.infrastructure.adapter.persistence.entity.ResearchDocumentId;
 import java.time.Instant;
 import java.util.Optional;
+import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 /** Documents research read, by URL and content hash. */
@@ -11,12 +12,14 @@ public interface ResearchDocumentRepository
     extends JpaRepository<ResearchDocumentEntity, ResearchDocumentId> {
 
   /**
-   * The newest document of a URL still fresh at an instant.
+   * The newest document read through a source for a URL, fetched no earlier than an instant.
    *
-   * @param url the URL
-   * @param now the instant
+   * @param sourceId the source
+   * @param url the URL as requested
+   * @param notBefore the oldest acceptable fetch time
    * @return the document
    */
-  Optional<ResearchDocumentEntity> findFirstByIdUrlAndExpiresAtAfterOrderByFetchedAtDesc(
-      String url, Instant now);
+  Optional<ResearchDocumentEntity>
+      findFirstByIdSourceIdAndIdUrlAndFetchedAtGreaterThanEqualOrderByFetchedAtDesc(
+          UUID sourceId, String url, Instant notBefore);
 }

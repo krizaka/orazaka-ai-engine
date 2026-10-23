@@ -43,7 +43,11 @@ public final class SourcePatterns {
         hostPattern.startsWith("*.")
             ? h.endsWith(hostPattern.substring(1)) && h.length() > hostPattern.length() - 1
             : h.equals(hostPattern);
-    return hostOk && glob(pathPattern).matcher(path.isEmpty() ? "/" : path).matches();
+    // Both sides in canonical form: %70rivate is private for the deny list too.
+    return hostOk
+        && glob(UriPaths.canonical(pathPattern))
+            .matcher(UriPaths.canonical(path.isEmpty() ? "/" : path))
+            .matches();
   }
 
   private static Pattern glob(String pathPattern) {

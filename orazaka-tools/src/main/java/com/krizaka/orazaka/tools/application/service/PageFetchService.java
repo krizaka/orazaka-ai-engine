@@ -21,14 +21,19 @@ import org.springframework.stereotype.Service;
 /**
  * Reads one page for grounded research with every guard of ADR-087 §4, in this order: research on
  * and the source enabled; https (or http where the source allows it); the source's allow and deny
- * patterns; the cache; the source's and the host's rate; robots.txt; then the {@link SafeHttp} GET,
- * whose every hop is checked again (scheme, patterns, robots) and pinned to a public address; the
- * content type; the extraction; the document stored once by URL and content hash. Every outcome —
- * read, served from the cache, refused — writes one {@code research_fetch} line, with the path
- * hashed and the query never kept.
+ * patterns; the cache — a document read through <b>this</b> source, younger than the source's
+ * current freshness, whose final URL the source's current policy still allows; the source's rate;
+ * then the {@link SafeHttp} GET, whose every hop is checked again (scheme, patterns, robots.txt,
+ * the host's budget) and pinned to a public address; the content type; the extraction; the document
+ * stored under the source, the URL asked for and the content hash, with its final URL. Every
+ * outcome — read, served from the cache, refused — writes one {@code research_fetch} line, with the
+ * path hashed and the query never kept. Paths are compared in canonical form ({@link UriPaths}): a
+ * percent-escaped letter is that letter for the patterns and for robots.txt.
  *
- * <p>robots.txt is cached per origin for at most 24 hours (RFC 9309 §2.4) and cannot be switched
- * off: there is no setting for it.
+ * <p>robots.txt is cached per origin and product token for at most 24 hours (RFC 9309 §2.4) and
+ * cannot be switched off: there is no setting for it. Its own request follows redirects across
+ * authorities (§2.3.1.2), and an answer that cannot be read — a refused address included — allows
+ * nothing.
  */
 @Service
 public class PageFetchService implements PageFetcher {
@@ -113,7 +118,15 @@ public class PageFetchService implements PageFetcher {
       return refuse(request, sourceId, host, pathHash, started, first.get());
     }
 
-    Optional<FetchedDocument> cached = store.freshDocument(request.url(), started);
+    int freshness =
+        source.freshnessSeconds() > 0
+            ? source.freshnessSeconds()
+            : limits.defaultFreshnessSeconds();
+    Optional<FetchedDocument> cached =
+        store
+            .freshDocument(source.id(), request.url(), started.minusSeconds(freshness))
+            // The source's current policy applies to the final URL of a hit too.
+            .filter(doc -> permitted(source, doc.url()));
     if (cached.isPresent()) {
       audit(
           request,
@@ -129,9 +142,7 @@ public class PageFetchService implements PageFetcher {
       return FetchResult.of(cached.get(), true);
     }
 
-    if (!rates.tryAcquire("source:" + source.sourceKey(), source.ratePerMinute(), started)
-        || !rates.tryAcquire(
-            "host:" + host.toLowerCase(Locale.ROOT), limits.perHostPerMinute(), started)) {
+    if (!rates.tryAcquire("source:" + source.sourceKey(), source.ratePerMinute(), started)) {
       return refuse(request, sourceId, host, pathHash, started, FetchRefusal.RATE);
     }
 
@@ -142,7 +153,8 @@ public class PageFetchService implements PageFetcher {
             hop ->
                 checkScheme(source, hop)
                     .or(() -> checkPatterns(source, hop))
-                    .or(() -> checkRobots(request, source, hop, limits)));
+                    .or(() -> checkRobots(request, source, hop, limits))
+                    .or(() -> hostBudget(hop, limits)));
     if (outcome.refusal().isPresent()) {
       return refuse(request, sourceId, host, pathHash, started, outcome.refusal().get());
     }
@@ -177,11 +189,8 @@ public class PageFetchService implements PageFetcher {
     }
 
     TextExtractor.Extracted page =
-        extractor.extract(response.body(), response.contentType(), response.finalUri());
-    int freshness =
-        source.freshnessSeconds() > 0
-            ? source.freshnessSeconds()
-            : limits.defaultFreshnessSeconds();
+        extractor.extract(
+            response.body(), response.contentType(), response.charset(), response.finalUri());
     FetchedDocument document =
         new FetchedDocument(
             response.finalUri().toString(),
@@ -223,16 +232,35 @@ public class PageFetchService implements PageFetcher {
         : Optional.of(FetchRefusal.ALLOWLIST);
   }
 
+  private boolean permitted(ResearchSource source, String url) {
+    URI uri = parse(url);
+    return uri != null
+        && uri.getHost() != null
+        && checkScheme(source, uri).isEmpty()
+        && checkPatterns(source, uri).isEmpty();
+  }
+
+  /** The host's budget is spent per outgoing hop, at the time of the hop. */
+  private Optional<FetchRefusal> hostBudget(URI hop, FetchLimits limits) {
+    return rates.tryAcquire(
+            "host:" + hop.getHost().toLowerCase(Locale.ROOT),
+            limits.perHostPerMinute(),
+            clock.instant())
+        ? Optional.empty()
+        : Optional.of(FetchRefusal.RATE);
+  }
+
   private Optional<FetchRefusal> checkRobots(
       FetchRequest request, ResearchSource source, URI uri, FetchLimits limits) {
-    String origin = origin(uri);
+    // Rules are filtered for one product token: a changed user agent reads robots.txt again.
+    String key = origin(uri) + "|" + limits.productToken().toLowerCase(Locale.ROOT);
     Instant now = clock.instant();
-    CachedRobots known = robots.get(origin);
+    CachedRobots known = robots.get(key);
     if (known == null || !now.isBefore(known.until())) {
       known = new CachedRobots(readRobots(request, source, uri, limits), now.plus(ROBOTS_TTL));
-      robots.put(origin, known);
+      robots.put(key, known);
     }
-    return known.rules().allows(pathAndQuery(uri))
+    return known.rules().allows(UriPaths.canonical(uri))
         ? Optional.empty()
         : Optional.of(FetchRefusal.ROBOTS);
   }
@@ -241,15 +269,18 @@ public class PageFetchService implements PageFetcher {
       FetchRequest request, ResearchSource source, URI page, FetchLimits limits) {
     Instant started = clock.instant();
     URI robotsUri = URI.create(origin(page) + "/robots.txt");
-    // Same origin only: a robots.txt that redirects elsewhere is not this site's answer.
-    SafeHttp.Outcome outcome =
-        http.get(
-            robotsUri,
-            limits,
-            hop ->
-                origin(hop).equals(origin(page))
-                    ? Optional.empty()
-                    : Optional.of(FetchRefusal.REDIRECTS));
+    // RFC 9309 §2.3.1.2: follow at least five redirects, across authorities (apex to www, http to
+    // https); every hop is still resolved once, address-checked and pinned by SafeHttp.
+    FetchLimits robotsLimits =
+        new FetchLimits(
+            limits.timeoutMs(),
+            limits.maxBytes(),
+            Math.max(limits.maxRedirects(), 5),
+            limits.perHostPerMinute(),
+            limits.contentTypes(),
+            limits.userAgent(),
+            limits.defaultFreshnessSeconds());
+    SafeHttp.Outcome outcome = http.get(robotsUri, robotsLimits, hop -> Optional.empty());
     Integer status = outcome.response().map(SafeHttp.Response::status).orElse(null);
     audit(
         request,
@@ -263,10 +294,9 @@ public class PageFetchService implements PageFetcher {
         false,
         outcome.refusal().orElse(null));
     if (outcome.response().isEmpty()) {
-      // An SSRF refusal is not "unreachable": the page itself will be refused for the same reason.
-      return outcome.refusal().filter(FetchRefusal.SSRF::equals).isPresent()
-          ? RobotsRules.allowAll()
-          : RobotsRules.disallowAll();
+      // Unreachable, refused (an SSRF answer included: robots.txt is resolved on its own, and the
+      // page's address was checked earlier) or too slow: nothing is allowed. Fail closed.
+      return RobotsRules.disallowAll();
     }
     int s = outcome.response().get().status();
     if (s >= 200 && s < 300) {

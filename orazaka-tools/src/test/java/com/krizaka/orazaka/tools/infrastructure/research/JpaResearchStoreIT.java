@@ -22,7 +22,10 @@ import org.springframework.boot.persistence.autoconfigure.EntityScan;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
-/** The research tables on PostgreSQL: arrays, the URL + hash key, freshness and the audit. */
+/**
+ * The research tables on PostgreSQL: arrays, the source + URL + hash key, the final URL, freshness
+ * as the requesting source sees it, and the audit.
+ */
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Import(JpaResearchStore.class)
@@ -39,6 +42,8 @@ class JpaResearchStoreIT extends AbstractContainerIntegrationTest {
   @Autowired private ResearchFetchRepository fetches;
 
   private static final Instant NOW = Instant.parse("2026-10-23T12:00:00Z");
+  private static final UUID SOURCE = UUID.randomUUID();
+  private static final UUID OTHER_SOURCE = UUID.randomUUID();
 
   @Test
   @DisplayName("a source's patterns round-trip as PostgreSQL arrays")
@@ -62,12 +67,14 @@ class JpaResearchStoreIT extends AbstractContainerIntegrationTest {
   }
 
   @Test
-  @DisplayName("a document is served while fresh, under the asked URL and the final one")
-  void freshness() {
+  @DisplayName(
+      "a redirected document is a hit under the asked URL and the final one, reports its final URL,"
+          + " only through its source, only while the requesting source finds it fresh")
+  void freshnessFinalUrlAndSourceScope() {
     String hash = "a".repeat(64);
     FetchedDocument doc =
         new FetchedDocument(
-            "https://final.test/a",
+            "https://final.test/b",
             hash,
             NOW,
             200,
@@ -76,13 +83,19 @@ class JpaResearchStoreIT extends AbstractContainerIntegrationTest {
             "t",
             "text",
             NOW.plusSeconds(60));
-    store.saveDocument(doc, "https://asked.test/a", null);
+    store.saveDocument(doc, "https://asked.test/a", SOURCE);
 
-    assertThat(store.freshDocument("https://asked.test/a", NOW.plusSeconds(30)))
+    assertThat(store.freshDocument(SOURCE, "https://asked.test/a", NOW.minusSeconds(30)))
+        .map(FetchedDocument::url)
+        .contains("https://final.test/b");
+    assertThat(store.freshDocument(SOURCE, "https://final.test/b", NOW.minusSeconds(30)))
         .map(FetchedDocument::contentHash)
         .contains(hash);
-    assertThat(store.freshDocument("https://final.test/a", NOW.plusSeconds(30))).isPresent();
-    assertThat(store.freshDocument("https://final.test/a", NOW.plusSeconds(61))).isEmpty();
+    // The freshness is the requesting source's own, applied to when the document was read.
+    assertThat(store.freshDocument(SOURCE, "https://final.test/b", NOW.plusSeconds(1))).isEmpty();
+    // Another source never gets this document, however fresh.
+    assertThat(store.freshDocument(OTHER_SOURCE, "https://asked.test/a", NOW.minusSeconds(30)))
+        .isEmpty();
   }
 
   @Test

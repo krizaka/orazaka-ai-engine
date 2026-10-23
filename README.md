@@ -114,17 +114,22 @@ administrator-declared `research_source`, with every guard of ADR-087 §4, in or
 
 1. research on (`research.enabled`) and the source enabled;
 2. https, or http where the source allows it;
-3. the source's allow and deny patterns;
-4. the cache (`research_document`, by URL and content hash, within the source's freshness);
-5. the source's and the host's rate;
-6. robots.txt, always honoured and cached at most 24 h (RFC 9309).
+3. the source's allow and deny patterns, paths compared in canonical form (`/%70rivate` is `/private`);
+4. the cache (`research_document`): a document read through **this** source, younger than the source's **current**
+   freshness, whose final URL the source's current policy still allows — a hit never crosses sources;
+5. the source's rate, then, on every hop, the host's rate;
+6. robots.txt, always honoured, cached at most 24 h per origin and product token (RFC 9309); its own request follows
+   redirects across authorities, and a robots.txt that cannot be read — a refused address included — allows nothing.
 
 `PinnedHttpClient` then resolves each hop **once** and refuses any non-public address (loopback,
 private, link-local and the metadata endpoint, CGNAT, IPv6 ULA, mapped forms…). It connects to exactly the address it
-checked, so DNS rebinding cannot reach the connection. It re-checks every redirect, sends no cookies, and caps time and
-size. `HtmlTextExtractor` keeps the main content and drops what a reader does not see. Every call writes one
-`research_fetch` audit line, with a path hash, never the query. The limits are `research.fetch.*` rows read at call time.
-Nothing calls the fetcher yet: the citations and the verifier are slice 2.
+checked, so DNS rebinding cannot reach the connection. It re-checks every redirect, sends no cookies, caps the size,
+and holds one deadline for the whole call (`research.fetch.timeout-ms`), so a body that trickles in stops with it.
+`HtmlTextExtractor` decodes the bytes as the server said (the HTTP charset, else a BOM or `<meta charset>`), walks the
+visible text in reading order — one paragraph per block, nothing hidden by `hidden`, `aria-hidden` or inline CSS —
+and keeps the main content. A document is stored under its source, the URL asked for and the content hash, with its
+final URL. Every call writes one `research_fetch` audit line, with a path hash, never the query. The limits are
+`research.fetch.*` rows read at call time. Nothing calls the fetcher yet: the citations and the verifier are slice 2.
 
 ## Position in the platform
 

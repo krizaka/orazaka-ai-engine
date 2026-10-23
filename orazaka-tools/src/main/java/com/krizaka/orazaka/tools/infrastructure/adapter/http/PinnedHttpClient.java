@@ -41,8 +41,13 @@ import org.springframework.stereotype.Component;
  * addresses that were checked — the client's resolver answers from that list and nothing else, so a
  * DNS answer that changes between the check and the connection (rebinding) cannot reach the
  * connection. TLS still verifies the certificate against the host name. Redirects are not followed
- * by the library: each one is a new hop, checked again. No cookies are sent or kept; connect and
- * read times and the body size are capped.
+ * by the library: each one is a new hop, checked again. No cookies are sent or kept.
+ *
+ * <p>Time is one cap for the whole call: {@code timeoutMs} starts at the first hop and ends the
+ * read wherever it stands — connecting, waiting for headers, or reading a body that arrives a byte
+ * at a time. The socket and response timeouts bound inactivity within what is left of it; the
+ * deadline bounds the total, so a server that trickles stays within the limit, not below the radar.
+ * The body is capped at {@code maxBytes}.
  */
 @Component
 public class PinnedHttpClient implements SafeHttp {
@@ -73,6 +78,7 @@ public class PinnedHttpClient implements SafeHttp {
 
   @Override
   public Outcome get(URI uri, FetchLimits limits, Function<URI, Optional<FetchRefusal>> hopCheck) {
+    long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(limits.timeoutMs());
     URI hop = uri;
     for (int hops = 0; hops <= limits.maxRedirects(); hops++) {
       String scheme = hop.getScheme() == null ? "" : hop.getScheme().toLowerCase(Locale.ROOT);
@@ -94,7 +100,7 @@ public class PinnedHttpClient implements SafeHttp {
       }
       HopAnswer answer;
       try {
-        answer = read(hop, addresses, limits);
+        answer = read(hop, addresses, limits, deadline);
       } catch (InterruptedIOException slow) {
         return refused(FetchRefusal.TIMEOUT);
       } catch (TooLargeException tooLarge) {
@@ -125,12 +131,13 @@ public class PinnedHttpClient implements SafeHttp {
   private record HopAnswer(
       int status,
       String contentType,
+      String charset,
       byte[] body,
       String location,
       String etag,
       String lastModified) {
     Response response(URI finalUri) {
-      return new Response(finalUri, status, contentType, body, etag, lastModified);
+      return new Response(finalUri, status, contentType, charset, body, etag, lastModified);
     }
   }
 
@@ -158,11 +165,16 @@ public class PinnedHttpClient implements SafeHttp {
     }
   }
 
-  private HopAnswer read(URI hop, List<InetAddress> checked, FetchLimits limits)
+  private HopAnswer read(URI hop, List<InetAddress> checked, FetchLimits limits, long deadline)
       throws IOException {
+    long remainingMs = TimeUnit.NANOSECONDS.toMillis(deadline - System.nanoTime());
+    if (remainingMs <= 0) {
+      throw new InterruptedIOException("the research deadline passed before this hop");
+    }
     String host = hop.getHost();
     DnsResolver pinnedResolver = new PinnedResolver(host, List.copyOf(checked));
-    Timeout timeout = Timeout.of(limits.timeoutMs(), TimeUnit.MILLISECONDS);
+    // Inactivity is bounded by what is left of the whole call, never by more.
+    Timeout timeout = Timeout.of(Math.min(limits.timeoutMs(), remainingMs), TimeUnit.MILLISECONDS);
     try (CloseableHttpClient client =
         HttpClients.custom()
             .setConnectionManager(
@@ -186,16 +198,20 @@ public class PinnedHttpClient implements SafeHttp {
             .build()) {
       HttpGet get = new HttpGet(hop);
       get.setHeader("Accept", String.join(", ", limits.contentTypes()) + ", */*;q=0.1");
-      return client.execute(get, response -> answer(response, limits.maxBytes()));
+      return client.execute(get, response -> answer(get, response, limits.maxBytes(), deadline));
     }
   }
 
-  private static HopAnswer answer(ClassicHttpResponse response, int maxBytes) throws IOException {
+  private static HopAnswer answer(
+      HttpGet get, ClassicHttpResponse response, int maxBytes, long deadline) throws IOException {
     HttpEntity entity = response.getEntity();
     if (entity != null && entity.getContentLength() > maxBytes) {
+      // Abort before the close: a closed response drains what is left of the body first.
+      get.abort();
       throw new TooLargeException();
     }
-    byte[] body = entity == null ? new byte[0] : capped(entity.getContent(), maxBytes);
+    byte[] body =
+        entity == null ? new byte[0] : capped(get, entity.getContent(), maxBytes, deadline);
     String type = entity == null || entity.getContentType() == null ? "" : entity.getContentType();
     int semicolon = type.indexOf(';');
     String mediaType =
@@ -203,10 +219,26 @@ public class PinnedHttpClient implements SafeHttp {
     return new HopAnswer(
         response.getCode(),
         mediaType,
+        charsetOf(semicolon < 0 ? "" : type.substring(semicolon + 1)),
         body,
         header(response, "Location"),
         header(response, "ETag"),
         header(response, "Last-Modified"));
+  }
+
+  /** The {@code charset} parameter of a Content-Type, as the server wrote it, or {@code null}. */
+  private static String charsetOf(String parameters) {
+    for (String parameter : parameters.split(";")) {
+      int equals = parameter.indexOf('=');
+      if (equals > 0 && "charset".equalsIgnoreCase(parameter.substring(0, equals).trim())) {
+        String value = parameter.substring(equals + 1).trim();
+        if (value.length() >= 2 && value.startsWith("\"") && value.endsWith("\"")) {
+          value = value.substring(1, value.length() - 1);
+        }
+        return value.isEmpty() ? null : value;
+      }
+    }
+    return null;
   }
 
   private static String header(ClassicHttpResponse response, String name) {
@@ -214,15 +246,27 @@ public class PinnedHttpClient implements SafeHttp {
     return header == null ? null : header.getValue();
   }
 
-  private static byte[] capped(InputStream in, int maxBytes) throws IOException {
+  /**
+   * Reads the body within the size cap and the deadline. A cap that trips <b>aborts the request</b>
+   * before the stream is closed: closing a chunked stream drains the rest of the body to keep the
+   * connection reusable, which is exactly the wait a trickling server would impose.
+   */
+  private static byte[] capped(HttpGet get, InputStream in, int maxBytes, long deadline)
+      throws IOException {
     try (InputStream stream = in) {
       ByteArrayOutputStream out = new ByteArrayOutputStream();
       byte[] buffer = new byte[8192];
       int total = 0;
       int read;
       while ((read = stream.read(buffer)) != -1) {
+        if (System.nanoTime() > deadline) {
+          // A body that arrives a byte at a time never trips the socket timeout: the deadline does.
+          get.abort();
+          throw new InterruptedIOException("the research deadline passed while the body was read");
+        }
         total += read;
         if (total > maxBytes) {
+          get.abort();
           throw new TooLargeException();
         }
         out.write(buffer, 0, read);

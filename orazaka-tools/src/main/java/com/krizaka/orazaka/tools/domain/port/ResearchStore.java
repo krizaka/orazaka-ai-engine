@@ -19,20 +19,23 @@ public interface ResearchStore {
   Optional<ResearchSource> source(String sourceKey);
 
   /**
-   * The newest document of a URL still fresh at {@code now}.
+   * The newest document read through this source for this URL, no older than {@code notBefore}: a
+   * hit is never served to another source, and the freshness is the requesting source's current
+   * one.
    *
+   * @param sourceId the requesting source
    * @param url the URL as requested
-   * @param now the instant of the check
+   * @param notBefore the oldest acceptable fetch time
    * @return the cached document, if any
    */
-  Optional<FetchedDocument> freshDocument(String url, Instant now);
+  Optional<FetchedDocument> freshDocument(UUID sourceId, String url, Instant notBefore);
 
   /**
    * Stores a document once by URL and content hash.
    *
    * @param document what was read
-   * @param requestedUrl the URL as requested (also cached, when a redirect changed it)
-   * @param sourceId the source it was read through
+   * @param requestedUrl the URL as requested (the lookup key; the document keeps its final URL)
+   * @param sourceId the source that authorised every hop
    */
   void saveDocument(FetchedDocument document, String requestedUrl, UUID sourceId);
 

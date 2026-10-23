@@ -5,7 +5,6 @@ import jakarta.persistence.EmbeddedId;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 import java.time.Instant;
-import java.util.UUID;
 
 /** What research read, once per URL and content hash (ADR-087 §5). */
 @Entity
@@ -14,8 +13,8 @@ public class ResearchDocumentEntity {
 
   @EmbeddedId private ResearchDocumentId id;
 
-  @Column(name = "source_id")
-  private UUID sourceId;
+  @Column(name = "final_url")
+  private String finalUrl;
 
   @Column(name = "fetched_at")
   private Instant fetchedAt;
@@ -56,12 +55,12 @@ public class ResearchDocumentEntity {
     this.id = id;
   }
 
-  public UUID getSourceId() {
-    return sourceId;
+  public String getFinalUrl() {
+    return finalUrl;
   }
 
-  public void setSourceId(UUID sourceId) {
-    this.sourceId = sourceId;
+  public void setFinalUrl(String finalUrl) {
+    this.finalUrl = finalUrl;
   }
 
   public Instant getFetchedAt() {

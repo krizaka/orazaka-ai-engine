@@ -80,7 +80,8 @@ public final class RobotsRules {
       } else if ("allow".equals(key) || "disallow".equals(key)) {
         inRules = true;
         if (!value.isEmpty()) {
-          current.add(new Rule("allow".equals(key), value, compile(value)));
+          String rulePath = UriPaths.canonical(value);
+          current.add(new Rule("allow".equals(key), rulePath, compile(rulePath)));
         }
       }
     }
@@ -106,7 +107,8 @@ public final class RobotsRules {
    * @return true when allowed
    */
   public boolean allows(String path) {
-    String p = path == null || path.isEmpty() ? "/" : path;
+    // RFC 9309 §2.2.2: rules and paths compare with unreserved escapes decoded.
+    String p = UriPaths.canonical(path == null || path.isEmpty() ? "/" : path);
     Rule best = null;
     for (Rule rule : rules) {
       if (rule.pattern().matcher(p).lookingAt()

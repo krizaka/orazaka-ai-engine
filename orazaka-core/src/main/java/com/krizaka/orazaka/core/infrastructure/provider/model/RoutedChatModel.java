@@ -11,6 +11,7 @@ import org.springframework.ai.model.tool.ToolCallingChatOptions;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestClientResponseException;
 import reactor.core.publisher.Flux;
 
 /**
@@ -37,7 +38,15 @@ public class RoutedChatModel implements ChatModel {
 
   @Override
   public ChatResponse call(Prompt prompt) {
-    return resolve(prompt).call(outgoing(prompt));
+    try {
+      return resolve(prompt).call(outgoing(prompt));
+    } catch (RuntimeException e) {
+      String model = requestedModel(prompt);
+      if (model != null && isUnreachable(e)) {
+        throw new ModelUnavailableException(model, router.describe(model), e);
+      }
+      throw e;
+    }
   }
 
   @Override
@@ -57,13 +66,21 @@ public class RoutedChatModel implements ChatModel {
         : router.defaultChatModel(MediaCategory.CHAT.value());
   }
 
-  /** A connection the provider's host refused or could not open (no listener, no route). */
+  /** A provider that cannot currently serve the model, not an invalid or unauthorized request. */
   static boolean isUnreachable(Throwable error) {
     for (Throwable t = error; t != null; t = t.getCause()) {
       if (t instanceof java.net.ConnectException
           || t instanceof java.net.UnknownHostException
-          || t instanceof java.net.NoRouteToHostException) {
+          || t instanceof java.net.NoRouteToHostException
+          || t instanceof java.net.SocketTimeoutException
+          || t instanceof java.net.http.HttpTimeoutException) {
         return true;
+      }
+      if (t instanceof RestClientResponseException response) {
+        int status = response.getStatusCode().value();
+        if (status == 502 || status == 503 || status == 504) {
+          return true;
+        }
       }
     }
     return false;

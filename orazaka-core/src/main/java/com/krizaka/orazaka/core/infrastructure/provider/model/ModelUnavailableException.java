@@ -1,5 +1,6 @@
 package com.krizaka.orazaka.core.infrastructure.provider.model;
 
+import com.krizaka.orazaka.core.domain.model.StepModelUnavailableException;
 import java.io.Serial;
 
 /**
@@ -7,7 +8,7 @@ import java.io.Serial;
  * GPU relay) it means no worker is connected. Says which model and which provider, so the turn
  * fails with a reason instead of a bare "Connection refused".
  */
-public class ModelUnavailableException extends RuntimeException {
+public class ModelUnavailableException extends StepModelUnavailableException {
 
   @Serial private static final long serialVersionUID = 1L;
 
@@ -22,8 +23,8 @@ public class ModelUnavailableException extends RuntimeException {
             + model
             + "' is served by "
             + provider
-            + ", which is not reachable: no worker is connected for it (start a GPU host or the"
-            + " local worker, or choose a hosted model).",
+            + ", which is temporarily unavailable: no worker is connected or the provider cannot"
+            + " currently serve it. Check its declared endpoint and available workers.",
         cause);
   }
 }

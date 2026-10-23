@@ -13,7 +13,6 @@ import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -25,12 +24,67 @@ class UserMcpServerPersistenceProviderImplTest {
 
   @Mock private UserMcpServerRepository repository;
 
-  @InjectMocks private UserMcpServerPersistenceProviderImpl provider;
+  @org.junit.jupiter.api.io.TempDir java.nio.file.Path keyringDir;
+
+  private McpTokenSealer tokens;
+  private UserMcpServerPersistenceProviderImpl provider;
+
+  @org.junit.jupiter.api.BeforeEach
+  void setUp() throws Exception {
+    java.nio.file.Path keyring = keyringDir.resolve("master.key");
+    com.krizaka.orazaka.assets.infrastructure.adapter.FileMasterKeyProvider.addKey(keyring, "k1");
+    var keys = new com.krizaka.orazaka.assets.infrastructure.adapter.FileMasterKeyProvider(keyring);
+    org.springframework.beans.factory.ObjectProvider<
+            com.krizaka.orazaka.assets.domain.port.MasterKeyProvider>
+        provided = mock(org.springframework.beans.factory.ObjectProvider.class);
+    lenient().when(provided.getIfAvailable()).thenReturn(keys);
+    tokens = new McpTokenSealer(provided);
+    provider = new UserMcpServerPersistenceProviderImpl(repository, tokens);
+  }
+
+  @Test
+  @DisplayName("[#58] a token is stored sealed, never in clear, and reads back for the client")
+  void theTokenIsStoredSealed() {
+    UserMcpServerDto dto =
+        new UserMcpServerDto(
+            1,
+            "550e8400-e29b-41d4-a716-446655440002",
+            "mcp",
+            "https://mcp.example",
+            "secret-token",
+            true,
+            Instant.now(FIXED_CLOCK));
+    org.mockito.ArgumentCaptor<UserMcpServerEntity> stored =
+        org.mockito.ArgumentCaptor.forClass(UserMcpServerEntity.class);
+    when(repository.save(stored.capture())).thenAnswer(call -> call.getArgument(0));
+
+    UserMcpServerDto saved = provider.save(dto);
+
+    assertThat(stored.getValue().getAuthToken())
+        .isNotNull()
+        .doesNotContain("secret-token")
+        .startsWith("v1.");
+    assertThat(saved.authToken()).isEqualTo("secret-token");
+  }
+
+  @Test
+  @DisplayName("[#58] a row written in clear before #58 still reads, until the migration seals it")
+  void aLegacyClearRowStillReads() {
+    UserMcpServerEntity legacy = new UserMcpServerEntity();
+    legacy.setId(7);
+    legacy.setUserId("user-1");
+    legacy.setLabel("legacy");
+    legacy.setUrl("https://mcp.example");
+    legacy.setAuthToken("legacy-token");
+    when(repository.findById(7)).thenReturn(java.util.Optional.of(legacy));
+
+    assertThat(provider.findById(7)).map(UserMcpServerDto::authToken).contains("legacy-token");
+  }
 
   @Test
   @DisplayName("Constructor throws NullPointerException on null repository")
   void constructorValidation() {
-    assertThatThrownBy(() -> new UserMcpServerPersistenceProviderImpl(null))
+    assertThatThrownBy(() -> new UserMcpServerPersistenceProviderImpl(null, null))
         .isInstanceOf(NullPointerException.class)
         .hasMessageContaining("UserMcpServerRepository cannot be null");
   }
@@ -98,7 +152,7 @@ class UserMcpServerPersistenceProviderImplTest {
     UserMcpServerDto dto =
         new UserMcpServerDto(
             1, "user-1", "mcp-server", "http://localhost", "token", true, Instant.now(FIXED_CLOCK));
-    UserMcpServerEntity entity = UserMcpServerPersistenceProviderImpl.toEntity(dto);
+    UserMcpServerEntity entity = provider.toEntity(dto);
     when(repository.save(any(UserMcpServerEntity.class))).thenReturn(entity);
 
     UserMcpServerDto result = provider.save(dto);

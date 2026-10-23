@@ -14,31 +14,29 @@ import org.springframework.stereotype.Service;
 class UserMcpServerPersistenceProviderImpl implements UserMcpServerPersistenceProvider {
 
   private final UserMcpServerRepository repository;
+  private final McpTokenSealer tokens;
 
-  UserMcpServerPersistenceProviderImpl(UserMcpServerRepository repository) {
+  UserMcpServerPersistenceProviderImpl(UserMcpServerRepository repository, McpTokenSealer tokens) {
     this.repository = Objects.requireNonNull(repository, "UserMcpServerRepository cannot be null");
+    this.tokens = Objects.requireNonNull(tokens, "McpTokenSealer cannot be null");
   }
 
   @Override
   public List<UserMcpServerDto> findByUserIdAndEnabledTrue(String userId) {
     Objects.requireNonNull(userId, "userId cannot be null");
-    return repository.findByUserIdAndEnabledTrue(userId).stream()
-        .map(UserMcpServerPersistenceProviderImpl::toDto)
-        .toList();
+    return repository.findByUserIdAndEnabledTrue(userId).stream().map(this::toDto).toList();
   }
 
   @Override
   public List<UserMcpServerDto> findByUserId(String userId) {
     Objects.requireNonNull(userId, "userId cannot be null");
-    return repository.findByUserId(userId).stream()
-        .map(UserMcpServerPersistenceProviderImpl::toDto)
-        .toList();
+    return repository.findByUserId(userId).stream().map(this::toDto).toList();
   }
 
   @Override
   public Optional<UserMcpServerDto> findById(Integer id) {
     Objects.requireNonNull(id, "id cannot be null");
-    return repository.findById(id).map(UserMcpServerPersistenceProviderImpl::toDto);
+    return repository.findById(id).map(this::toDto);
   }
 
   @Override
@@ -55,7 +53,7 @@ class UserMcpServerPersistenceProviderImpl implements UserMcpServerPersistencePr
     repository.deleteById(id);
   }
 
-  private static UserMcpServerDto toDto(UserMcpServerEntity entity) {
+  private UserMcpServerDto toDto(UserMcpServerEntity entity) {
     if (entity == null) {
       return null;
     }
@@ -64,12 +62,12 @@ class UserMcpServerPersistenceProviderImpl implements UserMcpServerPersistencePr
         entity.getUserId(),
         entity.getLabel(),
         entity.getUrl(),
-        entity.getAuthToken(),
+        tokens.open(entity.getUserId(), entity.getAuthToken()),
         entity.getEnabled(),
         entity.getCreatedAt());
   }
 
-  static UserMcpServerEntity toEntity(UserMcpServerDto dto) {
+  UserMcpServerEntity toEntity(UserMcpServerDto dto) {
     if (dto == null) {
       return null;
     }
@@ -78,7 +76,8 @@ class UserMcpServerPersistenceProviderImpl implements UserMcpServerPersistencePr
     entity.setUserId(dto.userId());
     entity.setLabel(dto.label());
     entity.setUrl(dto.url());
-    entity.setAuthToken(dto.authToken());
+    // Sealed before it reaches the table (orazaka-ai-engine#58).
+    entity.setAuthToken(tokens.seal(dto.userId(), dto.authToken()));
     entity.setEnabled(dto.enabled());
     entity.setCreatedAt(dto.createdAt());
     return entity;

@@ -8,7 +8,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import org.springframework.ai.chat.messages.Message;
-import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.prompt.ChatOptions;
 
 /**
@@ -35,12 +34,13 @@ class RagInterceptor implements PromptContextInterceptor {
     Optional.ofNullable(properties.rag())
         .filter(CoreProperties.RagConfig::enabled)
         .ifPresent(
-            rag -> {
-              String context = knowledgeService.retrieveContext(promptText, rag.topK());
-              if (context != null && !context.isBlank()) {
-                messages.addFirst(new SystemMessage("RAG Context: \n" + context));
-              }
-            });
+            rag ->
+                // A document is content someone wrote, not an instruction: an uploaded file can
+                // carry text aimed at the model, so it goes in as data (orazaka-ai-engine#57).
+                ExternalContent.insert(
+                    messages,
+                    "knowledge sources",
+                    knowledgeService.retrieveContext(promptText, rag.topK())));
     return options;
   }
 }

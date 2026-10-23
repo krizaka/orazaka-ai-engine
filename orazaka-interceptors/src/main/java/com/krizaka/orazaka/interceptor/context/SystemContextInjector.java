@@ -27,7 +27,7 @@ class SystemContextInjector implements PromptContextInterceptor {
     // Resolve system/environment state directly (previously resolved via providers)
     Map<String, Object> systemData =
         Map.of(
-            "activeTools", "searchWeb, ttsGenerator, imageGenerator",
+            "activeTools", "searchKnowledge, ttsGenerator, imageGenerator",
             "systemStatus", "OPERATIONAL",
             "activeTrends", "AI-agentic-flows, virtual-threads-concurrency");
 

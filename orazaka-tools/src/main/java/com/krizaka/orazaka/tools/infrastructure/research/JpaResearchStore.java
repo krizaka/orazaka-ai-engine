@@ -49,9 +49,9 @@ class JpaResearchStore implements ResearchStore {
   }
 
   @Override
-  public Optional<FetchedDocument> document(String url, String contentHash) {
+  public Optional<FetchedDocument> document(UUID sourceId, String url, String contentHash) {
     return documents
-        .findById(new ResearchDocumentId(url, contentHash))
+        .findById(new ResearchDocumentId(sourceId, url, contentHash))
         .map(JpaResearchStore::toDocument);
   }
 

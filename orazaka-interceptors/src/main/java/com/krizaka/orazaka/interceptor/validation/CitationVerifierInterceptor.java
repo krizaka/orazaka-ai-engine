@@ -21,9 +21,12 @@ import tools.jackson.databind.node.ObjectNode;
 
 /**
  * The verifier stage of grounded research (ADR-087 §3): an answer in the citation shape is checked
- * claim by claim against the documents research read ({@link CitationVerifier}) before it is
- * served. Any other answer passes through untouched — this interceptor only reads what it can
- * verify. The mode is {@code research.verify.mode} ({@code MARK} by default), read at each answer.
+ * claim by claim against the documents research read <b>for this turn</b> — the ones the grounding
+ * stage recorded in the context ({@link PromptContext#researchRead()}) — by the {@link
+ * CitationVerifier}, before it is served; the served answer is the one the verifier renders from
+ * the claims, never the model's prose. Any other answer passes through untouched — this interceptor
+ * only reads what it can verify. The mode is {@code research.verify.mode} ({@code MARK} by
+ * default), read at each answer.
  *
  * <p>Its {@code pipeline_interceptor_config} row ships disabled; the {@code grounding} flag of
  * slice 5 turns it on per request.
@@ -59,7 +62,7 @@ public class CitationVerifierInterceptor implements PromptContextInterceptor {
         "STRICT".equalsIgnoreCase(config.getString("research.verify.mode", "MARK"))
             ? VerifyMode.STRICT
             : VerifyMode.MARK;
-    return write(verifier.verify(read(root), mode));
+    return write(verifier.verify(read(root), mode, context.researchRead()));
   }
 
   private static JsonNode parse(String text) {

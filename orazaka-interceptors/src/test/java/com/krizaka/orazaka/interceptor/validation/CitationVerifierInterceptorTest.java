@@ -8,6 +8,7 @@ import com.krizaka.orazaka.core.domain.model.PromptContext;
 import com.krizaka.orazaka.core.domain.model.research.Claim;
 import com.krizaka.orazaka.core.domain.model.research.ClaimStatus;
 import com.krizaka.orazaka.core.domain.model.research.GroundedAnswer;
+import com.krizaka.orazaka.core.domain.model.research.ReadDocument;
 import com.krizaka.orazaka.core.domain.model.research.VerifyMode;
 import com.krizaka.orazaka.core.domain.ports.inbound.CitationVerifier;
 import com.krizaka.orazaka.persistence.domain.ports.inbound.RuntimeConfigProvider;
@@ -19,12 +20,14 @@ import org.junit.jupiter.api.Test;
 class CitationVerifierInterceptorTest {
 
   private final List<VerifyMode> modes = new ArrayList<>();
+  private final List<List<ReadDocument>> reads = new ArrayList<>();
   private final List<GroundedAnswer> seen = new ArrayList<>();
 
   private CitationVerifierInterceptor interceptor(String mode) {
     CitationVerifier verifier =
-        (answer, m) -> {
+        (answer, m, read) -> {
           modes.add(m);
+          reads.add(read);
           seen.add(answer);
           return new GroundedAnswer(
               answer.answer(),
@@ -57,7 +60,8 @@ class CitationVerifierInterceptorTest {
 
   @Test
   @DisplayName(
-      "a citation-shaped answer is verified; the model's status is not passed on; the mode is read")
+      "a citation-shaped answer is verified against what this turn read; the model's status is not"
+          + " passed on; the mode is read")
   void citationShapeIsVerified() {
     String model =
         """
@@ -66,8 +70,12 @@ class CitationVerifierInterceptorTest {
          "sources":[{"url":"https://example.org/r","title":"R","sourceKey":"site"}]}
         """
             .formatted("a".repeat(64));
-    String served = interceptor("STRICT").screenResponse(mock(PromptContext.class), model);
+    ReadDocument read = new ReadDocument("site", "https://example.org/r", "a".repeat(64));
+    PromptContext context =
+        new PromptContext("q", java.util.Map.of()).withResearchRead(List.of(read));
+    String served = interceptor("STRICT").screenResponse(context, model);
     assertThat(modes).containsExactly(VerifyMode.STRICT);
+    assertThat(reads).containsExactly(List.of(read));
     assertThat(seen.getFirst().claims().getFirst().status()).isEqualTo(ClaimStatus.TO_VALIDATE);
     assertThat(served)
         .contains(

@@ -132,13 +132,18 @@ final URL. Every call writes one `research_fetch` audit line, with a path hash, 
 `research.fetch.*` rows read at call time.
 **Citations and the verifier (slice 2).** A grounded answer is `{answer, claims[], sources[]}`: each claim carries
 citations, and each citation has a URL, a verbatim quote, a content hash and a fetch time. `CitationVerificationService`
-is deterministic, with no model involved. It finds each quote in the stored document named by URL + hash, after
-`QuoteNormalizer` (NFC, case folding, French typography: « » “ ” ’, U+202F/U+00A0, œ/æ, dashes, the ellipsis). One found
-quote makes a claim `VERIFIED`. Any other claim becomes `TO_VALIDATE` with a reason (`NO_SOURCE`, `QUOTE_NOT_FOUND`,
-`URL_UNRESOLVED`), or is dropped in `STRICT`. Every URL, `owner/repo` or statute stated in the prose that no verified
-claim covers becomes a `TO_VALIDATE` line (`UNLISTED_REFERENCE`). `CitationVerifierInterceptor` applies it to a
-citation-shaped answer and leaves any other answer untouched. Its pipeline row ships OFF; slice 5's `grounding` flag
-turns it on.
+is deterministic, with no model involved. A claim is `VERIFIED` only when one of its citations names a document **this
+answer read** (the grounding stage records them in the `PromptContext`; the store is asked through that document's own
+source), its quote — at most `research.quote.max-chars` — appears in that document after `QuoteNormalizer` (NFC, case
+folding, French typography: « » “ ” ’, U+202F/U+00A0, œ/æ, dashes, the ellipsis), **and** every number, date and
+reference the claim states appears in the quote, the document's title or the heading of the quote's section — a genuine
+quote under a wrong number stays `TO_VALIDATE/UNSUPPORTED`. Any other claim is `TO_VALIDATE` with its reason
+(`NO_SOURCE`, `URL_UNRESOLVED`, `QUOTE_NOT_FOUND`, `UNSUPPORTED`), or dropped in `STRICT`. Every URL, `owner/repo` or
+statute stated in the model's prose that no verified claim covers becomes a `TO_VALIDATE` line (`UNLISTED_REFERENCE`).
+**The served `answer` is rendered from the claims** — verified claims as they are, `[TO_VALIDATE]` prefixes in `MARK`,
+verified claims only in `STRICT`, empty with no claims — never the model's prose, which is only scanned.
+`CitationVerifierInterceptor` applies it to a citation-shaped answer and leaves any other answer untouched. Its pipeline
+row ships OFF; slice 5's `grounding` flag turns it on.
 
 ## Position in the platform
 

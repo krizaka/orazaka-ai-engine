@@ -91,8 +91,8 @@ class PageFetchServiceTest {
     }
 
     @Override
-    public Optional<FetchedDocument> document(String url, String contentHash) {
-      return Optional.ofNullable(documents.get(url))
+    public Optional<FetchedDocument> document(UUID sourceId, String url, String contentHash) {
+      return Optional.ofNullable(documents.get(sourceId + "|" + url))
           .filter(d -> d.contentHash().equals(contentHash));
     }
 

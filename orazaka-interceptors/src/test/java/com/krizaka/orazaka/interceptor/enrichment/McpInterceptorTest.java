@@ -93,6 +93,32 @@ class McpInterceptorTest {
   }
 
   @Test
+  @DisplayName("hidden HTML never reaches the model, whatever its CSS spacing")
+  void hiddenHtmlIsDropped() {
+    String hostile =
+        "<p>visible</p><div hidden>hidden one</div><span style=\"display : none\">hidden two</span>"
+            + "<span style=\"DISPLAY:\tnone\">hidden three</span><p aria-hidden=\"true\">hidden four</p>"
+            + "<p style=\"visibility:  hidden\">hidden five</p>";
+
+    String block = run(hostile, new UserMessage("q")).get(1).getText();
+
+    assertThat(block)
+        .contains("visible")
+        .doesNotContain("hidden one", "hidden two", "hidden three");
+    assertThat(block).doesNotContain("hidden four", "hidden five");
+  }
+
+  @Test
+  @DisplayName("a zero-width character cannot split a script tag that a later pass would rebuild")
+  void obfuscatedScriptIsDropped() {
+    String hostile = "ok <scr\u200Bipt>steal()</scr\u200Bipt> done";
+
+    String block = run(hostile, new UserMessage("q")).get(1).getText();
+
+    assertThat(block).contains("ok", "done").doesNotContain("steal()").doesNotContain("<script");
+  }
+
+  @Test
   @DisplayName("nothing is added when the MCP context is blank")
   void preProcessWithEmptyMcpContext() {
     assertThat(run(" ")).isEmpty();

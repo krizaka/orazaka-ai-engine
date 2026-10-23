@@ -39,16 +39,19 @@ class McpTokenSealer {
   /**
    * The token sealed for its owner, or {@code null} for no token.
    *
+   * <p>Always sealed, even when it looks sealed: what a caller saves is a token in clear, and one
+   * shaped like {@code v1.a.b.c.d} must not reach the table unencrypted (and then fail to open).
+   * Whether a <i>stored</i> value is already sealed is the migration's question, not this one's.
+   *
    * @param owner the user id, or {@code null} for a platform server
    * @param token the token in clear
-   * @return the sealed form, or the value unchanged when it is already sealed
+   * @return the sealed form
    */
   String seal(String owner, String token) {
     if (token == null || token.isBlank()) {
       return null;
     }
-    SecretSealer s = sealer();
-    return s.isSealed(token) ? token : s.seal(scope(owner), token);
+    return sealer().seal(scope(owner), token);
   }
 
   /**

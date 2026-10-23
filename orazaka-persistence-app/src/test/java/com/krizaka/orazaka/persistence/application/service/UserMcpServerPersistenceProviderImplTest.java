@@ -68,6 +68,50 @@ class UserMcpServerPersistenceProviderImplTest {
   }
 
   @Test
+  @DisplayName("[#58] a token shaped like a sealed value is still sealed on save, and reads back")
+  void aSealedLookingTokenIsStillSealed() {
+    UserMcpServerDto dto =
+        new UserMcpServerDto(
+            1,
+            "550e8400-e29b-41d4-a716-446655440002",
+            "mcp",
+            "https://mcp.example",
+            "v1.a.b.c.d",
+            true,
+            null);
+    org.mockito.ArgumentCaptor<UserMcpServerEntity> stored =
+        org.mockito.ArgumentCaptor.forClass(UserMcpServerEntity.class);
+    when(repository.save(stored.capture())).thenAnswer(call -> call.getArgument(0));
+
+    UserMcpServerDto saved = provider.save(dto);
+
+    assertThat(stored.getValue().getAuthToken()).isNotEqualTo("v1.a.b.c.d").startsWith("v1.");
+    assertThat(saved.authToken()).isEqualTo("v1.a.b.c.d");
+  }
+
+  @Test
+  @DisplayName(
+      "[#58] a token of 1000 characters is sealed and reads back (the column holds the envelope)")
+  void aLongTokenFits() {
+    String longToken = "t".repeat(1000);
+    UserMcpServerDto dto =
+        new UserMcpServerDto(
+            1,
+            "550e8400-e29b-41d4-a716-446655440002",
+            "mcp",
+            "https://mcp.example",
+            longToken,
+            true,
+            null);
+    org.mockito.ArgumentCaptor<UserMcpServerEntity> stored =
+        org.mockito.ArgumentCaptor.forClass(UserMcpServerEntity.class);
+    when(repository.save(stored.capture())).thenAnswer(call -> call.getArgument(0));
+
+    assertThat(provider.save(dto).authToken()).isEqualTo(longToken);
+    assertThat(stored.getValue().getAuthToken().length()).isGreaterThan(1000);
+  }
+
+  @Test
   @DisplayName("[#58] a row written in clear before #58 still reads, until the migration seals it")
   void aLegacyClearRowStillReads() {
     UserMcpServerEntity legacy = new UserMcpServerEntity();

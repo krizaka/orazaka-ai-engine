@@ -31,6 +31,15 @@ public interface ResearchStore {
   Optional<FetchedDocument> freshDocument(UUID sourceId, String url, Instant notBefore);
 
   /**
+   * The exact document a citation names: the bytes it was read from, whatever their age.
+   *
+   * @param url the cited URL
+   * @param contentHash the cited hash
+   * @return the document, if research read it
+   */
+  Optional<FetchedDocument> document(String url, String contentHash);
+
+  /**
    * Stores a document once by URL and content hash.
    *
    * @param document what was read

@@ -91,6 +91,12 @@ class PageFetchServiceTest {
     }
 
     @Override
+    public Optional<FetchedDocument> document(String url, String contentHash) {
+      return Optional.ofNullable(documents.get(url))
+          .filter(d -> d.contentHash().equals(contentHash));
+    }
+
+    @Override
     public void saveDocument(FetchedDocument document, String requestedUrl, UUID sourceId) {
       documents.put(sourceId + "|" + requestedUrl, document);
       documents.put(sourceId + "|" + document.url(), document);

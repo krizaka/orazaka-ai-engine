@@ -49,6 +49,13 @@ class JpaResearchStore implements ResearchStore {
   }
 
   @Override
+  public Optional<FetchedDocument> document(String url, String contentHash) {
+    return documents
+        .findById(new ResearchDocumentId(url, contentHash))
+        .map(JpaResearchStore::toDocument);
+  }
+
+  @Override
   public void saveDocument(FetchedDocument document, String requestedUrl, UUID sourceId) {
     documents.save(toEntity(document, requestedUrl, sourceId));
     if (!requestedUrl.equals(document.url())) {

@@ -43,6 +43,25 @@ public class ValidationAutoConfiguration {
     return new SafetyInterceptor();
   }
 
+  /**
+   * The verifier stage of grounded research, where a verifier is wired (orazaka-tools). Its
+   * pipeline row ships disabled (ADR-087 slice 2).
+   *
+   * @param verifier the deterministic citation verifier
+   * @param config the runtime settings
+   * @return the stage
+   */
+  @Bean
+  @ConditionalOnBean({
+    com.krizaka.orazaka.core.domain.ports.inbound.CitationVerifier.class,
+    com.krizaka.orazaka.persistence.domain.ports.inbound.RuntimeConfigProvider.class
+  })
+  public CitationVerifierInterceptor citationVerifierInterceptor(
+      com.krizaka.orazaka.core.domain.ports.inbound.CitationVerifier verifier,
+      com.krizaka.orazaka.persistence.domain.ports.inbound.RuntimeConfigProvider config) {
+    return new CitationVerifierInterceptor(verifier, config);
+  }
+
   @Bean
   public CostShieldInterceptor costShieldInterceptor() {
     return new CostShieldInterceptor();

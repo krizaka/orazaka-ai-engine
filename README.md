@@ -129,7 +129,16 @@ and holds one deadline for the whole call (`research.fetch.timeout-ms`), so a bo
 visible text in reading order — one paragraph per block, nothing hidden by `hidden`, `aria-hidden` or inline CSS —
 and keeps the main content. A document is stored under its source, the URL asked for and the content hash, with its
 final URL. Every call writes one `research_fetch` audit line, with a path hash, never the query. The limits are
-`research.fetch.*` rows read at call time. Nothing calls the fetcher yet: the citations and the verifier are slice 2.
+`research.fetch.*` rows read at call time.
+**Citations and the verifier (slice 2).** A grounded answer is `{answer, claims[], sources[]}`: each claim carries
+citations, and each citation has a URL, a verbatim quote, a content hash and a fetch time. `CitationVerificationService`
+is deterministic, with no model involved. It finds each quote in the stored document named by URL + hash, after
+`QuoteNormalizer` (NFC, case folding, French typography: « » “ ” ’, U+202F/U+00A0, œ/æ, dashes, the ellipsis). One found
+quote makes a claim `VERIFIED`. Any other claim becomes `TO_VALIDATE` with a reason (`NO_SOURCE`, `QUOTE_NOT_FOUND`,
+`URL_UNRESOLVED`), or is dropped in `STRICT`. Every URL, `owner/repo` or statute stated in the prose that no verified
+claim covers becomes a `TO_VALIDATE` line (`UNLISTED_REFERENCE`). `CitationVerifierInterceptor` applies it to a
+citation-shaped answer and leaves any other answer untouched. Its pipeline row ships OFF; slice 5's `grounding` flag
+turns it on.
 
 ## Position in the platform
 

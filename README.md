@@ -107,6 +107,30 @@ the generator and generated documentation are not present in this standalone rep
 - **`searchKnowledge`** searches the organisation's knowledge base, not the web (it was called `searchWeb`, #59).
   Searching and reading the web is ADR-087's grounded research.
 
+## Grounded research: reading a page safely (ADR-087 slice 1)
+
+`PageFetcher` (`orazaka-tools`, `PageFetchService`) reads one page for grounded research through an
+administrator-declared `research_source`, with every guard of ADR-087 §4, in order:
+
+1. research on (`research.enabled`) and the source enabled;
+2. https, or http where the source allows it;
+3. the source's allow and deny patterns, paths compared in canonical form (`/%70rivate` is `/private`);
+4. the cache (`research_document`): a document read through **this** source, younger than the source's **current**
+   freshness, whose final URL the source's current policy still allows — a hit never crosses sources;
+5. the source's rate, then, on every hop, the host's rate;
+6. robots.txt, always honoured, cached at most 24 h per origin and product token (RFC 9309); its own request follows
+   redirects across authorities, and a robots.txt that cannot be read — a refused address included — allows nothing.
+
+`PinnedHttpClient` then resolves each hop **once** and refuses any non-public address (loopback,
+private, link-local and the metadata endpoint, CGNAT, IPv6 ULA, mapped forms…). It connects to exactly the address it
+checked, so DNS rebinding cannot reach the connection. It re-checks every redirect, sends no cookies, caps the size,
+and holds one deadline for the whole call (`research.fetch.timeout-ms`), so a body that trickles in stops with it.
+`HtmlTextExtractor` decodes the bytes as the server said (the HTTP charset, else a BOM or `<meta charset>`), walks the
+visible text in reading order — one paragraph per block, nothing hidden by `hidden`, `aria-hidden` or inline CSS —
+and keeps the main content. A document is stored under its source, the URL asked for and the content hash, with its
+final URL. Every call writes one `research_fetch` audit line, with a path hash, never the query. The limits are
+`research.fetch.*` rows read at call time. Nothing calls the fetcher yet: the citations and the verifier are slice 2.
+
 ## Position in the platform
 
 | | |

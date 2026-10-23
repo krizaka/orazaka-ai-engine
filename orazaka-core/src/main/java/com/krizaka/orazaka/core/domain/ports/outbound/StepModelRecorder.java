@@ -1,6 +1,8 @@
 package com.krizaka.orazaka.core.domain.ports.outbound;
 
-/** Mandatory caller-supplied bridge to the host's existing step persistence, not a new step store. */
+/**
+ * Mandatory caller-supplied bridge to the host's existing step persistence, not a new step store.
+ */
 @FunctionalInterface
 public interface StepModelRecorder {
 

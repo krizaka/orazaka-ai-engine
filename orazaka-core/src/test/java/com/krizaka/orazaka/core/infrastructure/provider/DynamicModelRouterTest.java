@@ -1,9 +1,7 @@
 package com.krizaka.orazaka.core.infrastructure.provider;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 import com.krizaka.orazaka.core.domain.model.StepModelUnavailableException;
 import com.krizaka.orazaka.core.domain.ports.outbound.ModelEndpointResolver;

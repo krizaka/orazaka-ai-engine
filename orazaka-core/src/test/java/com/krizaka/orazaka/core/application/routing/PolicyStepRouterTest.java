@@ -1,13 +1,7 @@
 package com.krizaka.orazaka.core.application.routing;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.mockito.Mockito.when;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 import com.krizaka.orazaka.core.domain.model.RoutingPolicy;
 import com.krizaka.orazaka.core.domain.model.StepModelCandidate;
@@ -111,7 +105,7 @@ class PolicyStepRouterTest {
             (step, model) -> events.add("record:" + step + ":" + model),
             model -> {
               events.add("invoke:" + model);
-              if (model.equals("primary")) {
+              if ("primary".equals(model)) {
                 throw new StepModelUnavailableException("primary offline");
               }
               return model;
@@ -151,7 +145,7 @@ class PolicyStepRouterTest {
                     (step, model) -> recorded.add(model),
                     model -> {
                       invoked.add(model);
-                      throw model.equals("primary") ? first : last;
+                      throw "primary".equals(model) ? first : last;
                     }));
 
     assertSame(last, failure.getCause());

@@ -139,7 +139,9 @@ class RoutedChatModelTest {
                 IllegalArgumentException.class,
                 () ->
                     new RoutedChatModel(router)
-                        .call(new Prompt("hi", OpenAiChatOptions.builder().model("primary").build()))))
+                        .call(
+                            new Prompt(
+                                "hi", OpenAiChatOptions.builder().model("primary").build()))))
         .isSameAs(failure);
   }
 

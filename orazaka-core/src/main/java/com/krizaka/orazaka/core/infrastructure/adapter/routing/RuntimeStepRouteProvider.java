@@ -22,7 +22,8 @@ import tools.jackson.databind.ObjectMapper;
  *
  * <p>{@code routing.<capability>.<policy>} in {@code orazaka_runtime_config} holds a JSON array of
  * model names, primary first. Each name references {@code orazaka_models}; only an explicit {@code
- * runs_on=local} declares a sovereign candidate. Missing configuration never uses a catalog default.
+ * runs_on=local} declares a sovereign candidate. Missing configuration never uses a catalog
+ * default.
  */
 @Component
 class RuntimeStepRouteProvider implements StepRouteProvider {
@@ -56,7 +57,7 @@ class RuntimeStepRouteProvider implements StepRouteProvider {
               return new StepModelCandidate(
                   name,
                   model != null && "local".equals(model.runsOn()),
-                  model != null && "available".equals(model.status()));
+                  model != null && CatalogModelDto.STATUS_AVAILABLE.equals(model.status()));
             })
         .toList();
   }
@@ -71,7 +72,8 @@ class RuntimeStepRouteProvider implements StepRouteProvider {
       var seen = new HashSet<String>();
       for (var name : array) {
         if (!name.isString() || name.asString().isBlank() || !seen.add(name.asString())) {
-          throw new IllegalStateException("Routing model names must be nonblank and unique: " + key);
+          throw new IllegalStateException(
+              "Routing model names must be nonblank and unique: " + key);
         }
         names.add(name.asString());
       }

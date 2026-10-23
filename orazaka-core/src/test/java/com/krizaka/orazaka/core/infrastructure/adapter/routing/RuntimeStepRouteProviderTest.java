@@ -1,14 +1,8 @@
 package com.krizaka.orazaka.core.infrastructure.adapter.routing;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 import com.krizaka.orazaka.core.application.routing.PolicyStepRouter;
 import com.krizaka.orazaka.core.domain.model.RoutingPolicy;
@@ -97,8 +91,7 @@ class RuntimeStepRouteProviderTest {
             .execute(
                 new StepRoutingRequest("step-42", "text.generate", policy),
                 selectedModels::put,
-                name ->
-                    routed.call(new Prompt("hi", ChatOptions.builder().model(name).build())));
+                name -> routed.call(new Prompt("hi", ChatOptions.builder().model(name).build())));
 
     assertEquals(response, result);
     assertEquals("secondary", selectedModels.get("step-42"));
@@ -144,8 +137,7 @@ class RuntimeStepRouteProviderTest {
   }
 
   @ParameterizedTest
-  @ValueSource(
-      strings = {"not-json", "null", "{}", "[1]", "[null]", "[\"\"]", "[\"a\", \"a\"]"})
+  @ValueSource(strings = {"not-json", "null", "{}", "[1]", "[null]", "[\"\"]", "[\"a\", \"a\"]"})
   void invalidDeclarationsAreRejected(String declaration) {
     when(config.getString("routing.text.generate.LATENCY_FIRST", null)).thenReturn(declaration);
 
@@ -154,11 +146,10 @@ class RuntimeStepRouteProviderTest {
         () -> provider.candidates("text.generate", RoutingPolicy.LATENCY_FIRST));
   }
 
+  /** A real catalogue row: the DTO is a record, and a record is final — it cannot be mocked. */
   private static CatalogModelDto model(String name, String runsOn, String status) {
-    var model = mock(CatalogModelDto.class);
-    when(model.modelName()).thenReturn(name);
-    when(model.runsOn()).thenReturn(runsOn);
-    when(model.status()).thenReturn(status);
-    return model;
+    return new CatalogModelDto(
+        null, name, name, "text", null, false, null, null, null, null, null, runsOn, status, null,
+        null);
   }
 }

@@ -54,7 +54,10 @@ public class PolicyStepRouter implements StepRouter {
       }
     }
     throw new StepModelUnavailableException(
-        "No available model for step " + request.stepId() + " and capability " + request.capability(),
+        "No available model for step "
+            + request.stepId()
+            + " and capability "
+            + request.capability(),
         lastFailure);
   }
 }

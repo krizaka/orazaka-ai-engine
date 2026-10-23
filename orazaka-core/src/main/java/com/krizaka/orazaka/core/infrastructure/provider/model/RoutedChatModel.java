@@ -3,6 +3,7 @@ package com.krizaka.orazaka.core.infrastructure.provider.model;
 import com.krizaka.orazaka.core.domain.model.MediaCategory;
 import com.krizaka.orazaka.core.infrastructure.provider.DynamicModelRouter;
 import com.krizaka.orazaka.core.infrastructure.provider.UniversalProxyChatProvider;
+import com.openai.errors.OpenAIServiceException;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.ChatOptions;
@@ -76,11 +77,14 @@ public class RoutedChatModel implements ChatModel {
           || t instanceof java.net.http.HttpTimeoutException) {
         return true;
       }
-      if (t instanceof RestClientResponseException response) {
-        int status = response.getStatusCode().value();
-        if (status == 502 || status == 503 || status == 504) {
-          return true;
-        }
+      int status =
+          switch (t) {
+            case OpenAIServiceException response -> response.statusCode();
+            case RestClientResponseException response -> response.getStatusCode().value();
+            default -> 0;
+          };
+      if (status == 502 || status == 503 || status == 504) {
+        return true;
       }
     }
     return false;

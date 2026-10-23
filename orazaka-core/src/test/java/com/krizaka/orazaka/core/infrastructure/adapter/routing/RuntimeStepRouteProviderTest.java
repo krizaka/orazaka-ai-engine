@@ -19,6 +19,8 @@ import com.krizaka.orazaka.core.infrastructure.provider.model.RoutedChatModel;
 import com.krizaka.orazaka.persistence.domain.model.CatalogModelDto;
 import com.krizaka.orazaka.persistence.domain.ports.inbound.CatalogModelManager;
 import com.krizaka.orazaka.persistence.domain.ports.inbound.RuntimeConfigProvider;
+import com.openai.core.http.Headers;
+import com.openai.errors.InternalServerException;
 import java.util.HashMap;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -65,7 +67,7 @@ class RuntimeStepRouteProviderTest {
 
   @ParameterizedTest
   @EnumSource(RoutingPolicy.class)
-  void connectionFailureUsesDeclaredSecondaryAndRecordsItsName(RoutingPolicy policy) {
+  void sdkProviderFailureUsesDeclaredSecondaryAndRecordsItsName(RoutingPolicy policy) {
     when(config.getString("routing.text.generate." + policy.name(), null))
         .thenReturn("[\"primary\",\"secondary\",\"hosted\"]");
     when(catalog.getAllModels())
@@ -81,7 +83,11 @@ class RuntimeStepRouteProviderTest {
     when(models.chatModel("primary")).thenReturn(primary);
     when(models.chatModel("secondary")).thenReturn(secondary);
     when(primary.call(any(Prompt.class)))
-        .thenThrow(new RuntimeException(new java.net.ConnectException("Connection refused")));
+        .thenThrow(
+            InternalServerException.builder()
+                .statusCode(503)
+                .headers(Headers.builder().build())
+                .build());
     when(secondary.call(any(Prompt.class))).thenReturn(response);
     var routed = new RoutedChatModel(models);
     var selectedModels = new HashMap<String, String>();

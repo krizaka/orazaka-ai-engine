@@ -6,6 +6,8 @@ import static org.mockito.Mockito.*;
 
 import com.krizaka.orazaka.core.domain.model.StepModelUnavailableException;
 import com.krizaka.orazaka.core.infrastructure.provider.DynamicModelRouter;
+import com.openai.core.http.Headers;
+import com.openai.errors.InternalServerException;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -147,6 +149,29 @@ class RoutedChatModelTest {
     var failure = new HttpServerErrorException(HttpStatus.valueOf(status));
 
     assertThat(RoutedChatModel.isUnreachable(failure)).isTrue();
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {502, 503, 504})
+  void sdkProviderFailureAllowsFallback(int status) {
+    var failure =
+        InternalServerException.builder()
+            .statusCode(status)
+            .headers(Headers.builder().build())
+            .build();
+
+    assertThat(RoutedChatModel.isUnreachable(new RuntimeException(failure))).isTrue();
+  }
+
+  @Test
+  void sdkInternalErrorDoesNotTriggerUnavailabilityFallback() {
+    var failure =
+        InternalServerException.builder()
+            .statusCode(500)
+            .headers(Headers.builder().build())
+            .build();
+
+    assertThat(RoutedChatModel.isUnreachable(failure)).isFalse();
   }
 
   @Test

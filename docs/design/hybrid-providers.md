@@ -119,32 +119,37 @@ rejected when saved *and* treated as `SOVEREIGN_ONLY` when read (a bad row can n
 | `PAID_PREFERRED` | paid first; sovereign remains the fallback | paid, then sovereign |
 
 Mapping to the router: `RoutingPolicy` gains **`HYBRID_SOVEREIGN_FIRST`** and
-**`HYBRID_PAID_FIRST`** (the two paid modes). `PolicyStepRouter` keeps its single filter but the
-predicate becomes « sovereign, **or** the policy is a hybrid one *and* the paid gates (§2.2, §2.4)
-passed for this candidate ». The routing rows stay in the DB
-(`routing.<capability>.HYBRID_*` = ordered model names), preserving « routing belongs in the
-database ». `COST_OPTIMIZED` / `LATENCY_FIRST` are untouched, and — because they do not state a
-hybrid mode — still never reach a non-sovereign model unless the host already declared one, exactly
-as today; the new gate is applied to **every** non-sovereign candidate regardless of policy name, so
-an existing `COST_OPTIMIZED` row that lists a hosted model also goes through caps and consent. This
-closes a hole rather than opening one.
+**`HYBRID_PAID_FIRST`** to express routing order. Authorization is a separate candidate-eligibility
+check: a non-sovereign candidate requires an effective workspace/capability mode other than
+`SOVEREIGN_ONLY`, plus the consent and reservation gates below, whatever the routing policy is.
+`SOVEREIGN_LOCAL_ONLY` remains an unconditional restriction and rejects every non-sovereign
+candidate. `COST_OPTIMIZED` and `LATENCY_FIRST` keep their existing declared order, but a declared
+hosted candidate is eligible only when workspace/capability authorization and all paid gates pass.
+The routing rows stay in the DB (`routing.<capability>.<POLICY>` = ordered model names),
+preserving « routing belongs in the database »; hybrid policies specify the order, not permission.
 
 ### 2.2 The data-class rule (Loi 25)
 
 A run has a data class (`PUBLIC`/`INTERNAL`/`SENSITIVE`/`REGULATED`, the pack's `regulatory_class`
 that already drives `ScopeGuardInterceptor` and the safety controls). The router receives it in
 `StepRoutingRequest` (new field `dataClass`, default `SENSITIVE`: unknown is treated as sensitive).
+The paid-provider disclosure check also considers whether the prompt or other submitted inputs contain
+personal information; data class alone is not a proxy for that check. Use ADR-087's disclosure
+classification rather than an ad-hoc string heuristic, and treat an indeterminate classification as
+requiring consent.
 
-> A `SENSITIVE` or `REGULATED` run **never** goes to a non-sovereign candidate unless a **recorded
-> consent** exists for *(workspace, capability, provider)* — as in ADR-087. No consent → the
-> candidate is skipped; if no sovereign candidate remains the step fails closed with
-> `StepModelUnavailableException` carrying the reason `consent_required`.
+> A `SENSITIVE` or `REGULATED` run, or any run whose disclosure contains personal information,
+> **never** goes to a non-sovereign candidate unless recorded consent and its purpose cover
+> *(workspace, capability, provider, disclosure)* — as in ADR-087. This is true for `PUBLIC` and
+> `INTERNAL` data too. No applicable consent → the candidate is skipped; if no eligible candidate
+> remains the step fails closed with `StepModelUnavailableException` carrying `consent_required`.
 
-Consent is a read-only port, `PaidProviderConsent.isGranted(workspace, capability, provider)`,
-backed by the consent record ADR-087 defines (owned by the Orazaka/billing side; this repo only
-*asks*). Consent is checked **at routing time, before the hold**, and the grant's id is stored with
-the routing reason. Revoking consent takes effect on the next step; it never re-runs history. `PUBLIC`
-and `INTERNAL` runs need no consent but still need the mode and the caps.
+Consent is a read-only port backed by the consent record ADR-087 defines (owned by the Orazaka/billing
+side; this repo only *asks*). It checks the applicable data-class and personal-information disclosure
+requirements **at routing time, before cache lookup or any reservation/provider call**, and returns the
+grant id and purpose stored with the routing reason. Revoking consent takes effect on the next step; it
+never re-runs history. `PUBLIC` and `INTERNAL` runs without personal information need no consent but
+still need the mode and the caps.
 
 ### 2.3 What the run shows (ADR-088 folded timeline)
 
@@ -154,7 +159,8 @@ contract (mandatory, before inference, outside the fallback catch):
 
 ```
 recordRoute(stepId, RouteDecision{
-  provider, model, sovereign (bool), policy, reason, consentId?, estimatedUsd, holdId? })
+  provider, model, sovereign (bool), policy, reason, consentId?, consentPurpose?,
+  estimatedUsd, paidSpendReservationId? })
 ```
 
 `reason` is an enum-like string written by the router and never free text from a model:
@@ -162,7 +168,9 @@ recordRoute(stepId, RouteDecision{
 (refusal), `run_cap_exceeded` (refusal), `month_cap_exceeded` (refusal), `policy_sovereign_only`
 (refusal). The existing single-argument `recordModel` stays as a default method delegating to
 `recordRoute` so current callers and tests do not change. The timeline folds consecutive attempts of
-a step into one line with the winning provider/model and expands to the refusals.
+a step into one line with the winning provider/model and expands to the refusals. A paid step records
+its consent purpose and paid-spend reservation id; the Studio shared credit hold is not a step
+reservation.
 
 ### 2.4 Caps, hold, and actual cost
 
@@ -176,31 +184,50 @@ doubles — it stays as the independent global circuit breaker and is *also* con
    source.
 2. **Estimate** = `unit price × expected units` (video: requested seconds × `video_second`; text:
    `max_tokens` × `token_out` + prompt tokens × `token_in`). Never `SpendGuard`'s flat estimate.
-3. **Cap check, then hold, then call** — in this order, all before any provider is contacted:
-   `estimate ≤ runCapUsd − spent_this_run` and `monthSpent + estimate ≤ monthCapUsd`; failing either
-   refuses with `run_cap_exceeded` / `month_cap_exceeded`. Then place the hold for the estimate
-   (ADR-087; for a Studio run, the run's single hold, ADR-041/ADR-088 per-run budget). An approval
-   gate (ADR-088) applies when the estimate exceeds the run's approval threshold.
-4. **Settle with the actual** after the call: tokens/seconds reported by the provider (video: the
-   duration of the delivered clip) × the pinned pricebook row, using the idempotency-key-from-hold rule
-   (`ChatSettlementListener.java:74`). A call with **no reported usage is released, not billed at
-   the estimate** (`:55-57`).
-5. **Failure releases the hold.** Any failure path — HTTP error, timeout, job `FAILED`/`CANCELED`,
-   moderation refusal — releases the hold with the reason. A job that fails *after* the provider
-   charged is settled for what the provider reports (never silently released), and flagged in the
-   run.
-6. Month caps are computed from the **ledger** (settled + open holds), not memory, so a restart or a
-   second instance cannot reset them (the weakness `SpendGuard.java:23-26` documents).
+3. **Policy and approval before reservation.** An approval gate (ADR-088) applies when the estimate
+   exceeds the run's approval threshold. No provider call or spend reservation starts until any
+   required approval is recorded.
+4. **Atomic cap check-and-reserve.** A billing-side operation checks and reserves the estimate in one
+   transaction for both the run and month caps. For each scope, available headroom is the cap minus
+   settled paid-provider spend and outstanding paid-provider step allocations; concurrent workers
+   must serialize on the same ledger scope (or use an equivalent atomic conditional update). A
+   duplicate reservation key is idempotent. Failure to fit either cap refuses with
+   `run_cap_exceeded` / `month_cap_exceeded`. The reservation is a paid-provider spend allocation,
+   not a credit hold. It is counted once in each applicable cap, regardless of whether Studio also has
+   its run-level credit hold.
+5. **Keep Studio's shared credit hold saga-owned.** A standalone call may use its own ordinary billing
+   hold, which that call settles or releases. A Studio run has one shared credit hold: individual steps
+   never settle or release it. Each paid Studio step records measured usage/cost and finalizes only its
+   separate provider-spend allocation; the run saga persists step measurements and alone performs the
+   terminal `settleAggregate`/release for the shared hold, idempotently by run id (ADR-041). Do not
+   count that shared credit hold as another paid-provider allocation.
+6. **Finalize only known outcomes.** On a confirmed completed call, record provider-reported usage
+   (video: delivered duration) × the pinned pricebook row, settle a standalone call's own hold when
+   applicable, and replace the paid-spend allocation with actual spend, releasing unused headroom.
+   Record actual spend even if it exceeds the estimate/cap and block later reservations; the provider
+   charge cannot be undone. Release a provider-spend allocation, or a standalone call's hold, only
+   when the provider confirms the operation is terminal and non-billable. A timeout, missing usage,
+   cancellation request, or lost response is not proof of zero charge: keep the allocation open and
+   reconcile/recover the operation. No step-level path may settle or release Studio's shared hold.
+7. Month and run cap totals come from the **ledger** (settled spend + outstanding paid-step
+   allocations), not memory, so a restart or a second instance cannot reset them (the weakness
+   `SpendGuard.java:23-26` documents). `SpendGuard` remains an independent global circuit breaker.
 
 ### 2.5 Exact cache, resume, and `studio.call`
 
-- **Exact cache.** Key = hash of *(provider, model, canonicalised request, seed, data class, output
-  contract version)*. It is checked **before the cap check and the hold**: a hit costs nothing and
-  records `reason=cache_hit`. A paid call already made is never paid twice. Sensitive runs only hit
-  a cache entry created under the same consent grant.
-- **Resume from a step.** A paid step that failed is retried alone. Its completed siblings are
-  served from their stored outputs; an in-flight provider job id is stored on the step so resume
-  **re-polls the same job** instead of submitting (and paying for) a new one.
+- **Exact cache.** Key = authenticated `(actorId, workspaceId)` plus hash of *(provider, model,
+  canonicalised request, seed, data class, output contract version)*. Lookup is always scoped to the
+  same actor and workspace; it never crosses either boundary. Check policy and consent eligibility
+  first, then the exact cache, and only on a miss enforce caps and reserve spend. A hit costs nothing
+  and records `reason=cache_hit`, even if a cap is now exhausted. Sensitive, regulated, or
+  personal-information entries only hit under the same applicable consent grant and purpose.
+- **Resume from a step.** Before submission, persist a stable submission identity and its paid-spend
+  reservation on the step. Pass that identity to the provider as its idempotency key and use it to
+  recover the original job after a lost response or worker crash. Resume polls the recovered/stored
+  job rather than submitting a second billable operation. If the vendor supports neither idempotent
+  submission nor lookup by that identity, an unknown outcome requires reconciliation and must never
+  trigger automatic resubmission. Keep the reservation open until the outcome is known; release only
+  a confirmed non-billable operation. Completed siblings still use their stored outputs.
 - **`studio.call` and the step output contract.** The video step declares output
   `{assetId, mimeType, durationMs, width, height, provider, model, costCents}`; the clip is written
   through `orazaka-assets` (encrypted, `DurableAssetStore`) — the provider's temporary URL is
@@ -211,7 +238,9 @@ doubles — it stays as the independent global circuit breaker and is *also* con
 If any is absent when phase 2 starts, it is **added to v2** (never routed around):
 (a) consent port data (ADR-087), (b) per-run budget and approval gate (ADR-088), (c) exact cache
 keyed as above, (d) step-level stored job id for resume, (e) a pricebook with the units in §2.4.1,
-(f) the widened route record of §2.3 on the studio timeline.
+(f) the widened route record of §2.3 on the studio timeline, (g) atomic paid-spend reservations and
+their run/month ledger, distinct from the Studio credit hold, (h) persisted submission identity plus
+vendor idempotency/lookup or manual reconciliation for unknown outcomes.
 
 ## 3. Architecture
 
@@ -219,17 +248,30 @@ keyed as above, (d) step-level stored job id for resume, (e) a pricebook with th
 
 ```java
 public interface VideoGenerationProvider {
-  VideoJobHandle submit(VideoRequest request);        // returns provider job id, no blocking
-  VideoJobStatus poll(VideoJobHandle handle);         // QUEUED | RUNNING | SUCCEEDED(output) | FAILED(reason)
+  VideoJobHandle submit(VideoRequest request, String submissionId);
+  SubmissionRecovery recover(String submissionId);
+  VideoJobStatus poll(VideoJobHandle handle);
   void cancel(VideoJobHandle handle);
 }
+enum SubmissionRecoveryStatus { FOUND, CONFIRMED_NOT_FOUND, UNSUPPORTED, UNKNOWN }
+record SubmissionRecovery(SubmissionRecoveryStatus status, VideoJobHandle handle) {}
 record VideoRequest(String prompt, int durationSeconds, AspectRatio aspect /* 9:16 */, Long seed, String model) {}
 ```
 
-An orchestrator in the application layer (`PaidVideoStep`) does: route → cap → consent → cache →
-hold → `submit` → poll with back-off (or webhook callback where the provider offers it) → download →
-store asset → settle/release. Provider adapters sit in `infrastructure/adapter/video/` and contain no
-policy. `ImageGeneratorClient` / `AudioGeneratorClient` already show the port pattern
+`submissionId` is minted and persisted before `submit` and is stable across retries. Adapters use it
+with vendor-supported idempotency or lookup. `recover` distinguishes a found job, a vendor-confirmed
+absence, an unsupported lookup, and an unknown outcome; unsupported or unknown is never treated as
+absence. If neither recovery mechanism exists, the orchestrator marks the step for reconciliation and
+does not resubmit. Poll and cancel timeouts leave the reservation open; a cancel request alone does
+not establish a non-billable outcome.
+
+An orchestrator in the application layer (`PaidVideoStep`) does: route and consent eligibility →
+owner/workspace-scoped exact cache → approval and atomic cap reservation → persist submission identity
+→ `submit`/recover → poll with back-off (or webhook callback where the provider offers it) → download
+→ store asset → record cost and finalize only the provider-spend allocation (and a standalone call's
+own hold, if applicable). A Studio step never settles/releases the shared run hold; only its saga does
+that terminally. Provider adapters sit in `infrastructure/adapter/video/` and contain no policy.
+`ImageGeneratorClient` / `AudioGeneratorClient` already show the port pattern
 (`domain/ports/outbound/ImageGeneratorClient.java`, `.../AudioGeneratorClient.java`).
 
 ### 3.2 Provider and model rows
@@ -318,23 +360,45 @@ API). Until then the phase-2 text work is limited to the generic row + gates, wh
 3. A key is never returned by an admin read API (write-only + `last4`).
 4. Rotation is an edit; `DynamicModelRouter.evictAll()` (`:93-96`) is called after it.
 
-## 7. Phase 2 plan (after « validé »)
+## 7. Phase 2 tests-first plan (after « validé »)
+
+**Tests first — recorded API answers only, no network, no key** (recorded fixtures under
+`**/fixture/**`). Add these failing regression tests before implementation:
+
+- Candidate eligibility is independent of routing order: workspace authorization permits declared
+  paid candidates under `COST_OPTIMIZED`/`LATENCY_FIRST`; `SOVEREIGN_LOCAL_ONLY` still rejects them;
+  missing/invalid settings remain sovereign.
+- Consent is required for `SENSITIVE`/`REGULATED` and independently for personal information in a
+  `PUBLIC`/`INTERNAL` disclosure; missing purpose/grant prevents cache use and provider contact, while
+  a `PUBLIC`/`INTERNAL` disclosure with no personal information needs no consent.
+- With a $3 run cap, an outstanding $2 step allocation makes another $2 reservation fail; concurrent
+  workers cannot exceed either run or month cap, and duplicate reservation requests are idempotent.
+- A Studio step finalizes its provider-spend allocation and persists measured usage without settling
+  or releasing the shared credit hold; only the run saga's terminal `settleAggregate`/release closes
+  that hold. A standalone call still settles/releases its own hold.
+- A paid step checks the owner- and workspace-scoped exact cache after policy/consent eligibility but
+  before cap enforcement: an eligible hit succeeds with an exhausted cap and performs no reservation;
+  another actor or workspace cannot hit it.
+- A lost submit response/worker crash recovers the original job by stable submission identity and
+  does not submit twice; when the vendor lacks idempotency and lookup, unknown outcomes remain
+  reserved for reconciliation. Poll/cancel timeout does not release a reservation; only a confirmed
+  non-billable terminal outcome does.
+- An async job polls `QUEUED → RUNNING → SUCCEEDED`; confirmed non-billable failures release only the
+  paid-spend allocation (and a standalone call's own hold), never a Studio shared hold. Provider
+  charges and missing/unknown usage remain recorded/reconciled rather than silently released.
+- A key never appears in logs or `toString`. `./mvnw verify` and Spotless stay green.
+
+Then implement:
 
 1. Encrypt provider credentials (§6) — prerequisite, own PR.
 2. `RoutingPolicy` hybrid values, `StepRoutingRequest.dataClass`, `RouteDecision` recording,
    `PaidProviderConsent` port, runtime-settings keys (§2).
-3. Caps + hold + settle/release around paid steps; pricebook rows seeded disabled (§2.4).
+3. Atomic paid-spend reservations, Studio's separate shared hold, standalone settlement and the
+   pricebook rows seeded disabled (§2.4).
 4. `VideoGenerationProvider` port, orchestrator, first adapter, asset write-through (§3).
 5. Provider/model seed rows (`enabled=false`, `runs_on=remote`), generic OpenAI-compatible row.
 6. ArchUnit governance rule (§3.5); frozen-store untouched.
 7. README + generated docs updated.
-
-**Tests — recorded API answers only, no network, no key** (recorded fixtures under `**/fixture/**`):
-cap refusal (run and month); consent refusal for `SENSITIVE`/`REGULATED`, grant for `PUBLIC`; an
-async job polled `QUEUED → RUNNING → SUCCEEDED`; a failure and a job `FAILED` that **release the
-hold**; exact-cache hit with no hold; resume re-polls the stored job id; sovereign-only default
-refuses a paid candidate; absent/invalid hybrid row is sovereign; a key never appears in logs or
-`toString`. `./mvnw verify` and Spotless stay green.
 
 **First live call**: made by the CTO with Oussama's key, estimated first, **capped at 3 USD**
 (`runCapUsd=3`), through the admin console settings — not a code path.

@@ -32,7 +32,7 @@ public class PlatformMcpServerEntity {
   @Column(name = "args", length = 2000)
   private String args;
 
-  @Column(name = "auth_token", length = 1000)
+  @Column(name = "auth_token", columnDefinition = "TEXT")
   private String authToken;
 
   @Column(name = "enabled")

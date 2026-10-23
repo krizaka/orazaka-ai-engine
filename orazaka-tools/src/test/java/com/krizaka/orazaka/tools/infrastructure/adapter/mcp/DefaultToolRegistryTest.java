@@ -40,6 +40,22 @@ class DefaultToolRegistryTest {
   }
 
   @Test
+  void theCorpusSearchIsNamedForWhatItDoes() {
+    // [#59] the corpus search says what it is: knowledge, not the web (ADR-087).
+    var tool =
+        registry.getRegisteredTools().stream()
+            .filter(t -> "searchKnowledge".equals(t.getToolDefinition().name()))
+            .findFirst()
+            .orElseThrow();
+    assertThat(tool.getToolDefinition().description())
+        .containsIgnoringCase("knowledge")
+        .containsIgnoringCase("not the web")
+        .doesNotContainIgnoringCase("real-time");
+    assertThat(registry.getRegisteredTools())
+        .noneMatch(t -> "searchWeb".equals(t.getToolDefinition().name()));
+  }
+
+  @Test
   void shouldRegisterTool() {
     String name = "testTool";
     String description = "A test tool";
@@ -50,7 +66,7 @@ class DefaultToolRegistryTest {
     List<ToolCallback> tools = registry.getRegisteredTools();
     assertThat(tools).hasSize(4);
     assertThat(tools.stream().map(t -> t.getToolDefinition().name()))
-        .contains(name, "analyzePoster", "analyzeAudioExtract", "searchWeb");
+        .contains(name, "analyzePoster", "analyzeAudioExtract", "searchKnowledge");
   }
 
   @Test
@@ -80,12 +96,12 @@ class DefaultToolRegistryTest {
   }
 
   @Test
-  void searchWeb_knowledgeServiceNull_returnsErrorResponse() {
+  void searchKnowledge_knowledgeServiceNull_returnsErrorResponse() {
     DefaultToolRegistry registryNoKnowledge = new DefaultToolRegistry(null, null, null);
     registryNoKnowledge.registerDefaultTools();
     ToolCallback tool =
         registryNoKnowledge.getRegisteredTools().stream()
-            .filter(t -> "searchWeb".equals(t.getToolDefinition().name()))
+            .filter(t -> "searchKnowledge".equals(t.getToolDefinition().name()))
             .findFirst()
             .orElseThrow();
 
@@ -94,14 +110,14 @@ class DefaultToolRegistryTest {
   }
 
   @Test
-  void searchWeb_withMatches_returnsJoinedContent() {
+  void searchKnowledge_withMatches_returnsJoinedContent() {
     ToolCallback tool =
         registry.getRegisteredTools().stream()
-            .filter(t -> "searchWeb".equals(t.getToolDefinition().name()))
+            .filter(t -> "searchKnowledge".equals(t.getToolDefinition().name()))
             .findFirst()
             .orElseThrow();
 
-    when(knowledgeService.searchSources("searchWeb", "user-123", "Corporate"))
+    when(knowledgeService.searchSources("searchKnowledge", "user-123", "Corporate"))
         .thenReturn("Corporate description profile content.");
 
     // Stub SecurityContextUtil using MockedStatic to return userId: user-123
@@ -116,15 +132,15 @@ class DefaultToolRegistryTest {
   }
 
   @Test
-  void searchWeb_noMatch_fallsBackToAllVisibleSources() {
+  void searchKnowledge_noMatch_fallsBackToAllVisibleSources() {
     ToolCallback tool =
         registry.getRegisteredTools().stream()
-            .filter(t -> "searchWeb".equals(t.getToolDefinition().name()))
+            .filter(t -> "searchKnowledge".equals(t.getToolDefinition().name()))
             .findFirst()
             .orElseThrow();
 
-    when(knowledgeService.searchSources("searchWeb", "user-123", "Corporate")).thenReturn("");
-    when(knowledgeService.searchSources("searchWeb", "user-123", ""))
+    when(knowledgeService.searchSources("searchKnowledge", "user-123", "Corporate")).thenReturn("");
+    when(knowledgeService.searchSources("searchKnowledge", "user-123", ""))
         .thenReturn("Corporate fallback profile.");
 
     try (MockedStatic<SecurityContextUtil> mockSecurity = mockStatic(SecurityContextUtil.class)) {

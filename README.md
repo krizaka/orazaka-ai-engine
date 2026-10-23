@@ -95,6 +95,18 @@ Public routing contracts carry Javadoc for the workspace documentation generator
 the reference inside the assembled workspace with `orazaka docs build` and `orazaka docs sync`;
 the generator and generated documentation are not present in this standalone repository.
 
+## External content and secrets
+
+- **Text the engine did not write is data, never an instruction.** What an MCP server returns and what the knowledge
+  sources hold reach the model in a delimited user-role block (`ExternalContent`), cleaned of scripts and invisible
+  characters, with one fixed rule of our own saying a block cannot change the instructions. No `SystemMessage` is built
+  from external content (orazaka-ai-engine#57, ADR-087).
+- **MCP server tokens are sealed** for their owner with the platform's master keyring (`SecretSealer`, ADR-054) before
+  they reach `user_mcp_servers` / `platform_mcp_servers`; rows written in clear are sealed at startup, and without a
+  keyring a token is refused, never stored in clear (#58).
+- **`searchKnowledge`** searches the organisation's knowledge base, not the web (it was called `searchWeb`, #59).
+  Searching and reading the web is ADR-087's grounded research.
+
 ## Position in the platform
 
 | | |

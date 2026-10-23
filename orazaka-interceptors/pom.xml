@@ -51,6 +51,12 @@
         </dependency>
 
         <!-- Jackson — Tier A deterministic JSON-schema validation (validation concern) -->
+        <!-- External content is cleaned as a browser renders it: no hidden text reaches the model (#57). -->
+        <dependency>
+            <groupId>org.jsoup</groupId>
+            <artifactId>jsoup</artifactId>
+            <version>1.19.1</version>
+        </dependency>
         <dependency>
             <groupId>tools.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>

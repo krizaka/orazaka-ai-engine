@@ -20,7 +20,7 @@ class SystemContextInjectorTest {
     assertThat(result).isNotNull();
     assertThat(result.systemMetadata())
         .containsEntry("systemStatus", "OPERATIONAL")
-        .containsEntry("activeTools", "searchWeb, ttsGenerator, imageGenerator")
+        .containsEntry("activeTools", "searchKnowledge, ttsGenerator, imageGenerator")
         .containsEntry("activeTrends", "AI-agentic-flows, virtual-threads-concurrency");
   }
 

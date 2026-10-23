@@ -1,5 +1,6 @@
 package com.krizaka.orazaka.persistence.application.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -12,7 +13,6 @@ import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -24,7 +24,64 @@ class PlatformMcpServerPersistenceProviderImplTest {
 
   @Mock private PlatformMcpServerRepository repository;
 
-  @InjectMocks private PlatformMcpServerPersistenceProviderImpl provider;
+  @org.junit.jupiter.api.io.TempDir java.nio.file.Path keyringDir;
+
+  private McpTokenSealer tokens;
+  private PlatformMcpServerPersistenceProviderImpl provider;
+
+  @org.junit.jupiter.api.BeforeEach
+  void setUp() throws Exception {
+    java.nio.file.Path keyring = keyringDir.resolve("master.key");
+    com.krizaka.orazaka.assets.infrastructure.adapter.FileMasterKeyProvider.addKey(keyring, "k1");
+    var keys = new com.krizaka.orazaka.assets.infrastructure.adapter.FileMasterKeyProvider(keyring);
+    org.springframework.beans.factory.ObjectProvider<
+            com.krizaka.orazaka.assets.domain.port.MasterKeyProvider>
+        provided = mock(org.springframework.beans.factory.ObjectProvider.class);
+    lenient().when(provided.getIfAvailable()).thenReturn(keys);
+    tokens = new McpTokenSealer(provided);
+    provider = new PlatformMcpServerPersistenceProviderImpl(repository, tokens);
+  }
+
+  @Test
+  @DisplayName("[#58] a token is stored sealed, never in clear, and reads back for the client")
+  void theTokenIsStoredSealed() {
+    PlatformMcpServerDto dto =
+        new PlatformMcpServerDto(
+            1,
+            "MCP",
+            "SSE",
+            "https://mcp.example",
+            null,
+            null,
+            "secret-token",
+            true,
+            Instant.now(FIXED_CLOCK));
+    org.mockito.ArgumentCaptor<PlatformMcpServerEntity> stored =
+        org.mockito.ArgumentCaptor.forClass(PlatformMcpServerEntity.class);
+    when(repository.save(stored.capture())).thenAnswer(call -> call.getArgument(0));
+
+    PlatformMcpServerDto saved = provider.save(dto);
+
+    assertThat(stored.getValue().getAuthToken())
+        .isNotNull()
+        .doesNotContain("secret-token")
+        .startsWith("v1.");
+    assertThat(saved.authToken()).isEqualTo("secret-token");
+  }
+
+  @Test
+  @DisplayName("[#58] a row written in clear before #58 still reads, until the migration seals it")
+  void aLegacyClearRowStillReads() {
+    PlatformMcpServerEntity legacy = new PlatformMcpServerEntity();
+    legacy.setId(7);
+    legacy.setLabel("legacy");
+    legacy.setTransportType("SSE");
+    legacy.setUrl("https://mcp.example");
+    legacy.setAuthToken("legacy-token");
+    when(repository.findById(7)).thenReturn(java.util.Optional.of(legacy));
+
+    assertThat(provider.findById(7)).map(PlatformMcpServerDto::authToken).contains("legacy-token");
+  }
 
   @Test
   @DisplayName("findByEnabledTrue retrieves enabled servers")
@@ -82,7 +139,7 @@ class PlatformMcpServerPersistenceProviderImplTest {
     Instant now = Instant.now(FIXED_CLOCK);
     PlatformMcpServerDto dto =
         new PlatformMcpServerDto(1, "MCP", "SSE", "url", "cmd", "args", "token", true, now);
-    PlatformMcpServerEntity entity = PlatformMcpServerPersistenceProviderImpl.toEntity(dto);
+    PlatformMcpServerEntity entity = provider.toEntity(dto);
 
     when(repository.save(any(PlatformMcpServerEntity.class))).thenReturn(entity);
 

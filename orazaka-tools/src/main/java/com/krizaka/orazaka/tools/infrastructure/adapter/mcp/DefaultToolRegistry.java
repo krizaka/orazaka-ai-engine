@@ -30,7 +30,13 @@ import org.springframework.stereotype.Component;
 public class DefaultToolRegistry implements ToolRegistry {
 
   private static final Logger log = LoggerFactory.getLogger(DefaultToolRegistry.class);
-  private static final String TOOL_SEARCH_WEB = "searchWeb";
+
+  /**
+   * Searches the knowledge corpus the knowledge service holds — not the web. It was called {@code
+   * searchWeb}, which told the model it could look things up live (ADR-087, orazaka-ai-engine#59).
+   * The name is also the key of its sources and of its cache settings.
+   */
+  static final String TOOL_SEARCH_KNOWLEDGE = "searchKnowledge";
 
   private final PlatformToolConfigProvider platformToolConfigProvider;
   private final ToolCacheStore cacheService;
@@ -66,24 +72,25 @@ public class DefaultToolRegistry implements ToolRegistry {
         AnalyzeAudioExtractRequest.class,
         this::analyzeAudioExtract);
     registerTool(
-        TOOL_SEARCH_WEB,
-        "Queries the corporate RAG database for real-time web search results.",
+        TOOL_SEARCH_KNOWLEDGE,
+        "Searches the documents of the organisation's knowledge base (not the web) and returns"
+            + " the passages that match the query.",
         SearchWebRequest.class,
-        this::searchWeb);
+        this::searchKnowledge);
   }
 
-  private SearchWebResponse searchWeb(SearchWebRequest request) {
+  private SearchWebResponse searchKnowledge(SearchWebRequest request) {
     // The tool, never its arguments: a query or a poster is the user's content (ADR-064).
-    log.info("Executing searchWeb tool");
+    log.info("Executing searchKnowledge tool");
     if (knowledgeService == null) {
       return new SearchWebResponse("Knowledge service is not initialized.", false);
     }
     String currentUserId = (String) SecurityContextUtil.extractSecurityMetadata().get("userId");
     String matches =
-        knowledgeService.searchSources(TOOL_SEARCH_WEB, currentUserId, request.query());
+        knowledgeService.searchSources(TOOL_SEARCH_KNOWLEDGE, currentUserId, request.query());
     if (matches.isBlank()) {
       // Fallback: return any corporate profile/framework description visible to the user.
-      matches = knowledgeService.searchSources(TOOL_SEARCH_WEB, currentUserId, "");
+      matches = knowledgeService.searchSources(TOOL_SEARCH_KNOWLEDGE, currentUserId, "");
     }
     return new SearchWebResponse(matches, true);
   }

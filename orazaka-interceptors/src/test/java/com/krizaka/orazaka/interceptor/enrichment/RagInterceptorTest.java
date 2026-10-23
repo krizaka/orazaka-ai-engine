@@ -34,8 +34,16 @@ class RagInterceptorTest {
 
     interceptor.preProcess(request, "test query", messages, options);
 
-    assertThat(messages).hasSize(1);
-    assertThat(messages.getFirst().getText()).contains("RAG Context:", "Relevant knowledge chunks");
+    // The chunks are data in a user-role block, never a system instruction (#57).
+    assertThat(messages)
+        .filteredOn(org.springframework.ai.chat.messages.SystemMessage.class::isInstance)
+        .noneMatch(m -> m.getText().contains("Relevant knowledge chunks"));
+    assertThat(messages)
+        .filteredOn(org.springframework.ai.chat.messages.UserMessage.class::isInstance)
+        .anyMatch(
+            m ->
+                m.getText().startsWith(ExternalContent.OPEN)
+                    && m.getText().contains("Relevant knowledge chunks"));
   }
 
   @Test

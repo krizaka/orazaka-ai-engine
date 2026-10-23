@@ -2,7 +2,7 @@ package com.krizaka.orazaka.tools.domain.model.search;
 
 import java.util.Objects;
 
-/** Request payload for the searchWeb tool. */
+/** Request payload for the searchKnowledge tool. */
 public record SearchWebRequest(String query) {
   public SearchWebRequest {
     Objects.requireNonNull(query, "query must not be null");

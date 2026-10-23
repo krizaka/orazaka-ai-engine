@@ -14,30 +14,29 @@ import org.springframework.stereotype.Service;
 class PlatformMcpServerPersistenceProviderImpl implements PlatformMcpServerPersistenceProvider {
 
   private final PlatformMcpServerRepository repository;
+  private final McpTokenSealer tokens;
 
-  PlatformMcpServerPersistenceProviderImpl(PlatformMcpServerRepository repository) {
+  PlatformMcpServerPersistenceProviderImpl(
+      PlatformMcpServerRepository repository, McpTokenSealer tokens) {
     this.repository =
         Objects.requireNonNull(repository, "PlatformMcpServerRepository cannot be null");
+    this.tokens = Objects.requireNonNull(tokens, "McpTokenSealer cannot be null");
   }
 
   @Override
   public List<PlatformMcpServerDto> findByEnabledTrue() {
-    return repository.findByEnabledTrue().stream()
-        .map(PlatformMcpServerPersistenceProviderImpl::toDto)
-        .toList();
+    return repository.findByEnabledTrue().stream().map(this::toDto).toList();
   }
 
   @Override
   public List<PlatformMcpServerDto> findAll() {
-    return repository.findAll().stream()
-        .map(PlatformMcpServerPersistenceProviderImpl::toDto)
-        .toList();
+    return repository.findAll().stream().map(this::toDto).toList();
   }
 
   @Override
   public Optional<PlatformMcpServerDto> findById(Integer id) {
     Objects.requireNonNull(id, "id cannot be null");
-    return repository.findById(id).map(PlatformMcpServerPersistenceProviderImpl::toDto);
+    return repository.findById(id).map(this::toDto);
   }
 
   @Override
@@ -54,7 +53,7 @@ class PlatformMcpServerPersistenceProviderImpl implements PlatformMcpServerPersi
     repository.deleteById(id);
   }
 
-  private static PlatformMcpServerDto toDto(PlatformMcpServerEntity entity) {
+  private PlatformMcpServerDto toDto(PlatformMcpServerEntity entity) {
     if (entity == null) {
       return null;
     }
@@ -65,12 +64,12 @@ class PlatformMcpServerPersistenceProviderImpl implements PlatformMcpServerPersi
         entity.getUrl(),
         entity.getCommand(),
         entity.getArgs(),
-        entity.getAuthToken(),
+        tokens.open(null, entity.getAuthToken()),
         entity.getEnabled(),
         entity.getCreatedAt());
   }
 
-  static PlatformMcpServerEntity toEntity(PlatformMcpServerDto dto) {
+  PlatformMcpServerEntity toEntity(PlatformMcpServerDto dto) {
     if (dto == null) {
       return null;
     }
@@ -81,7 +80,8 @@ class PlatformMcpServerPersistenceProviderImpl implements PlatformMcpServerPersi
     entity.setUrl(dto.url());
     entity.setCommand(dto.command());
     entity.setArgs(dto.args());
-    entity.setAuthToken(dto.authToken());
+    // Sealed before it reaches the table (orazaka-ai-engine#58).
+    entity.setAuthToken(tokens.seal(null, dto.authToken()));
     entity.setEnabled(dto.enabled());
     entity.setCreatedAt(dto.createdAt());
     return entity;

@@ -52,6 +52,49 @@ Hosts: [orazaka-conversation-service](https://github.com/krizaka/orazaka-convers
 </dependency>
 ```
 
+### Route a step by policy
+
+`StepRouter` takes a `StepRoutingRequest(stepId, capability, policy)`, a mandatory
+`StepModelRecorder`, and a synchronous model invocation. Omitting the policy defaults to
+`SOVEREIGN_LOCAL_ONLY`; only catalog rows explicitly declaring `runs_on = 'local'` qualify.
+`COST_OPTIMIZED` and `LATENCY_FIRST` use the order the admin declares, not a hardcoded cost or
+latency formula.
+
+The existing `orazaka_runtime_config` table stores one row per capability/policy:
+
+| `config_key` | `config_value` (JSON array, primary first) |
+|:---|:---|
+| `routing.text.generate.SOVEREIGN_LOCAL_ONLY` | `["local-primary","local-secondary"]` |
+| `routing.text.generate.COST_OPTIMIZED` | `["economical-model","local-secondary"]` |
+| `routing.text.generate.LATENCY_FIRST` | `["fast-model","local-secondary"]` |
+
+These names are examples: the admin supplies names from `orazaka_models`. An empty array
+disables a route. Missing/malformed configuration fails closed; it never uses a global default
+or another policy. Policy rows and catalog eligibility are read on each execution, so an admin
+edit needs no restart. Only `status = 'available'` models are attempted.
+
+```java
+var step = new StepRoutingRequest(stepId, "text.generate"); // sovereign by default
+var result = stepRouter.execute(step, stepModelRecorder, modelName -> invokeModel(modelName));
+```
+
+The invocation must use the supplied model name and report provider unavailability as
+`StepModelUnavailableException`. The synchronous `RoutedChatModel` adapter translates connection
+failures, timeouts, and HTTP 502/503/504 into this portable signal. Only that signal advances to the next declared candidate;
+validation, safety, billing, and recording failures propagate without retrying another model.
+The recorder writes the selected name before each attempt, including the secondary on fallback.
+Never wrap a lazy stream in this synchronous API: fallback must happen before output is emitted.
+
+**Host integration:** this SDK does not own Studio's step table. The host supplies
+`StepModelRecorder` to persist the selected `model_name` on its step and invokes `StepRouter`
+from its executor. Existing `AiClient` calls do not implicitly opt into step routing; wiring
+Studio/job execution to this new port belongs to those repositories. Interactive chat routing
+is unchanged.
+
+Public routing contracts carry Javadoc for the workspace documentation generator. Regenerate
+the reference inside the assembled workspace with `orazaka docs build` and `orazaka docs sync`;
+the generator and generated documentation are not present in this standalone repository.
+
 ## Position in the platform
 
 | | |

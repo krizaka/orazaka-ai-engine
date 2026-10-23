@@ -1,6 +1,7 @@
 package com.krizaka.orazaka.core.infrastructure.provider;
 
 import com.krizaka.orazaka.core.domain.model.ModelEndpoint;
+import com.krizaka.orazaka.core.domain.model.StepModelUnavailableException;
 import com.krizaka.orazaka.core.domain.ports.outbound.ModelEndpointResolver;
 import com.krizaka.orazaka.core.infrastructure.spend.GuardedChatModel;
 import com.krizaka.orazaka.core.infrastructure.spend.SpendGuard;
@@ -54,7 +55,9 @@ public class DynamicModelRouter {
         resolver
             .resolve(modelName)
             .orElseThrow(
-                () -> new IllegalStateException("No endpoint resolved for model: " + modelName)));
+                () ->
+                    new StepModelUnavailableException(
+                        "No endpoint resolved for model: " + modelName)));
   }
 
   /** Builds (or returns a cached) {@link ChatModel} for a category's default model. */

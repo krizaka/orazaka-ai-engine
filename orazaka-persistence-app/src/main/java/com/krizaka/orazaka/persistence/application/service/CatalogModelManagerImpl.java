@@ -31,8 +31,8 @@ class CatalogModelManagerImpl implements CatalogModelManager {
 
   @Override
   @Transactional(readOnly = true)
-  @Cacheable(value = "catalogModels", key = "'all'")
   public List<CatalogModelDto> getAllModels() {
+    // Step routing must see live runs_on/status edits, even when an admin edits the rows directly.
     return repository.findAll().stream().map(CatalogModelManagerImpl::toDto).toList();
   }
 

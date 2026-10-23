@@ -4,9 +4,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
+import com.krizaka.orazaka.core.domain.model.StepModelUnavailableException;
 import com.krizaka.orazaka.core.infrastructure.provider.DynamicModelRouter;
+import com.openai.core.http.Headers;
+import com.openai.errors.InternalServerException;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
@@ -14,6 +19,8 @@ import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.ollama.api.OllamaChatOptions;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.tool.ToolCallback;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.client.HttpServerErrorException;
 import reactor.core.publisher.Flux;
 
 /**
@@ -102,6 +109,86 @@ class RoutedChatModelTest {
     ArgumentCaptor<Prompt> captor = ArgumentCaptor.forClass(Prompt.class);
     verify(delegate).call(captor.capture());
     assertThat(captor.getValue().getOptions()).isInstanceOf(OpenAiChatOptions.class);
+  }
+
+  @Test
+  void call_unreachableModelRaisesThePortableFallbackSignal() {
+    DynamicModelRouter router = mock(DynamicModelRouter.class);
+    ChatModel delegate = mock(ChatModel.class);
+    when(router.chatModel("primary")).thenReturn(delegate);
+    when(delegate.call(any(Prompt.class)))
+        .thenThrow(new RuntimeException(new java.net.ConnectException("Connection refused")));
+
+    org.junit.jupiter.api.Assertions.assertThrows(
+        StepModelUnavailableException.class,
+        () ->
+            new RoutedChatModel(router)
+                .call(new Prompt("hi", OpenAiChatOptions.builder().model("primary").build())));
+  }
+
+  @Test
+  void call_doesNotClassifyAnApplicationFailureAsModelUnavailability() {
+    DynamicModelRouter router = mock(DynamicModelRouter.class);
+    ChatModel delegate = mock(ChatModel.class);
+    var failure = new IllegalArgumentException("Invalid request");
+    when(router.chatModel("primary")).thenReturn(delegate);
+    when(delegate.call(any(Prompt.class))).thenThrow(failure);
+
+    assertThat(
+            org.junit.jupiter.api.Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                    new RoutedChatModel(router)
+                        .call(
+                            new Prompt(
+                                "hi", OpenAiChatOptions.builder().model("primary").build()))))
+        .isSameAs(failure);
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {502, 503, 504})
+  void temporaryProviderFailureAllowsFallback(int status) {
+    var failure = new HttpServerErrorException(HttpStatus.valueOf(status));
+
+    assertThat(RoutedChatModel.isUnreachable(failure)).isTrue();
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {502, 503, 504})
+  void sdkProviderFailureAllowsFallback(int status) {
+    var failure =
+        InternalServerException.builder()
+            .statusCode(status)
+            .headers(Headers.builder().build())
+            .build();
+
+    assertThat(RoutedChatModel.isUnreachable(new RuntimeException(failure))).isTrue();
+  }
+
+  @Test
+  void sdkInternalErrorDoesNotTriggerUnavailabilityFallback() {
+    var failure =
+        InternalServerException.builder()
+            .statusCode(500)
+            .headers(Headers.builder().build())
+            .build();
+
+    assertThat(RoutedChatModel.isUnreachable(failure)).isFalse();
+  }
+
+  @Test
+  void timeoutsAllowFallbackButAuthenticationAndBillingDoNot() {
+    assertThat(RoutedChatModel.isUnreachable(new java.net.SocketTimeoutException())).isTrue();
+    assertThat(
+            RoutedChatModel.isUnreachable(
+                new org.springframework.web.client.HttpClientErrorException(
+                    HttpStatus.UNAUTHORIZED)))
+        .isFalse();
+    assertThat(
+            RoutedChatModel.isUnreachable(
+                new org.springframework.web.client.HttpClientErrorException(
+                    HttpStatus.PAYMENT_REQUIRED)))
+        .isFalse();
   }
 
   /**

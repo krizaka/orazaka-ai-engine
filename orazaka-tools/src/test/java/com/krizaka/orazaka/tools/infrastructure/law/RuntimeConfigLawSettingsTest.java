@@ -3,6 +3,7 @@ package com.krizaka.orazaka.tools.infrastructure.law;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.krizaka.orazaka.core.domain.model.research.VerifyMode;
 import com.krizaka.orazaka.persistence.domain.ports.inbound.RuntimeConfigProvider;
 import com.krizaka.orazaka.tools.domain.model.law.LawTarget;
 import java.util.HashMap;
@@ -50,6 +51,25 @@ class RuntimeConfigLawSettingsTest {
     assertThat(settings.maxArticleChars()).isEqualTo(20_000);
     rows.put("law.import.max-article-chars", "5000");
     assertThat(settings.maxArticleChars()).isEqualTo(5_000);
+  }
+
+  @Test
+  void retrieval_is_off_by_default_and_reads_the_rows_at_each_call() {
+    assertThat(settings.corpusEnabled()).isFalse();
+    assertThat(settings.researchEnabled()).isFalse();
+    assertThat(settings.retrievalMaxArticles()).isEqualTo(40);
+    assertThat(settings.retrievalMaxAgeDays()).isEqualTo(90);
+    assertThat(settings.verifyMode()).isEqualTo(VerifyMode.MARK);
+
+    rows.put("research.enabled", "true");
+    rows.put("law.retrieval.max-articles", "12");
+    rows.put("law.retrieval.max-age-days", "30");
+    rows.put("research.verify.mode", "STRICT");
+
+    assertThat(settings.researchEnabled()).isTrue();
+    assertThat(settings.retrievalMaxArticles()).isEqualTo(12);
+    assertThat(settings.retrievalMaxAgeDays()).isEqualTo(30);
+    assertThat(settings.verifyMode()).isEqualTo(VerifyMode.STRICT);
   }
 
   /** A runtime config on a map: the keys are the rows of {@code orazaka_runtime_config}. */

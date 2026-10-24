@@ -6,7 +6,7 @@ import java.util.UUID;
 
 /**
  * One line of the external-check audit, written for every call, refused or not. It never holds a
- * name, a birth date, a court record or a credit figure: the subject is a hash of its id.
+ * name, a birth date, a court record or a credit figure: the subject is a keyed HMAC of its id.
  *
  * @param at when
  * @param actorId the actor, or {@code null}
@@ -16,9 +16,9 @@ import java.util.UUID;
  * @param keySource whose key was used, or {@code null} when refused before the key
  * @param outcome what it answered
  * @param refusal why it was refused, or {@code null}
- * @param subjectRef the SHA-256 (hex) of the subject id
+ * @param subjectRef the HMAC-SHA-256 (hex) of the subject id, keyed by the sealed pepper
  * @param durationMs the time spent, or {@code null} when no provider call was made
- * @param providerRef the provider's reference, or {@code null}
+ * @param providerRef the provider's opaque reference, or {@code null}
  */
 public record CheckAudit(
     Instant at,

@@ -60,7 +60,7 @@ Resolution, per call, in this order:
 
 One line per call, refused or not, in an `external_check_audit` table (the same discipline as `research_fetch`, ADR-064 / ADR-087):
 
-`at`, `actor_id`, `run_id`, `provider`, `purpose`, `key_source`, `outcome`, `refusal`, `subject_ref` (the opaque platform id, hashed), `duration_ms`, `provider_ref`.
+`at`, `actor_id`, `run_id`, `provider`, `purpose`, `key_source`, `outcome`, `refusal`, `subject_ref` (a keyed HMAC-SHA-256 of the opaque platform id, its pepper read from the sealed settings through `CheckSubjectPepper`; no pepper of at least 32 bytes, no check — #83), `duration_ms`, `provider_ref`.
 
 It never holds a name, a birth date, a court record or a credit figure. A timeout and a provider error are audited as such, with no provider message copied in.
 
@@ -85,7 +85,15 @@ Routing (proposed, for CTO): a Québec applicant's court records go to SOQUIJ; t
 
 ## 7. Testing without the network
 
-- `MockConnector` answers from recorded fixtures keyed on the subject: a match, a no-match, a provider error and a timeout. It is the connector of the demo and of CI.
+- `MockConnector` answers from recorded fixtures keyed on the subject: a match per court category (Tremblay `TAL_NON_PAYMENT`, Côté `TAL_OTHER`, Morin `CRIMINAL`, Lavoie `CIVIL`), a no-match (Gagnon), a provider error (Roy) and a timeout (Bouchard). A match answers the fixture's opaque id (`mock-fixture-01`) as `providerRef`, never anything built from the subject (#83). It is the connector of the demo and of CI.
+- **The connector contract** (`ExternalCheckConnectorContract`, test sources of `orazaka-core`): every adapter's test extends it and gives the subjects that reach each of its answers. It asserts that a connector never answers `REFUSED`, names a category only on a match, and that no field of the `CheckResult` nor of the `CheckAudit` the service writes holds the subject's names, date of birth (ISO, basic, dd/MM/yyyy, MM/dd/yyyy) or address (#83).
+
+## 7. The checks as engine capabilities (#84)
+
+- `ExternalCheckService` implements the inbound port `ExternalCheckCapability`: a blueprint step names `orazaka.core.checks.court-records`, `orazaka.core.checks.credit` or `orazaka.core.checks.identity` (`CheckPurpose.featureKey()`), and reads a `CheckStepResult`: the result and `consumption.calls`.
+- Order of one call: subject reference (HMAC) → consent → key → **one `CALL` held** (`CheckMeter`, ADR-087 unit; the ADR-033 hold until ADR-088 lands) → provider → audit → **settle** on `MATCH` / `NO_MATCH` (`calls: 1`), **release** on `PROVIDER_ERROR` / `TIMEOUT` (`calls: 0`). A refusal takes no hold (`calls: 0`); a budget that cannot hold the call is `REFUSED / BUDGET_EXHAUSTED`, before the provider.
+- `CheckResult.category` is closed: `TAL_NON_PAYMENT`, `TAL_OTHER`, `CRIMINAL`, `CIVIL`, `NONE`. A category other than `NONE` comes only with a match; credit and identity always answer `NONE`. Never free text, never the record's content.
+- The executor that runs these keys in a run (orazaka-job-service) and the meter and pepper adapters (sealed settings, pricebook) are wired by the host; until then nothing is registered and no check runs.
 - The code PR proves: refusal without consent (no call, one audit line); user key over platform key; platform key when no user key; refusal without any key; a provider error (an exception) and a timeout (an outcome) each audited with no leak; the four fixtures.
 
 ## 8. Open points for the CTO

@@ -44,9 +44,11 @@ class CheckRecordsTest {
         .isEqualTo(CheckOutcome.REFUSED);
     assertThatThrownBy(() -> CheckResult.answered(CheckOutcome.REFUSED, null))
         .isInstanceOf(IllegalArgumentException.class);
-    assertThatThrownBy(() -> new CheckResult(CheckOutcome.MATCH, CheckRefusal.NO_KEY, null))
+    assertThatThrownBy(
+            () ->
+                new CheckResult(CheckOutcome.MATCH, CheckRefusal.NO_KEY, CheckCategory.NONE, null))
         .isInstanceOf(IllegalArgumentException.class);
-    assertThatThrownBy(() -> new CheckResult(CheckOutcome.REFUSED, null, null))
+    assertThatThrownBy(() -> new CheckResult(CheckOutcome.REFUSED, null, CheckCategory.NONE, null))
         .isInstanceOf(IllegalArgumentException.class);
   }
 }

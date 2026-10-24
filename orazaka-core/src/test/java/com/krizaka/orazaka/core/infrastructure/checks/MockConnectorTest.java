@@ -2,6 +2,7 @@ package com.krizaka.orazaka.core.infrastructure.checks;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.krizaka.orazaka.core.domain.model.checks.CheckCategory;
 import com.krizaka.orazaka.core.domain.model.checks.CheckKey;
 import com.krizaka.orazaka.core.domain.model.checks.CheckOutcome;
 import com.krizaka.orazaka.core.domain.model.checks.CheckRequest;
@@ -32,13 +33,40 @@ class MockConnectorTest {
   }
 
   @Test
-  @DisplayName("a match carries the mock's case reference, a no match none")
-  void matchCarriesAReference() {
+  @DisplayName("a match carries an opaque fixture id, never the subject's name; a no match none")
+  void matchCarriesAnOpaqueFixtureId() {
     MockConnector mock = new MockConnector();
 
-    assertThat(mock.verifyCourtRecords(request("Tremblay")).providerRef())
-        .isEqualTo("mock-Tremblay");
+    String ref = mock.verifyCourtRecords(request("Tremblay")).providerRef();
+
+    assertThat(ref).isEqualTo("mock-fixture-01").doesNotContainIgnoringCase("tremblay");
     assertThat(mock.verifyCourtRecords(request("Gagnon")).providerRef()).isNull();
+  }
+
+  @Test
+  @DisplayName(
+      "court records name a closed category: a TAL non-payment file, another TAL file, criminal, civil")
+  void courtRecordsNameACategory() {
+    MockConnector mock = new MockConnector();
+
+    assertThat(mock.verifyCourtRecords(request("Tremblay")).category())
+        .isEqualTo(CheckCategory.TAL_NON_PAYMENT);
+    assertThat(mock.verifyCourtRecords(request("Côté")).category())
+        .isEqualTo(CheckCategory.TAL_OTHER);
+    assertThat(mock.verifyCourtRecords(request("Morin")).category())
+        .isEqualTo(CheckCategory.CRIMINAL);
+    assertThat(mock.verifyCourtRecords(request("Lavoie")).category())
+        .isEqualTo(CheckCategory.CIVIL);
+    assertThat(mock.verifyCourtRecords(request("Gagnon")).category()).isEqualTo(CheckCategory.NONE);
+  }
+
+  @Test
+  @DisplayName("a credit or identity match has no court category")
+  void otherPurposesHaveNoCategory() {
+    MockConnector mock = new MockConnector();
+
+    assertThat(mock.verifyCredit(request("Tremblay")).category()).isEqualTo(CheckCategory.NONE);
+    assertThat(mock.verifyIdentity(request("Tremblay")).category()).isEqualTo(CheckCategory.NONE);
   }
 
   @Test

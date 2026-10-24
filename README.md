@@ -131,6 +131,25 @@ and keeps the main content. A document is stored under its source, the URL asked
 final URL. Every call writes one `research_fetch` audit line, with a path hash, never the query. The limits are
 `research.fetch.*` rows read at call time. Nothing calls the fetcher yet: the citations and the verifier are slice 2.
 
+## Law watcher: the dated, hashed corpus (ADR-089, #400)
+
+`LawWatchService` (`orazaka-tools`) runs weekly (`orazaka.law.watcher.cron`, Monday 06:00 UTC by default) when
+`orazaka.law.watcher.enabled=true`. It reads the followed articles from the official open data, compares each with
+the corpus and turns every difference into one pull request in `krizaka/orazaka-packs` (a branch from `main`, a review
+file with the diff, both SHA-256 hashes and the citation). Only a change opens a request; the first import of an
+instrument stores its texts silently; an unchanged article opens nothing; a removed article is flagged.
+
+- **Sources, both without disguise** (`User-Agent: OrazakaLawWatcher/0.1`): Justice Canada's consolidated XML
+  (`laws-lois.justice.gc.ca/{eng,fra}/XML/<code>.xml`, Open Government Licence - Canada) and the Données Québec
+  statutes zip (CC BY-NC-ND 4.0: development and change detection; the commercial question is tracked in
+  krizaka/orazaka#393). Légis Québec and CanLII are not read.
+- **Targets** (`orazaka.law.watcher.targets`): by default C.c.Q. 1851-2000, the QST articles 16 and 201 of T-0.1,
+  and the P-39.1 instrument with no article yet (no pack cites a Loi 25 article by number).
+- **Settings**: `orazaka.law.watcher.enabled`, `.cron`, `.quebec.dataset-url`, `.github.token` (the krizaka-agents
+  App token, from the deployment's secrets, never in code), `.github.owner|repository|base-branch`.
+- **Not in this repository yet**: the corpus tables (`law_article_version`, `law_import`, ... ADR-089 cut item 2,
+  job-service). The watcher needs a `LawCorpusStore` bean and refuses to start without one.
+
 ## Position in the platform
 
 | | |

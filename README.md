@@ -129,7 +129,27 @@ and holds one deadline for the whole call (`research.fetch.timeout-ms`), so a bo
 visible text in reading order — one paragraph per block, nothing hidden by `hidden`, `aria-hidden` or inline CSS —
 and keeps the main content. A document is stored under its source, the URL asked for and the content hash, with its
 final URL. Every call writes one `research_fetch` audit line, with a path hash, never the query. The limits are
-`research.fetch.*` rows read at call time. Nothing calls the fetcher yet: the citations and the verifier are slice 2.
+`research.fetch.*` rows read at call time.
+**Citations and the verifier (slice 2).** A grounded answer is `{answer, claims[], sources[]}`: each claim carries
+citations, and each citation has a URL, a verbatim quote, a content hash and a fetch time. `CitationVerificationService`
+is deterministic, with no model involved. A claim is `VERIFIED` only when one of its citations names a document **this
+answer read** (the grounding stage records them in the `PromptContext`; the store is asked through that document's own
+source), its quote — at most `research.quote.max-chars` — appears in that document after `QuoteNormalizer` (NFC, case
+folding, French typography: « » “ ” ’, U+202F/U+00A0, œ/æ, dashes, the ellipsis), **and** every number, date and
+reference the claim states appears in the quote, the document's title or the heading of the quote's section — a genuine
+quote under a wrong number stays `TO_VALIDATE/UNSUPPORTED`. Any other claim is `TO_VALIDATE` with its reason
+(`NO_SOURCE`, `URL_UNRESOLVED`, `QUOTE_NOT_FOUND`, `UNSUPPORTED`), or dropped in `STRICT`. Every URL, `owner/repo` or
+statute stated in the model's prose that no verified claim covers becomes a `TO_VALIDATE` line (`UNLISTED_REFERENCE`).
+**The served `answer` is rendered from the claims** — verified claims as they are, `[TO_VALIDATE]` prefixes in `MARK`,
+verified claims only in `STRICT`, empty with no claims — never the model's prose, which is only scanned.
+Numbers and dates match as **whole tokens** (« 14 » is not in « 140 » or « 2024 »), references **by identity**
+(`art.` and `article` are one word, « art. 1 » is not « art. 12 », a URL only as the complete cited URL, case-sensitive).
+A verified claim keeps **only the citations that passed**, and coverage trusts only those; unlisted references are added
+in `MARK` only.
+`CitationVerifierInterceptor` applies it to a citation-shaped answer and leaves any other answer untouched. It **fails
+closed** (a verification that throws stops the turn), and it checks its own switches, because `Engine` hands every
+interceptor bean to the output screen: `research.enabled` and its own `pipeline_interceptor_config` row, both off as
+seeded — off means no rewrite. Slice 5's `grounding` flag turns it on.
 
 ## The law corpus: importers, manual import and `lookupStatute` (ADR-089 §2, #400)
 

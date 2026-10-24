@@ -1,6 +1,8 @@
 package com.krizaka.orazaka.core.domain.model;
 
+import com.krizaka.orazaka.core.domain.model.research.ReadDocument;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -233,6 +235,39 @@ public record PromptContext(
     return systemMetadata.get(CACHED_RESPONSE_KEY) instanceof CachedResponse c
         ? Optional.of(c)
         : Optional.empty();
+  }
+
+  /**
+   * System-metadata key under which the grounding stage records the documents it put in front of
+   * the model, so the verifier checks citations against those and nothing else (ADR-087 §3).
+   */
+  private static final String RESEARCH_READ_KEY = "research.read";
+
+  /**
+   * Returns a copy of this context carrying the documents grounded research read for this turn.
+   *
+   * @param read the documents, each by its source, URL and content hash
+   * @return A new PromptContext instance.
+   */
+  public PromptContext withResearchRead(List<ReadDocument> read) {
+    var metadata = new HashMap<>(systemMetadata);
+    metadata.put(RESEARCH_READ_KEY, List.copyOf(read));
+    return withSystemMetadata(metadata);
+  }
+
+  /**
+   * The documents grounded research read for this turn: a citation verifies against these only.
+   *
+   * @return the documents, empty when nothing was read for this turn
+   */
+  public List<ReadDocument> researchRead() {
+    if (systemMetadata.get(RESEARCH_READ_KEY) instanceof List<?> read) {
+      return read.stream()
+          .filter(ReadDocument.class::isInstance)
+          .map(ReadDocument.class::cast)
+          .toList();
+    }
+    return List.of();
   }
 
   /**

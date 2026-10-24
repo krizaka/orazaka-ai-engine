@@ -1,9 +1,12 @@
 package com.krizaka.orazaka.interceptor.validation;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.krizaka.orazaka.core.application.pipeline.ResponseScreen;
+import com.krizaka.orazaka.core.domain.model.InterceptorConfig;
 import com.krizaka.orazaka.core.domain.model.PromptContext;
 import com.krizaka.orazaka.core.domain.model.research.Claim;
 import com.krizaka.orazaka.core.domain.model.research.ClaimStatus;
@@ -11,6 +14,7 @@ import com.krizaka.orazaka.core.domain.model.research.GroundedAnswer;
 import com.krizaka.orazaka.core.domain.model.research.ReadDocument;
 import com.krizaka.orazaka.core.domain.model.research.VerifyMode;
 import com.krizaka.orazaka.core.domain.ports.inbound.CitationVerifier;
+import com.krizaka.orazaka.core.domain.ports.outbound.PipelineConfigProvider;
 import com.krizaka.orazaka.persistence.domain.ports.inbound.RuntimeConfigProvider;
 import java.util.ArrayList;
 import java.util.List;
@@ -42,9 +46,86 @@ class CitationVerifierInterceptorTest {
                   .toList(),
               answer.sources());
         };
+    return interceptor(verifier, mode, true, true);
+  }
+
+  /** The screen with its two switches: the global one and its own pipeline row. */
+  private static CitationVerifierInterceptor interceptor(
+      CitationVerifier verifier, String mode, boolean researchOn, boolean rowOn) {
     RuntimeConfigProvider config = mock(RuntimeConfigProvider.class);
     when(config.getString("research.verify.mode", "MARK")).thenReturn(mode);
-    return new CitationVerifierInterceptor(verifier, config);
+    when(config.getBoolean("research.enabled", false)).thenReturn(researchOn);
+    PipelineConfigProvider rows = mock(PipelineConfigProvider.class);
+    when(rows.findAllOrdered())
+        .thenReturn(
+            List.of(
+                new InterceptorConfig(
+                    "CitationVerifierInterceptor", "Citations", 40, rowOn, "verifies citations")));
+    return new CitationVerifierInterceptor(verifier, config, rows);
+  }
+
+  private static final String CITED =
+      """
+      {"answer":"x","claims":[{"text":"Trente jours.","status":"VERIFIED","citations":[]}],"sources":[]}
+      """;
+
+  @Test
+  @DisplayName(
+      "a verifier that throws stops the turn: the screen fails closed, through ResponseScreen")
+  void aThrowingVerifierStopsTheTurn() {
+    CitationVerifierInterceptor stage =
+        interceptor(
+            (answer, m, read) -> {
+              throw new IllegalStateException("lookup down");
+            },
+            "MARK",
+            true,
+            true);
+    PromptContext context = new PromptContext("q", java.util.Map.of());
+
+    assertThat(stage.failsClosed()).isTrue();
+    assertThatThrownBy(() -> ResponseScreen.apply(List.of(stage), context, CITED))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessage("lookup down");
+  }
+
+  @Test
+  @DisplayName(
+      "OFF means no rewrite: its pipeline row off, or research off, leaves the answer untouched")
+  void aDisabledScreenRewritesNothing() {
+    CitationVerifier verifier =
+        (answer, m, read) -> {
+          throw new AssertionError("a disabled screen must not verify");
+        };
+    PromptContext context = new PromptContext("q", java.util.Map.of());
+
+    assertThat(
+            ResponseScreen.apply(
+                List.of(interceptor(verifier, "STRICT", true, false)), context, CITED))
+        .isEqualTo(CITED);
+    assertThat(
+            ResponseScreen.apply(
+                List.of(interceptor(verifier, "STRICT", false, true)), context, CITED))
+        .isEqualTo(CITED);
+  }
+
+  @Test
+  @DisplayName("a screen with no pipeline row at all is off")
+  void noRowIsOff() {
+    RuntimeConfigProvider config = mock(RuntimeConfigProvider.class);
+    when(config.getBoolean("research.enabled", false)).thenReturn(true);
+    PipelineConfigProvider rows = mock(PipelineConfigProvider.class);
+    when(rows.findAllOrdered()).thenReturn(List.of());
+    CitationVerifierInterceptor stage =
+        new CitationVerifierInterceptor(
+            (answer, m, read) -> {
+              throw new AssertionError("no row, no screen");
+            },
+            config,
+            rows);
+
+    assertThat(stage.screenResponse(new PromptContext("q", java.util.Map.of()), CITED))
+        .isEqualTo(CITED);
   }
 
   @Test

@@ -142,8 +142,14 @@ quote under a wrong number stays `TO_VALIDATE/UNSUPPORTED`. Any other claim is `
 statute stated in the model's prose that no verified claim covers becomes a `TO_VALIDATE` line (`UNLISTED_REFERENCE`).
 **The served `answer` is rendered from the claims** — verified claims as they are, `[TO_VALIDATE]` prefixes in `MARK`,
 verified claims only in `STRICT`, empty with no claims — never the model's prose, which is only scanned.
-`CitationVerifierInterceptor` applies it to a citation-shaped answer and leaves any other answer untouched. Its pipeline
-row ships OFF; slice 5's `grounding` flag turns it on.
+Numbers and dates match as **whole tokens** (« 14 » is not in « 140 » or « 2024 »), references **by identity**
+(`art.` and `article` are one word, « art. 1 » is not « art. 12 », a URL only as the complete cited URL, case-sensitive).
+A verified claim keeps **only the citations that passed**, and coverage trusts only those; unlisted references are added
+in `MARK` only.
+`CitationVerifierInterceptor` applies it to a citation-shaped answer and leaves any other answer untouched. It **fails
+closed** (a verification that throws stops the turn), and it checks its own switches, because `Engine` hands every
+interceptor bean to the output screen: `research.enabled` and its own `pipeline_interceptor_config` row, both off as
+seeded — off means no rewrite. Slice 5's `grounding` flag turns it on.
 
 ## Position in the platform
 

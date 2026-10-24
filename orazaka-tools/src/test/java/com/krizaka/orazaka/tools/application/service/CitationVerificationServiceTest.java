@@ -342,4 +342,208 @@ class CitationVerificationServiceTest {
         .isEqualTo("Chapter 2");
     assertThat(CitationVerificationService.sectionHeading(text, "absent")).isEmpty();
   }
+
+  // --- The review of #70 (threads 2 to 8, closes #88): one planted regression each
+  // -----------------
+
+  private static final String EXTRA_URL = "https://example.org/delais";
+  private static final String EXTRA_HASH = "d".repeat(64);
+  private static final List<ReadDocument> READ_EXTRA =
+      List.of(
+          new ReadDocument("site", FR_URL, FR_HASH),
+          new ReadDocument("site", EN_URL, EN_HASH),
+          new ReadDocument("site", EXTRA_URL, EXTRA_HASH));
+
+  private GroundedAnswer verifyExtra(VerifyMode mode, String prose, Claim... claims) {
+    record(
+        EXTRA_URL,
+        EXTRA_HASH,
+        """
+        Article 12. Le délai de préavis est de 140 jours en 2024.
+
+        Article 1931. Le préavis\
+         de visite est de 24 heures.""");
+    return verifier.verify(new GroundedAnswer(prose, List.of(claims), List.of()), mode, READ_EXTRA);
+  }
+
+  @Test
+  @DisplayName("#88: a number is a whole token — 14 is not 140, 24 is not 2024, 1 is not 1931")
+  void numbersAreWholeTokens() {
+    GroundedAnswer out =
+        verifyExtra(
+            VerifyMode.MARK,
+            "",
+            claim(
+                "Le délai est de 14 jours.",
+                EXTRA_URL,
+                EXTRA_HASH,
+                "Le délai de préavis est de 140 jours"),
+            claim(
+                "Le délai est de 140 jours.",
+                EXTRA_URL,
+                EXTRA_HASH,
+                "Le délai de préavis est de 140 jours"),
+            claim("Le préavis est de 24 mois.", EXTRA_URL, EXTRA_HASH, "en 2024"),
+            claim(
+                "Le préavis est de 24 heures (article 1931).",
+                EXTRA_URL,
+                EXTRA_HASH,
+                "Le préavis de visite est de 24 heures"),
+            claim(
+                "Le préavis est de 24 heures (article 193).",
+                EXTRA_URL,
+                EXTRA_HASH,
+                "Le préavis de visite est de 24 heures"));
+    assertThat(out.claims())
+        .extracting(Claim::status, Claim::reason)
+        .containsExactly(
+            tuple(ClaimStatus.TO_VALIDATE, ClaimReason.UNSUPPORTED),
+            tuple(ClaimStatus.VERIFIED, null),
+            tuple(ClaimStatus.TO_VALIDATE, ClaimReason.UNSUPPORTED),
+            tuple(ClaimStatus.VERIFIED, null),
+            tuple(ClaimStatus.TO_VALIDATE, ClaimReason.UNSUPPORTED));
+  }
+
+  @Test
+  @DisplayName(
+      "#88: « Article 1 » is not supported by the heading « Article 12 », « art. » = « article »")
+  void referencesAreWholeAndSpellingsEquivalent() {
+    GroundedAnswer out =
+        verifyExtra(
+            VerifyMode.MARK,
+            "",
+            claim(
+                "L'article 1 fixe le délai de préavis à 140 jours.",
+                EXTRA_URL,
+                EXTRA_HASH,
+                "Le délai de préavis est de 140 jours"),
+            claim(
+                "L'art. 12 fixe le délai de préavis à 140 jours.",
+                EXTRA_URL,
+                EXTRA_HASH,
+                "Le délai de préavis est de 140 jours"),
+            claim(
+                "Le dépôt krizaka/orazaka-pack fixe 140 jours.",
+                EXTRA_URL,
+                EXTRA_HASH,
+                "Le délai de préavis est de 140 jours"));
+    assertThat(out.claims())
+        .extracting(Claim::status)
+        .containsExactly(ClaimStatus.TO_VALIDATE, ClaimStatus.VERIFIED, ClaimStatus.TO_VALIDATE);
+  }
+
+  @Test
+  @DisplayName(
+      "a verified claim keeps only the citations that passed: an invented one is dropped and its URL in prose is unlisted")
+  void aVerifiedClaimKeepsOnlyItsPassingCitations() {
+    Claim mixed =
+        new Claim(
+            "Le délai de résiliation est de trente jours.",
+            null,
+            null,
+            List.of(
+                new Citation("https://example.org/invented", "trente jours", FR_HASH, ""),
+                new Citation(FR_URL, "Le délai de résiliation est de trente jours", FR_HASH, ""),
+                new Citation(FR_URL, "quarante jours inventés", FR_HASH, "")));
+
+    GroundedAnswer out =
+        verify(VerifyMode.MARK, "Voir https://example.org/invented pour le détail.", mixed);
+
+    Claim verified = out.claims().getFirst();
+    assertThat(verified.status()).isEqualTo(ClaimStatus.VERIFIED);
+    assertThat(verified.citations()).extracting(Citation::url).containsExactly(FR_URL);
+    assertThat(verified.citations())
+        .extracting(Citation::quote)
+        .containsExactly("Le délai de résiliation est de trente jours");
+    assertThat(out.claims())
+        .filteredOn(c -> c.reason() == ClaimReason.UNLISTED_REFERENCE)
+        .extracting(Claim::text)
+        .containsExactly("https://example.org/invented");
+  }
+
+  @Test
+  @DisplayName(
+      "digits alone are not a statute reference: « 12 jours » does not cover « art. 12 », nor « article 12 » « art. 1 »")
+  void digitsAloneDoNotCoverAStatute() {
+    GroundedAnswer quantity =
+        verifyExtra(
+            VerifyMode.MARK,
+            "Voir aussi art. 12.",
+            claim(
+                "Le préavis est de 12 jours.",
+                EXTRA_URL,
+                EXTRA_HASH,
+                "Le délai de préavis est de 140 jours en 2024"));
+    // the claim itself is unsupported, so use a document that really says 12:
+    record("https://example.org/douze", "c".repeat(64), "Le préavis est de 12 jours.");
+    List<ReadDocument> read =
+        List.of(new ReadDocument("site", "https://example.org/douze", "c".repeat(64)));
+    GroundedAnswer verifiedQuantity =
+        verifier.verify(
+            new GroundedAnswer(
+                "Voir aussi art. 12.",
+                List.of(
+                    claim(
+                        "Le préavis est de 12 jours.",
+                        "https://example.org/douze",
+                        "c".repeat(64),
+                        "Le préavis est de 12 jours")),
+                List.of()),
+            VerifyMode.MARK,
+            read);
+    assertThat(quantity.claims()).hasSize(2);
+    assertThat(verifiedQuantity.claims().getFirst().status()).isEqualTo(ClaimStatus.VERIFIED);
+    assertThat(verifiedQuantity.claims())
+        .filteredOn(c -> c.reason() == ClaimReason.UNLISTED_REFERENCE)
+        .extracting(Claim::text)
+        .containsExactly("art. 12");
+
+    GroundedAnswer prefix =
+        verify(
+            VerifyMode.MARK,
+            "L'art. 1 aussi, et l'article 12.",
+            claim(
+                "L'article 12 interdit une somme autre que le loyer.",
+                FR_URL,
+                FR_HASH,
+                "une somme d’argent"));
+    assertThat(prefix.claims())
+        .filteredOn(c -> c.reason() == ClaimReason.UNLISTED_REFERENCE)
+        .extracting(Claim::text)
+        .containsExactly("art. 1");
+  }
+
+  @Test
+  @DisplayName(
+      "a URL is covered only by the complete cited URL, case-sensitive: a shared prefix is not coverage")
+  void urlCoverageIsTheCompleteUrl() {
+    GroundedAnswer out =
+        verify(
+            VerifyMode.MARK,
+            "Voir https://example.org/reglement-fictif-invented, https://example.org/Reglement-Fictif,"
+                + " https://example.org et https://example.org/reglement-fictif.",
+            claim("Trente jours.", FR_URL, FR_HASH, "trente jours, sauf entente écrite"));
+    assertThat(out.claims())
+        .filteredOn(c -> c.reason() == ClaimReason.UNLISTED_REFERENCE)
+        .extracting(Claim::text)
+        .containsExactly(
+            "https://example.org/reglement-fictif-invented",
+            "https://example.org/Reglement-Fictif",
+            "https://example.org");
+  }
+
+  @Test
+  @DisplayName("STRICT appends no unlisted reference: claims[] keeps verified claims only")
+  void strictDropsUnlistedReferencesFromTheClaims() {
+    GroundedAnswer none = verify(VerifyMode.STRICT, "See https://invented.example/x and art. 99.");
+    assertThat(none.claims()).isEmpty();
+    assertThat(none.answer()).isEmpty();
+
+    GroundedAnswer some =
+        verify(
+            VerifyMode.STRICT,
+            "See https://invented.example/x.",
+            claim("Trente jours.", FR_URL, FR_HASH, "trente jours, sauf entente écrite"));
+    assertThat(some.claims()).extracting(Claim::status).containsOnly(ClaimStatus.VERIFIED);
+  }
 }

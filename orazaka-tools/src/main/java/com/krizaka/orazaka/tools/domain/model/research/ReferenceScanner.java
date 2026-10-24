@@ -41,10 +41,11 @@ public final class ReferenceScanner {
     String withoutUrls = URL.matcher(text).replaceAll(" ");
     Matcher repos = REPOSITORY.matcher(withoutUrls);
     while (repos.find()) {
-      String candidate = repos.group();
+      // Trimmed first: « 10/23. » at the end of a sentence is a date, not a repository.
+      String candidate = trimPunctuation(repos.group());
       // a date (10/23) or a fraction is not a repository
       if (!candidate.matches("\\d+/\\d+")) {
-        found.add(trimPunctuation(candidate));
+        found.add(candidate);
       }
     }
     Matcher statutes = STATUTE.matcher(withoutUrls);
@@ -52,6 +53,44 @@ public final class ReferenceScanner {
       found.add(trimPunctuation(statutes.group()).replaceAll("\\s+", " "));
     }
     return found;
+  }
+
+  /**
+   * The identity of a reference, for comparing two spellings of it: a statute by its provision
+   * ({@code art.}, {@code arts.} and {@code article} are one word; the whole number counts, so «
+   * art. 1 » is not « art. 12 »), a repository without case, a URL exactly as written (a path is
+   * case-sensitive, and a shared prefix is another address).
+   *
+   * @param reference a reference as {@link #references} returns it
+   * @return the key two equivalent spellings share
+   */
+  public static String key(String reference) {
+    String ref = reference.strip();
+    if (ref.startsWith("http://") || ref.startsWith("https://")) {
+      return ref;
+    }
+    if (STATUTE.matcher(ref).matches()) {
+      return "statute:"
+          + ref.toLowerCase(java.util.Locale.ROOT)
+              .replaceFirst("^art(?:icle)?s?", "art")
+              .replaceAll("[\\s,]+", "")
+              .replaceAll("(?<=[a-z])\\.", "");
+    }
+    return ref.toLowerCase(java.util.Locale.ROOT);
+  }
+
+  /**
+   * The identities of every reference a text states.
+   *
+   * @param text a text
+   * @return the keys, in order of appearance
+   */
+  public static Set<String> keys(String text) {
+    Set<String> keys = new LinkedHashSet<>();
+    for (String reference : references(text)) {
+      keys.add(key(reference));
+    }
+    return keys;
   }
 
   private static String trimPunctuation(String s) {

@@ -89,7 +89,9 @@ public class CitationVerificationService implements CitationVerifier {
     List<Claim> verified =
         checked.stream().filter(c -> c.status() == ClaimStatus.VERIFIED).toList();
     List<Claim> result = new ArrayList<>(mode == VerifyMode.STRICT ? verified : checked);
-    for (String reference : ReferenceScanner.references(answer.answer())) {
+    // Unlisted references are marked claims: kept in MARK, never added in STRICT.
+    for (String reference :
+        mode == VerifyMode.MARK ? ReferenceScanner.references(answer.answer()) : Set.<String>of()) {
       if (!coveredBy(reference, verified)) {
         result.add(
             new Claim(
@@ -117,6 +119,9 @@ public class CitationVerificationService implements CitationVerifier {
       return downgrade(claim, ClaimReason.NO_SOURCE);
     }
     ClaimReason furthest = ClaimReason.URL_UNRESOLVED;
+    // Only the citations that pass both checks are kept as evidence: a claim verified by one
+    // citation never vouches for the others, and coverage trusts only what was checked.
+    List<Citation> passing = new ArrayList<>();
     for (Citation citation : claim.citations()) {
       Optional<FetchedDocument> document = readDocument(citation, read);
       if (document.isEmpty()) {
@@ -129,10 +134,12 @@ public class CitationVerificationService implements CitationVerifier {
       }
       furthest = further(furthest, ClaimReason.UNSUPPORTED);
       if (supported(claim.text(), citation, document.get())) {
-        return new Claim(claim.text(), ClaimStatus.VERIFIED, null, claim.citations());
+        passing.add(citation);
       }
     }
-    return downgrade(claim, furthest);
+    return passing.isEmpty()
+        ? downgrade(claim, furthest)
+        : new Claim(claim.text(), ClaimStatus.VERIFIED, null, passing);
   }
 
   /**
@@ -165,34 +172,27 @@ public class CitationVerificationService implements CitationVerifier {
    * document's title or the heading of the quote's section.
    */
   private static boolean supported(String claimText, Citation citation, FetchedDocument document) {
-    Set<String> required = requirements(claimText);
-    if (required.isEmpty()) {
-      return true;
+    String heading = sectionHeading(document.text(), citation.quote());
+    String scope = citation.quote() + " " + citation.url() + " " + document.title() + " " + heading;
+    Set<String> numbers = numbers(QuoteNormalizer.normalize(scope));
+    if (!numbers.containsAll(numbers(QuoteNormalizer.normalize(claimText)))) {
+      return false;
     }
-    String scope =
-        QuoteNormalizer.normalize(
-            citation.quote()
-                + " "
-                + citation.url()
-                + " "
-                + document.title()
-                + " "
-                + sectionHeading(document.text(), citation.quote()));
-    return required.stream().allMatch(scope::contains);
+    // References compare by identity (art. = article, the whole provision, a URL exactly): « art.
+    // 1 » is not found in « Article 12 », nor a repository in the prefix of another.
+    return ReferenceScanner.keys(scope).containsAll(ReferenceScanner.keys(claimText));
   }
 
-  /** What a claim states that can be checked without a model, normalised. */
-  private static Set<String> requirements(String claimText) {
-    Set<String> required = new LinkedHashSet<>();
-    Matcher numbers = NUMBERS.matcher(claimText);
+  /**
+   * The numbers and dates of a text as whole tokens: « 14 » is not found in « 140 » or « 2024 ».
+   */
+  private static Set<String> numbers(String text) {
+    Set<String> tokens = new LinkedHashSet<>();
+    Matcher numbers = NUMBERS.matcher(text);
     while (numbers.find()) {
-      required.add(QuoteNormalizer.normalize(numbers.group()));
+      tokens.add(numbers.group());
     }
-    for (String reference : ReferenceScanner.references(claimText)) {
-      required.add(QuoteNormalizer.normalize(reference));
-    }
-    required.remove("");
-    return required;
+    return tokens;
   }
 
   /**
@@ -237,29 +237,20 @@ public class CitationVerificationService implements CitationVerifier {
   }
 
   /**
-   * A reference is covered when a verified claim states it or cites it — a statute by its numbers
-   * (« art. 1904 » is covered by a verified « L'article 1904 … »), a URL or a repository by its
-   * text.
+   * A reference is covered when a verified claim states it or its evidence does — by identity, not
+   * by substring: a statute by its whole provision (« art. 12 » is covered by « L'article 12 … »,
+   * not by « 12 jours » nor by « article 123 »), a URL only by the complete cited URL, exactly as
+   * written (a shared prefix is another address), a repository by its name.
    */
   private static boolean coveredBy(String reference, List<Claim> verified) {
-    String ref = QuoteNormalizer.normalize(reference);
-    List<String> numbers = new ArrayList<>();
-    Matcher m = NUMBERS.matcher(ref);
-    while (m.find()) {
-      numbers.add(m.group());
-    }
-    boolean statute = !ref.startsWith("http") && !ref.contains("/") && !numbers.isEmpty();
+    String key = ReferenceScanner.key(reference);
     for (Claim claim : verified) {
-      String text = QuoteNormalizer.normalize(claim.text());
-      if (text.contains(ref) || (statute && numbers.stream().allMatch(text::contains))) {
+      if (ReferenceScanner.keys(claim.text()).contains(key)) {
         return true;
       }
       for (Citation c : claim.citations()) {
-        if (QuoteNormalizer.normalize(c.url()).startsWith(ref)
-            || ref.startsWith(QuoteNormalizer.normalize(c.url()))) {
-          return true;
-        }
-        if (QuoteNormalizer.normalize(c.quote()).contains(ref)) {
+        if (ReferenceScanner.key(c.url()).equals(key)
+            || ReferenceScanner.keys(c.quote()).contains(key)) {
           return true;
         }
       }

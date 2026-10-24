@@ -9,6 +9,7 @@ import com.krizaka.orazaka.core.domain.model.research.GroundedAnswer;
 import com.krizaka.orazaka.core.domain.model.research.GroundedSource;
 import com.krizaka.orazaka.core.domain.model.research.VerifyMode;
 import com.krizaka.orazaka.core.domain.ports.inbound.CitationVerifier;
+import com.krizaka.orazaka.core.domain.ports.outbound.PipelineConfigProvider;
 import com.krizaka.orazaka.persistence.domain.ports.inbound.RuntimeConfigProvider;
 import java.util.ArrayList;
 import java.util.List;
@@ -37,20 +38,52 @@ public class CitationVerifierInterceptor implements PromptContextInterceptor {
 
   private final CitationVerifier verifier;
   private final RuntimeConfigProvider config;
+  private final PipelineConfigProvider pipelineRows;
 
   /**
    * Wires the stage.
    *
    * @param verifier the deterministic verifier
    * @param config the settings
+   * @param pipelineRows the pipeline rows, where this screen's own switch lives
    */
-  public CitationVerifierInterceptor(CitationVerifier verifier, RuntimeConfigProvider config) {
+  public CitationVerifierInterceptor(
+      CitationVerifier verifier,
+      RuntimeConfigProvider config,
+      PipelineConfigProvider pipelineRows) {
+    this.pipelineRows =
+        Objects.requireNonNull(pipelineRows, "PipelineConfigProvider cannot be null");
     this.verifier = Objects.requireNonNull(verifier, "CitationVerifier cannot be null");
     this.config = Objects.requireNonNull(config, "RuntimeConfigProvider cannot be null");
   }
 
+  /**
+   * A verification that fails must stop the turn: serving the model's own prose and its own {@code
+   * VERIFIED} statuses unchecked is exactly what this screen exists to prevent.
+   */
+  @Override
+  public boolean failsClosed() {
+    return true;
+  }
+
+  /**
+   * The screen is reached by every turn ({@code Engine} hands it all the interceptor beans,
+   * whatever chain the pipeline selected), so it checks its own switches: research on, and its own
+   * pipeline row present and enabled. Off means no rewrite.
+   */
+  private boolean active() {
+    if (!config.getBoolean("research.enabled", false)) {
+      return false;
+    }
+    return pipelineRows.findAllOrdered().stream()
+        .anyMatch(row -> getId().equals(row.interceptorKey()) && row.enabled());
+  }
+
   @Override
   public String screenResponse(PromptContext context, String responseText) {
+    if (!active()) {
+      return responseText;
+    }
     JsonNode root = parse(responseText);
     if (root == null
         || !root.isObject()

@@ -13,13 +13,14 @@ final class InMemoryLawRetrievals implements LawRetrievalCache {
   final Map<String, StoredRetrieval> rows = new HashMap<>();
 
   @Override
-  public Optional<StoredRetrieval> find(String jurisdiction, String kindId, LocalDate asOfBucket) {
-    return Optional.ofNullable(rows.get(key(jurisdiction, kindId, asOfBucket)));
+  public Optional<StoredRetrieval> find(
+      String jurisdiction, String kindId, String language, LocalDate asOfBucket) {
+    return Optional.ofNullable(rows.get(key(jurisdiction, kindId, language, asOfBucket)));
   }
 
   @Override
   public void save(StoredRetrieval r) {
-    rows.put(key(r.jurisdiction(), r.kindId(), r.asOfBucket()), r);
+    rows.put(key(r.jurisdiction(), r.kindId(), r.language(), r.asOfBucket()), r);
   }
 
   /** What the corpus store does when a cited article changes. */
@@ -31,6 +32,7 @@ final class InMemoryLawRetrievals implements LawRetrievalCache {
                 ? new StoredRetrieval(
                     r.jurisdiction(),
                     r.kindId(),
+                    r.language(),
                     r.asOfBucket(),
                     r.articles(),
                     r.claims(),
@@ -40,7 +42,7 @@ final class InMemoryLawRetrievals implements LawRetrievalCache {
                 : r);
   }
 
-  private static String key(String jurisdiction, String kindId, LocalDate bucket) {
-    return jurisdiction + "|" + kindId + "|" + bucket;
+  private static String key(String jurisdiction, String kindId, String language, LocalDate bucket) {
+    return jurisdiction + "|" + kindId + "|" + language + "|" + bucket;
   }
 }

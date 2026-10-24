@@ -103,7 +103,7 @@ class JpaLawRetrievalCacheIT extends AbstractContainerIntegrationTest {
                     "a".repeat(64),
                     "2026-10-24T06:00:00Z")));
     return new StoredRetrieval(
-        "QC", kindId, BUCKET, cited, List.of(claim), UUID.randomUUID(), T0, false);
+        "QC", kindId, "fr", BUCKET, cited, List.of(claim), UUID.randomUUID(), T0, false);
   }
 
   @Test
@@ -112,8 +112,28 @@ class JpaLawRetrievalCacheIT extends AbstractContainerIntegrationTest {
     StoredRetrieval stored = retrieval(kind, "1931", "1932");
     cache.save(stored);
 
-    assertThat(cache.find("QC", kind, BUCKET)).contains(stored);
-    assertThat(cache.find("QC", kind, BUCKET.plusDays(1))).isEmpty();
+    assertThat(cache.find("QC", kind, "fr", BUCKET)).contains(stored);
+    assertThat(cache.find("QC", kind, "fr", BUCKET.plusDays(1))).isEmpty();
+  }
+
+  @Test
+  @DisplayName("a French retrieval is never served for English: the language is part of the key")
+  void theLanguageIsPartOfTheKey() {
+    StoredRetrieval fr = retrieval(kind, "1931");
+    cache.save(fr);
+
+    assertThat(cache.find("QC", kind, "en", BUCKET)).isEmpty();
+
+    StoredRetrieval en =
+        new StoredRetrieval(
+            "QC", kind, "en", BUCKET, fr.articles(), List.of(), UUID.randomUUID(), T0, false);
+    cache.save(en);
+    assertThat(cache.find("QC", kind, "fr", BUCKET)).contains(fr);
+    assertThat(cache.find("QC", kind, "en", BUCKET)).contains(en);
+    assertThat(
+            jdbc.queryForObject(
+                "select count(*) from law_retrieval where kind_id = ?", Integer.class, kind))
+        .isEqualTo(2);
   }
 
   @Test
@@ -127,9 +147,9 @@ class JpaLawRetrievalCacheIT extends AbstractContainerIntegrationTest {
 
     corpus.replace(importId, v1, article("1932", "Quatre jours.", LocalDate.of(2026, 10, 22)), T0);
 
-    assertThat(cache.find("QC", kind, BUCKET))
+    assertThat(cache.find("QC", kind, "fr", BUCKET))
         .hasValueSatisfying(r -> assertThat(r.stale()).isTrue());
-    assertThat(cache.find("QC", other, BUCKET))
+    assertThat(cache.find("QC", other, "fr", BUCKET))
         .hasValueSatisfying(r -> assertThat(r.stale()).isFalse());
   }
 
@@ -142,7 +162,7 @@ class JpaLawRetrievalCacheIT extends AbstractContainerIntegrationTest {
 
     corpus.close(v1, LocalDate.of(2026, 10, 22));
 
-    assertThat(cache.find("QC", kind, BUCKET))
+    assertThat(cache.find("QC", kind, "fr", BUCKET))
         .hasValueSatisfying(r -> assertThat(r.stale()).isTrue());
   }
 
@@ -160,7 +180,7 @@ class JpaLawRetrievalCacheIT extends AbstractContainerIntegrationTest {
                     importId, v1, article("1934", "Deux.", LocalDate.of(2019, 1, 1)), T0))
         .isInstanceOf(IllegalStateException.class);
 
-    assertThat(cache.find("QC", kind, BUCKET))
+    assertThat(cache.find("QC", kind, "fr", BUCKET))
         .hasValueSatisfying(r -> assertThat(r.stale()).isFalse());
   }
 
@@ -174,7 +194,7 @@ class JpaLawRetrievalCacheIT extends AbstractContainerIntegrationTest {
 
     cache.save(retrieval(kind, "1935"));
 
-    assertThat(cache.find("QC", kind, BUCKET))
+    assertThat(cache.find("QC", kind, "fr", BUCKET))
         .hasValueSatisfying(r -> assertThat(r.stale()).isFalse());
     assertThat(
             jdbc.queryForObject(

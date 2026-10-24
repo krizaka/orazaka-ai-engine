@@ -19,6 +19,9 @@ public class LawRetrievalId implements Serializable {
   @Column(name = "kind_id", length = 80)
   private String kindId;
 
+  @Column(name = "language", length = 2)
+  private String language;
+
   @Column(name = "as_of_bucket")
   private LocalDate asOfBucket;
 
@@ -26,9 +29,10 @@ public class LawRetrievalId implements Serializable {
     /* JPA requires a no-arg constructor */
   }
 
-  public LawRetrievalId(String jurisdiction, String kindId, LocalDate asOfBucket) {
+  public LawRetrievalId(String jurisdiction, String kindId, String language, LocalDate asOfBucket) {
     this.jurisdiction = jurisdiction;
     this.kindId = kindId;
+    this.language = language;
     this.asOfBucket = asOfBucket;
   }
 
@@ -40,6 +44,10 @@ public class LawRetrievalId implements Serializable {
     return kindId;
   }
 
+  public String getLanguage() {
+    return language;
+  }
+
   public LocalDate getAsOfBucket() {
     return asOfBucket;
   }
@@ -49,11 +57,12 @@ public class LawRetrievalId implements Serializable {
     return o instanceof LawRetrievalId other
         && Objects.equals(jurisdiction, other.jurisdiction)
         && Objects.equals(kindId, other.kindId)
+        && Objects.equals(language, other.language)
         && Objects.equals(asOfBucket, other.asOfBucket);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(jurisdiction, kindId, asOfBucket);
+    return Objects.hash(jurisdiction, kindId, language, asOfBucket);
   }
 }

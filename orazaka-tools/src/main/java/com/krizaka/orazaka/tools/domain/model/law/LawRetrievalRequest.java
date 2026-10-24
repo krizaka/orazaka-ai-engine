@@ -13,7 +13,8 @@ import java.util.UUID;
  * @param kindId the kind of document, such as the one of a visit notice (data of the caller)
  * @param question what the grounded call is asked
  * @param language {@code fr} or {@code en}
- * @param asOf the day the articles must be in force; null means today
+ * @param asOf the day the articles must be in force, required: the caller reads it from the
+ *     document or from the calendar day in the jurisdiction's zone, never from a clock's own zone
  * @param targets the instruments and articles the kind targets
  * @param runId the run this call is metered under and capped by
  * @param actorId who the call is billed to
@@ -36,6 +37,9 @@ public record LawRetrievalRequest(
     requireText(language, "language");
     Objects.requireNonNull(runId, "runId");
     requireText(actorId, "actorId");
+    if (asOf == null) {
+      throw new IllegalArgumentException("asOf is required: the day the law is read at");
+    }
     targets = targets == null ? List.of() : List.copyOf(targets);
     if (targets.isEmpty()) {
       throw new IllegalArgumentException("a retrieval targets at least one instrument");

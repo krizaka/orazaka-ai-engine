@@ -193,7 +193,8 @@ class LawRetrievalConfigurationTest {
 
   private static final class NoCache implements LawRetrievalCache {
     @Override
-    public Optional<StoredRetrieval> find(String jurisdiction, String kindId, LocalDate bucket) {
+    public Optional<StoredRetrieval> find(
+        String jurisdiction, String kindId, String language, LocalDate bucket) {
       return Optional.empty();
     }
 

@@ -369,6 +369,99 @@ class LawRetrievalServiceTest {
   }
 
   @Test
+  @DisplayName(
+      "the language is part of the cache key: a French retrieval is never served for English")
+  void a_french_retrieval_is_never_served_for_english() {
+    UUID importId = UUID.randomUUID();
+    for (String ref : List.of("1931", "1932", "1933")) {
+      corpus.add(
+          importId,
+          "donnees-quebec",
+          new LawArticle(
+              "QC",
+              CCQ,
+              ref,
+              "en",
+              LocalDate.parse("2020-01-01"),
+              "The lessor gives notice of " + ref + " hours. It is a test text.",
+              "https://www.legisquebec.gouv.qc.ca/en/version/cs/CCQ-1991?code=se:" + ref,
+              "https://donneesquebec.test/ccq.zip"),
+          NOW);
+    }
+    LawRetrievalRequest english =
+        new LawRetrievalRequest(
+            "QC",
+            VISIT_KIND,
+            "Which articles govern a visit notice?",
+            "en",
+            NOTICE_DAY,
+            visitNotice().targets(),
+            RUN,
+            "actor-1");
+
+    assertThat(service.retrieve(visitNotice()).outcome()).isEqualTo(Outcome.RETRIEVED);
+    LawRetrievalResult en = service.retrieve(english);
+
+    assertThat(en.outcome()).isEqualTo(Outcome.RETRIEVED);
+    assertThat(en.articles()).extracting(CitedArticle::language).containsOnly("en");
+    assertThat(model.calls).isEqualTo(2);
+    assertThat(service.retrieve(english).outcome()).isEqualTo(Outcome.CACHED);
+    assertThat(service.retrieve(visitNotice()).outcome()).isEqualTo(Outcome.CACHED);
+    assertThat(model.calls).isEqualTo(2);
+    assertThat(cache.rows).hasSize(2);
+  }
+
+  @Test
+  @DisplayName(
+      "asOf is required, and the day asked is the day read: a Québec evening is not the UTC day")
+  void the_day_asked_is_the_day_read() {
+    // 23 October 21:30 in Québec is 24 October 01:30 UTC. A text takes effect on the 24th.
+    Instant quebecEvening = Instant.parse("2026-10-24T01:30:00Z");
+    LawArticle old = corpus.history(CCQ, "1932", "fr").getFirst().article();
+    corpus.replace(
+        UUID.randomUUID(),
+        old,
+        article("1932", "Le préavis de visite est de 48 heures.", LocalDate.parse("2026-10-24")),
+        NOW);
+    LawRetrievalService evening =
+        new LawRetrievalService(
+            settings,
+            research,
+            new LawCorpusResearchService(
+                corpus, research, Clock.fixed(quebecEvening, ZoneOffset.UTC)),
+            cache,
+            model,
+            new CitationVerificationService(research, new FixedConfig()),
+            meter,
+            Clock.fixed(quebecEvening, ZoneOffset.UTC));
+    LawRetrievalRequest thatEvening =
+        new LawRetrievalRequest(
+            "QC",
+            VISIT_KIND,
+            visitNotice().question(),
+            "fr",
+            LocalDate.parse("2026-10-23"),
+            visitNotice().targets(),
+            RUN,
+            "actor-1");
+
+    LawRetrievalResult result = evening.retrieve(thatEvening);
+
+    // The 23rd reads the text of the 23rd, not the one that takes effect on the 24th.
+    assertThat(model.passages.getFirst())
+        .filteredOn(p -> p.title().endsWith("1932"))
+        .extracting(GroundedClaimsModel.Passage::text)
+        .containsExactly(old.text());
+    assertThat(result.outcome()).isEqualTo(Outcome.RETRIEVED);
+    assertThatThrownBy(
+            () ->
+                new LawRetrievalRequest(
+                    "QC", VISIT_KIND, "q", "fr", null, visitNotice().targets(), RUN, "actor-1"))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("asOf is required");
+  }
+
+  @Test
   void the_language_is_fr_or_en() {
     LawRetrievalRequest odd =
         new LawRetrievalRequest(

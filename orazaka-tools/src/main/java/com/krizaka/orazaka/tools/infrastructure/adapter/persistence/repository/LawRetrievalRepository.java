@@ -20,16 +20,17 @@ public interface LawRetrievalRepository extends JpaRepository<LawRetrievalEntity
   @Modifying
   @Query(
       value =
-          "INSERT INTO law_retrieval (jurisdiction, kind_id, as_of_bucket, articles, claims,"
-              + " run_id, created_at, stale) VALUES (:jurisdiction, :kindId, :asOfBucket,"
+          "INSERT INTO law_retrieval (jurisdiction, kind_id, language, as_of_bucket, articles, claims,"
+              + " run_id, created_at, stale) VALUES (:jurisdiction, :kindId, :language, :asOfBucket,"
               + " CAST(:articles AS jsonb), CAST(:claims AS jsonb), :runId, :createdAt, FALSE)"
-              + " ON CONFLICT (jurisdiction, kind_id, as_of_bucket) DO UPDATE SET"
+              + " ON CONFLICT (jurisdiction, kind_id, language, as_of_bucket) DO UPDATE SET"
               + " articles = EXCLUDED.articles, claims = EXCLUDED.claims, run_id = EXCLUDED.run_id,"
               + " created_at = EXCLUDED.created_at, stale = FALSE",
       nativeQuery = true)
   int upsert(
       @Param("jurisdiction") String jurisdiction,
       @Param("kindId") String kindId,
+      @Param("language") String language,
       @Param("asOfBucket") LocalDate asOfBucket,
       @Param("articles") String articles,
       @Param("claims") String claims,

@@ -198,8 +198,8 @@ names the articles (`targets`, from the pack's `kinds/*.json`) and the question;
    (`{text, contentHash, inForceFrom, officialUrl, importId}`; URL = the official page, hash = the article's, title = « CCQ-1991, art. 1931 »),
    so the ADR-087 `CitationVerifier` checks every quote **unchanged**. An article with no version in force that day is
    `LAW_VERSION_UNKNOWN`, listed in `unknown`, never replaced by a later text; no article at all means `NO_ARTICLES` and no model call.
-   `law.retrieval.max-articles` bounds what one retrieval keeps.
-3. **The cache is `law_retrieval`**, keyed by jurisdiction, kind and the **as-of bucket** (the newest `in_force_from` among the articles).
+   `law.retrieval.max-articles` bounds what one retrieval keeps. **`asOf` is required** (a request without it is refused): the engine never reads "today" from a clock's own zone; the caller passes the document's date, or the calendar day in the jurisdiction's zone (`America/Toronto` for QC).
+3. **The cache is `law_retrieval`**, keyed by jurisdiction, kind, **language** (claims written in French are never served for English) and the **as-of bucket** (the newest `in_force_from` among the articles).
    A row is served (`CACHED`: no model call, no charge) only when it is not `stale`, is younger than `law.retrieval.max-age-days`
    and cites exactly the article versions (`instrument`, `ref`, `language`, `contentHash`) the corpus holds for that day.
 4. **A changed cited article marks the cache stale**: `JpaLawCorpusStore.replace` and `.close` set `stale` on every `law_retrieval` that

@@ -103,7 +103,7 @@ public class LawRetrievalService {
     if (source.isEmpty()) {
       return LawRetrievalResult.empty(Outcome.DISABLED, List.of());
     }
-    LocalDate day = request.asOf() != null ? request.asOf() : LocalDate.now(clock);
+    LocalDate day = request.asOf();
     String jurisdiction = request.jurisdiction().trim().toUpperCase(java.util.Locale.ROOT);
     LawCorpusResearchService.Read read =
         provider.read(
@@ -119,7 +119,9 @@ public class LawRetrievalService {
             .orElseThrow();
 
     Optional<StoredRetrieval> hit =
-        cache.find(jurisdiction, request.kindId(), bucket).filter(row -> reusable(row, cited));
+        cache
+            .find(jurisdiction, request.kindId(), language, bucket)
+            .filter(row -> reusable(row, cited));
     if (hit.isPresent()) {
       return new LawRetrievalResult(
           Outcome.CACHED, hit.get().articles(), hit.get().claims(), read.unknown());
@@ -173,6 +175,7 @@ public class LawRetrievalService {
         new StoredRetrieval(
             jurisdiction,
             request.kindId(),
+            language,
             bucket,
             cited,
             claims,

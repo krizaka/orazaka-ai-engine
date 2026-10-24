@@ -6,8 +6,8 @@ import java.util.Optional;
 
 /**
  * {@code law_retrieval}: the cache of stage 2 (ADR-089 §2 and §7). A retrieval is computed once per
- * jurisdiction, kind and as-of bucket, and again only when a cited article changes or after {@code
- * law.retrieval.max-age-days}.
+ * jurisdiction, kind, language and as-of bucket, and again only when a cited article changes or
+ * after {@code law.retrieval.max-age-days}.
  */
 public interface LawRetrievalCache {
 
@@ -16,10 +16,13 @@ public interface LawRetrievalCache {
    *
    * @param jurisdiction the jurisdiction
    * @param kindId the kind of document
+   * @param language {@code fr} or {@code en}: claims are written in one language and never served
+   *     for the other
    * @param asOfBucket the {@code in_force_from} of the newest article used
    * @return the row, if any
    */
-  Optional<StoredRetrieval> find(String jurisdiction, String kindId, LocalDate asOfBucket);
+  Optional<StoredRetrieval> find(
+      String jurisdiction, String kindId, String language, LocalDate asOfBucket);
 
   /**
    * Stores a retrieval, replacing the row of the same key (a stale one included, which becomes

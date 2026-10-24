@@ -34,9 +34,10 @@ class JpaLawRetrievalCache implements LawRetrievalCache {
 
   @Override
   @Transactional(readOnly = true)
-  public Optional<StoredRetrieval> find(String jurisdiction, String kindId, LocalDate asOfBucket) {
+  public Optional<StoredRetrieval> find(
+      String jurisdiction, String kindId, String language, LocalDate asOfBucket) {
     return retrievals
-        .findById(new LawRetrievalId(jurisdiction, kindId, asOfBucket))
+        .findById(new LawRetrievalId(jurisdiction, kindId, language, asOfBucket))
         .map(JpaLawRetrievalCache::toDomain);
   }
 
@@ -46,6 +47,7 @@ class JpaLawRetrievalCache implements LawRetrievalCache {
     retrievals.upsert(
         retrieval.jurisdiction(),
         retrieval.kindId(),
+        retrieval.language(),
         retrieval.asOfBucket(),
         write(retrieval.articles()),
         write(retrieval.claims()),
@@ -59,6 +61,7 @@ class JpaLawRetrievalCache implements LawRetrievalCache {
     return new StoredRetrieval(
         row.getId().getJurisdiction(),
         row.getId().getKindId(),
+        row.getId().getLanguage(),
         row.getId().getAsOfBucket(),
         articles,
         claims,

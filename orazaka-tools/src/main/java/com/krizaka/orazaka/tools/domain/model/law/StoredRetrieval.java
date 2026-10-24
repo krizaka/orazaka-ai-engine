@@ -13,6 +13,7 @@ import java.util.UUID;
  *
  * @param jurisdiction the jurisdiction
  * @param kindId the kind of document
+ * @param language {@code fr} or {@code en}, the language of the claims
  * @param asOfBucket the {@code in_force_from} of the newest article used
  * @param articles the articles used
  * @param claims the claims on them, with their verification status
@@ -23,6 +24,7 @@ import java.util.UUID;
 public record StoredRetrieval(
     String jurisdiction,
     String kindId,
+    String language,
     LocalDate asOfBucket,
     List<CitedArticle> articles,
     List<Claim> claims,
@@ -34,6 +36,9 @@ public record StoredRetrieval(
   public StoredRetrieval {
     Objects.requireNonNull(jurisdiction, "jurisdiction");
     Objects.requireNonNull(kindId, "kindId");
+    if (!"fr".equals(language) && !"en".equals(language)) {
+      throw new IllegalArgumentException("language must be fr or en");
+    }
     Objects.requireNonNull(asOfBucket, "asOfBucket");
     Objects.requireNonNull(createdAt, "createdAt");
     articles = articles == null ? List.of() : List.copyOf(articles);

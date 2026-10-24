@@ -10,7 +10,7 @@ import java.util.Optional;
  */
 public enum CheckPurpose {
   /** Court records: the TAL and the civil and penal plumitifs. */
-  COURT_RECORDS("orazaka.core.checks.court-records"),
+  COURT_RECORDS("orazaka.core.checks.courtrecords"),
   /** A credit report. */
   CREDIT("orazaka.core.checks.credit"),
   /** Identity verification. */
@@ -25,7 +25,7 @@ public enum CheckPurpose {
   /**
    * The capability's feature key, as a blueprint step names it.
    *
-   * @return e.g. {@code orazaka.core.checks.court-records}
+   * @return e.g. {@code orazaka.core.checks.courtrecords}
    */
   public String featureKey() {
     return featureKey;

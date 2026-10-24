@@ -362,7 +362,7 @@ class ExternalCheckServiceTest {
                     r ->
                         CheckResult.answered(
                             CheckOutcome.MATCH, CheckCategory.TAL_NON_PAYMENT, "x")))
-            .run("orazaka.core.checks.court-records", call(USER));
+            .run("orazaka.core.checks.courtrecords", call(USER));
 
     assertThat(step.result().outcome()).isEqualTo(CheckOutcome.MATCH);
     assertThat(step.result().category()).isEqualTo(CheckCategory.TAL_NON_PAYMENT);
@@ -375,7 +375,7 @@ class ExternalCheckServiceTest {
   void capabilityReportsZeroCallsWhenNotAnswered() {
     CheckStepResult timeout =
         service(connector(r -> CheckResult.answered(CheckOutcome.TIMEOUT, null)))
-            .run("orazaka.core.checks.court-records", call(USER));
+            .run("orazaka.core.checks.courtrecords", call(USER));
     consents.clear();
     CheckStepResult refused =
         service(connector(r -> CheckResult.answered(CheckOutcome.MATCH, "x")))
@@ -399,8 +399,12 @@ class ExternalCheckServiceTest {
     assertThat(audit)
         .extracting(CheckAudit::purpose)
         .containsExactly(CheckPurpose.CREDIT, CheckPurpose.IDENTITY);
-    assertThat(CheckPurpose.ofFeatureKey("orazaka.core.checks.court-records"))
+    assertThat(CheckPurpose.ofFeatureKey("orazaka.core.checks.courtrecords"))
         .contains(CheckPurpose.COURT_RECORDS);
+    // The capability registry's own pattern (orazaka-contracts CapabilityDeclaration): no hyphen.
+    assertThat(CheckPurpose.values())
+        .extracting(CheckPurpose::featureKey)
+        .allMatch(key -> key.matches("^orazaka\\.[a-z0-9]+(\\.[a-z0-9]+)+$"));
     assertThatThrownBy(() -> service.run("orazaka.core.checks.unknown", call(USER)))
         .isInstanceOf(IllegalArgumentException.class);
   }

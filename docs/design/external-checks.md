@@ -90,7 +90,7 @@ Routing (proposed, for CTO): a Québec applicant's court records go to SOQUIJ; t
 
 ## 7. The checks as engine capabilities (#84)
 
-- `ExternalCheckService` implements the inbound port `ExternalCheckCapability`: a blueprint step names `orazaka.core.checks.court-records`, `orazaka.core.checks.credit` or `orazaka.core.checks.identity` (`CheckPurpose.featureKey()`), and reads a `CheckStepResult`: the result and `consumption.calls`.
+- `ExternalCheckService` implements the inbound port `ExternalCheckCapability`: a blueprint step names `orazaka.core.checks.courtrecords`, `orazaka.core.checks.credit` or `orazaka.core.checks.identity` (`CheckPurpose.featureKey()`), and reads a `CheckStepResult`: the result and `consumption.calls`.
 - Order of one call: subject reference (HMAC) → consent → key → **one `CALL` held** (`CheckMeter`, ADR-087 unit; the ADR-033 hold until ADR-088 lands) → provider → audit → **settle** on `MATCH` / `NO_MATCH` (`calls: 1`), **release** on `PROVIDER_ERROR` / `TIMEOUT` (`calls: 0`). A refusal takes no hold (`calls: 0`); a budget that cannot hold the call is `REFUSED / BUDGET_EXHAUSTED`, before the provider.
 - `CheckResult.category` is closed: `TAL_NON_PAYMENT`, `TAL_OTHER`, `CRIMINAL`, `CIVIL`, `NONE`. A category other than `NONE` comes only with a match; credit and identity always answer `NONE`. Never free text, never the record's content.
 - The executor that runs these keys in a run (orazaka-job-service) and the meter and pepper adapters (sealed settings, pricebook) are wired by the host; until then nothing is registered and no check runs.

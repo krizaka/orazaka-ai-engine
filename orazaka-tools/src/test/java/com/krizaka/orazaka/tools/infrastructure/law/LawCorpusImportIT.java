@@ -267,5 +267,25 @@ class LawCorpusImportIT extends AbstractContainerIntegrationTest {
     public int maxArticleChars() {
       return 20_000;
     }
+
+    @Override
+    public boolean researchEnabled() {
+      return false;
+    }
+
+    @Override
+    public int retrievalMaxArticles() {
+      return 40;
+    }
+
+    @Override
+    public int retrievalMaxAgeDays() {
+      return 90;
+    }
+
+    @Override
+    public com.krizaka.orazaka.core.domain.model.research.VerifyMode verifyMode() {
+      return com.krizaka.orazaka.core.domain.model.research.VerifyMode.MARK;
+    }
   }
 }

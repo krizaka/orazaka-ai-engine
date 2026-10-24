@@ -14,6 +14,7 @@ import com.krizaka.orazaka.tools.infrastructure.adapter.persistence.entity.LawIn
 import com.krizaka.orazaka.tools.infrastructure.adapter.persistence.repository.LawArticleVersionRepository;
 import com.krizaka.orazaka.tools.infrastructure.adapter.persistence.repository.LawImportRepository;
 import com.krizaka.orazaka.tools.infrastructure.adapter.persistence.repository.LawInstrumentRepository;
+import com.krizaka.orazaka.tools.infrastructure.adapter.persistence.repository.LawRetrievalRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceException;
 import java.time.Instant;
@@ -23,6 +24,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * {@link LawCorpusStore} on the job-service's law tables, through Spring Data JPA on the engine's
@@ -34,10 +36,12 @@ import org.springframework.transaction.support.TransactionTemplate;
 class JpaLawCorpusStore implements LawCorpusStore {
 
   private static final int TOUCH_CHUNK = 500;
+  private static final JsonMapper JSON = JsonMapper.builder().build();
 
   private final LawInstrumentRepository instruments;
   private final LawArticleVersionRepository versions;
   private final LawImportRepository imports;
+  private final LawRetrievalRepository retrievals;
   private final EntityManager entityManager;
   private final TransactionTemplate transaction;
 
@@ -45,11 +49,13 @@ class JpaLawCorpusStore implements LawCorpusStore {
       LawInstrumentRepository instruments,
       LawArticleVersionRepository versions,
       LawImportRepository imports,
+      LawRetrievalRepository retrievals,
       EntityManager entityManager,
       PlatformTransactionManager transactionManager) {
     this.instruments = Objects.requireNonNull(instruments, "LawInstrumentRepository");
     this.versions = Objects.requireNonNull(versions, "LawArticleVersionRepository");
     this.imports = Objects.requireNonNull(imports, "LawImportRepository");
+    this.retrievals = Objects.requireNonNull(retrievals, "LawRetrievalRepository");
     this.entityManager = Objects.requireNonNull(entityManager, "EntityManager");
     this.transaction =
         new TransactionTemplate(
@@ -150,6 +156,7 @@ class JpaLawCorpusStore implements LawCorpusStore {
             // The close is written before the insert: at most one version is open.
             versions.saveAndFlush(open);
             insertNew(open(instrumentId, importId, next, seenAt));
+            markRetrievalsStale(previous);
           });
     } catch (DataIntegrityViolationException | PersistenceException e) {
       throw new IllegalStateException("the corpus refused the new version", e);
@@ -164,6 +171,7 @@ class JpaLawCorpusStore implements LawCorpusStore {
           LawArticleVersionEntity open = lockExpected(instrumentId, previous);
           open.setInForceTo(inForceTo);
           versions.saveAndFlush(open);
+          markRetrievalsStale(previous);
         });
   }
 
@@ -206,6 +214,26 @@ class JpaLawCorpusStore implements LawCorpusStore {
                         row.getId(), ref, language, asOf)
                     .filter(v -> v.getInForceTo() == null || asOf.isBefore(v.getInForceTo()))
                     .map(version -> toDomain(row, version, datasetUrls(List.of(version)))));
+  }
+
+  /**
+   * A cited article changed (a new version row, or the text left force): every cached retrieval
+   * that cites it is stale, in the same transaction as the change, so the next call recomputes.
+   */
+  private void markRetrievalsStale(LawArticle changed) {
+    String probe =
+        "[{\"instrument\":"
+            + quote(changed.instrument())
+            + ",\"ref\":"
+            + quote(changed.ref())
+            + ",\"language\":"
+            + quote(changed.language())
+            + "}]";
+    retrievals.markStaleCiting(changed.jurisdiction(), probe);
+  }
+
+  private static String quote(String value) {
+    return JSON.writeValueAsString(value);
   }
 
   /** An insert, never an overwrite: saving a row whose key exists would update it silently. */

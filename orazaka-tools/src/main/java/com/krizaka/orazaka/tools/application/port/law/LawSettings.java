@@ -1,5 +1,6 @@
 package com.krizaka.orazaka.tools.application.port.law;
 
+import com.krizaka.orazaka.core.domain.model.research.VerifyMode;
 import com.krizaka.orazaka.tools.domain.model.law.LawTarget;
 import java.util.List;
 
@@ -29,4 +30,34 @@ public interface LawSettings {
    * @return the limit in characters
    */
   int maxArticleChars();
+
+  /**
+   * The master switch of grounded research ({@code research.enabled}): a retrieval is grounded
+   * research, so it needs this one as well as the corpus.
+   *
+   * @return true when grounded research may run
+   */
+  boolean researchEnabled();
+
+  /**
+   * The most articles one retrieval keeps for a kind ({@code law.retrieval.max-articles}).
+   *
+   * @return the limit
+   */
+  int retrievalMaxArticles();
+
+  /**
+   * How long a cached retrieval is kept even if no cited article changed, since new articles may
+   * apply ({@code law.retrieval.max-age-days}).
+   *
+   * @return the age in days
+   */
+  int retrievalMaxAgeDays();
+
+  /**
+   * What the verifier does with an unverified claim ({@code research.verify.mode}).
+   *
+   * @return {@code MARK} (the default) or {@code STRICT}
+   */
+  VerifyMode verifyMode();
 }

@@ -185,6 +185,40 @@ connection pool (ADR-083). Nothing here runs while the setting `law.corpus.enabl
   `{acts}` and `{section}` (Justice Canada's paths differ by language). The importer writes it when it creates the
   instrument; the administrator can edit it.
 
+## Retrieving the law through grounded research, and its cache (ADR-089 §2 and §7, #81)
+
+`LawRetrievalService` (`orazaka-tools`) gives a kind of document the articles it is judged by, as verified claims. The kind's data
+names the articles (`targets`, from the pack's `kinds/*.json`) and the question; the engine names none.
+
+1. **Off unless three switches are on**: `law.corpus.enabled`, `research.enabled` and the `law-corpus` research source (all seeded
+   off). The wiring is off too: `orazaka.law.retrieval.enabled=true` registers `LawRetrievalConfiguration`. A disabled call reads
+   nothing, asks no model and costs nothing (`DISABLED`).
+2. **The `law-corpus` provider reads the corpus, never the network** (`LawCorpusResearchService`). For the instruments and references
+   the kind targets it reads `law_article_version` at `asOf` and offers each article as a `research_document`
+   (`{text, contentHash, inForceFrom, officialUrl, importId}`; URL = the official page, hash = the article's, title = « CCQ-1991, art. 1931 »),
+   so the ADR-087 `CitationVerifier` checks every quote **unchanged**. An article with no version in force that day is
+   `LAW_VERSION_UNKNOWN`, listed in `unknown`, never replaced by a later text; no article at all means `NO_ARTICLES` and no model call.
+   `law.retrieval.max-articles` bounds what one retrieval keeps. **`asOf` is required** (a request without it is refused): the engine never reads "today" from a clock's own zone; the caller passes the document's date, or the calendar day in the jurisdiction's zone (`America/Toronto` for QC).
+3. **The cache is `law_retrieval`**, keyed by jurisdiction, kind, **language** (claims written in French are never served for English) and the **as-of bucket** (the newest `in_force_from` among the articles).
+   A row is served (`CACHED`: no model call, no charge) only when it is not `stale`, is younger than `law.retrieval.max-age-days`
+   and cites exactly the article versions (`instrument`, `ref`, `language`, `contentHash`) the corpus holds for that day.
+4. **A changed cited article marks the cache stale**: `JpaLawCorpusStore.replace` and `.close` set `stale` on every `law_retrieval` that
+   cites the article (JSONB containment), in the same transaction as the change, and the next call recomputes. Saving a recomputed
+   retrieval is one `INSERT … ON CONFLICT DO UPDATE`: two calls computing the same key leave one row and fail neither.
+5. **Each computed retrieval is one metered grounded call**, a `RESEARCH` operation of unit `CALL`, priced by the pricebook row of the
+   provider key (`ResearchMeter.hold`, then `settle`; `release` if the model fails, never masking the original error), and counted
+   against the run budget (ADR-088). A budget that cannot hold the call refuses it before the model is asked (`BUDGET_EXHAUSTED`,
+   nothing cached). A cache hit is free.
+6. **The model is a port** (`GroundedClaimsModel`): the only place a retrieval calls one. Verified claims are cached with their
+   citations; `TO_VALIDATE` ones are kept as such and are not used by the derivation stage.
+
+The model and the meter come from the grounded-research capability (ADR-087 slice 5, `orazaka.core.research.grounded`) and the run
+budget (ADR-088). Until they are wired the service **fails closed**: no meter means the call is refused (`BUDGET_EXHAUSTED`), no
+model means an error, never an unmetered call. Tests: `LawRetrievalServiceTest` (the golden case: a visit notice brings art. 1931 to
+1933 and no rent article; a cached retrieval makes no model call, asserted on the model port; a changed article recomputes; off by
+default; metering and the budget), `JpaLawRetrievalCacheIT` (JSONB, the stale mark in the same transaction, concurrent saves),
+`LawRetrievalConfigurationTest`.
+
 ## Position in the platform
 
 | | |

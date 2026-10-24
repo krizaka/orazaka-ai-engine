@@ -131,24 +131,39 @@ and keeps the main content. A document is stored under its source, the URL asked
 final URL. Every call writes one `research_fetch` audit line, with a path hash, never the query. The limits are
 `research.fetch.*` rows read at call time. Nothing calls the fetcher yet: the citations and the verifier are slice 2.
 
-## Law watcher: the dated, hashed corpus (ADR-089, #400)
+## The law corpus: importers, manual import and `lookupStatute` (ADR-089 §2, #400)
 
-`LawWatchService` (`orazaka-tools`) runs weekly (`orazaka.law.watcher.cron`, Monday 06:00 UTC by default) when
-`orazaka.law.watcher.enabled=true`. It reads the followed articles from the official open data, compares each with
-the corpus and turns every difference into one pull request in `krizaka/orazaka-packs` (a branch from `main`, a review
-file with the diff, both SHA-256 hashes and the citation). Only a change opens a request; the first import of an
-instrument stores its texts silently; an unchanged article opens nothing; a removed article is flagged.
+The corpus is the dated, hashed text of the law the engine derives its checks from. It lives in the
+**job-service tables** (`law_instrument`, `law_article_version`, `law_import`, created by
+[orazaka-job-service](https://github.com/krizaka/orazaka-job-service) `infra/initdb/30-jobs-config.sql`), and the
+engine reads and writes them through Spring Data JPA on its own data source, like the research tables: no second
+connection pool (ADR-083). Nothing here runs while the setting `law.corpus.enabled` is false (the seeded default).
 
-- **Sources, both without disguise** (`User-Agent: OrazakaLawWatcher/0.1`): Justice Canada's consolidated XML
-  (`laws-lois.justice.gc.ca/{eng,fra}/XML/<code>.xml`, Open Government Licence - Canada) and the Données Québec
-  statutes zip (CC BY-NC-ND 4.0: development and change detection; the commercial question is tracked in
-  krizaka/orazaka#393). Légis Québec and CanLII are not read.
-- **Targets** (`orazaka.law.watcher.targets`): by default C.c.Q. 1851-2000, the QST articles 16 and 201 of T-0.1,
-  and the P-39.1 instrument with no article yet (no pack cites a Loi 25 article by number).
-- **Settings**: `orazaka.law.watcher.enabled`, `.cron`, `.quebec.dataset-url`, `.github.token` (the krizaka-agents
-  App token, from the deployment's secrets, never in code), `.github.owner|repository|base-branch`.
-- **Not in this repository yet**: the corpus tables (`law_article_version`, `law_import`, ... ADR-089 cut item 2,
-  job-service). The watcher needs a `LawCorpusStore` bean and refuses to start without one.
+| | |
+|:---|:---|
+| **Importers** | `QuebecOpenDataSource` (the Données Québec statutes zip, conditional on its ETag, SHA-256 of the zip recorded) and `JusticeLawsXmlSource` (Justice Canada's `/eng/XML/<code>.xml` and `/fra/XML/<code>.xml`). Both implement `LawSource`, both use `LawStatuteXmlParser`, both send an honest user agent (`OrazakaLawWatcher/0.1`). Légis Québec and CanLII are not read. |
+| **Watcher** | `LawWatchService` runs weekly (`orazaka.law.watcher.cron`, Monday 06:00 UTC) when `orazaka.law.watcher.enabled=true`: it imports every instrument of `law.import.instruments`, and every difference with the corpus opens one pull request in `krizaka/orazaka-packs` (a review file with the diff, both hashes and the citation). The first import of an instrument and language stores silently; an unchanged article opens nothing; a removed article is flagged. |
+| **Manual import** | `LawManualImportService.importFile(ManualLawFile)`: the same parser and comparison, `mode = MANUAL`. `imported_by`, the address the file came from and the **SHA-256 of the file** are required (the service refuses the upload, and the table refuses the row, without them). Only an instrument of `law.import.instruments` is stored. The HTTP endpoint (`POST /api/v1/admin/law/imports`) belongs to the host that authenticates the administrator; it calls this service. |
+| **`lookupStatute`** | `LawStatuteLookupService.lookupStatute(jurisdiction, instrument, ref, language, asOf)` returns the version in force on `asOf` (`in_force_from <= asOf < in_force_to`; no day means today) as `{text, contentHash, inForceFrom, officialUrl, importId}`, or `LAW_VERSION_UNKNOWN` (also: the article is unknown, the oldest text we hold took effect after `asOf`, or it was not in force then), or `LAW_CORPUS_DISABLED`. A later text is never read in place of an earlier one. As a model tool (`LookupStatuteTool`, arguments `jurisdiction`, `instrument`, `reference`, `asOf`, `language`) it is registered in the one `ToolRegistry` only with `orazaka.law.lookup.enabled=true`, because a registered tool is attached to every non-streaming request. |
+
+- **Every import is a `law_import` row**: source, `AUTOMATED` or `MANUAL`, dataset address, ETag, SHA-256, the day the
+  consolidation is current to, who, start and end, counts (`articles_new`, `articles_changed` (a removal counts here),
+  `articles_unchanged`) and `status` (`RUNNING`, then `SUCCEEDED`, or `FAILED` when nothing could be read or a change
+  was refused). A source that cannot be read leaves its `FAILED` row.
+- **A changed text closes the old row (`in_force_to` = the new in-force day) and inserts the new one, in one
+  transaction**, with a row lock on the open version: two imports cannot both replace it. A **reverted** text is a new
+  dated row (the key is `(instrument_id, ref, language, in_force_from)`, krizaka/orazaka#401), never the old row
+  reopened. A text that changes without a later in-force date is refused and opens no request.
+- **A change is applied only once its review request is open** (the watcher), so a failed request is detected again by the
+  next run. Without a request port (no watcher), changes are applied directly and the import row is the trace.
+- **Settings are the `law.*` rows of `orazaka_runtime_config`**, read at each call: `law.corpus.enabled`,
+  `law.import.instruments` (`QC:CCQ-1991,CA:E-15,...`; whole instruments, nothing else is stored) and
+  `law.import.max-article-chars` (a longer article fails the whole import before anything is written).
+  Static wiring only: `orazaka.law.watcher.enabled|cron|quebec.dataset-url|github.token|github.owner|repository|base-branch`
+  (the krizaka-agents App token comes from the deployment's secrets, never from code) and `orazaka.law.lookup.enabled`.
+- **`official_url_template`**: an instrument's citation address, with the placeholders `{ref}`, `{lang}`, `{lang3}`,
+  `{acts}` and `{section}` (Justice Canada's paths differ by language). The importer writes it when it creates the
+  instrument; the administrator can edit it.
 
 ## Position in the platform
 

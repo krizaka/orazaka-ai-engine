@@ -2,21 +2,27 @@ package com.krizaka.orazaka.tools.infrastructure.adapter.law;
 
 import com.krizaka.orazaka.tools.application.port.law.LawSource;
 import com.krizaka.orazaka.tools.domain.model.law.LawArticle;
+import com.krizaka.orazaka.tools.domain.model.law.LawSnapshot;
 import com.krizaka.orazaka.tools.domain.model.law.LawTarget;
+import com.krizaka.orazaka.tools.domain.model.law.Sha256;
 import java.io.ByteArrayInputStream;
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.client.RestClient;
 
 /**
@@ -25,6 +31,10 @@ import org.springframework.web.client.RestClient;
  */
 public final class QuebecOpenDataSource implements LawSource {
 
+  /** The {@code research_source} the Données Québec texts are recorded under. */
+  static final String SOURCE_KEY = "donnees-quebec";
+
+  private static final Pattern SNAPSHOT_DATE = Pattern.compile("/(\\d{8})_[^/]*$");
   private static final Pattern STATUTE_ENTRY =
       Pattern.compile("Statutes/([^/]+)/(FR|EN)/\\1_\\2\\.xml");
 
@@ -46,17 +56,29 @@ public final class QuebecOpenDataSource implements LawSource {
   }
 
   @Override
+  public String sourceKey() {
+    return SOURCE_KEY;
+  }
+
+  @Override
   public boolean serves(String jurisdiction) {
     return "QC".equals(jurisdiction);
   }
 
   @Override
-  public List<LawArticle> fetch(String jurisdiction, Collection<LawTarget> targets) {
+  public String datasetUrl(String jurisdiction) {
+    return datasetUrl;
+  }
+
+  @Override
+  public LawSnapshot fetch(
+      String jurisdiction, Collection<LawTarget> targets, Optional<String> knownEtag) {
     Set<String> wanted = targets.stream().map(LawTarget::instrument).collect(Collectors.toSet());
-    byte[] zip = client.get().uri(datasetUrl).retrieve().body(byte[].class);
-    if (zip == null || zip.length == 0) {
-      throw new IllegalStateException("the Données Québec statutes zip answered empty");
+    Download download = download(knownEtag);
+    if (download.notModified()) {
+      return LawSnapshot.notModified(datasetUrl, knownEtag.orElse(null));
     }
+    byte[] zip = download.body();
     List<LawArticle> articles = new ArrayList<>();
     try (ZipInputStream entries = new ZipInputStream(new ByteArrayInputStream(zip))) {
       ZipEntry entry;
@@ -72,8 +94,47 @@ public final class QuebecOpenDataSource implements LawSource {
     } catch (IOException e) {
       throw new IllegalStateException("the Données Québec zip could not be read", e);
     }
-    return articles;
+    return new LawSnapshot(
+        articles,
+        Set.of("fr", "en"),
+        datasetUrl,
+        download.etag(),
+        Sha256.hex(zip),
+        consolidatedTo(datasetUrl),
+        false);
   }
+
+  /** Asks conditionally: the publisher answers 304 when the dataset is the one already read. */
+  private Download download(Optional<String> knownEtag) {
+    return client
+        .get()
+        .uri(datasetUrl)
+        .headers(headers -> knownEtag.ifPresent(headers::setIfNoneMatch))
+        .exchange(
+            (request, response) -> {
+              if (response.getStatusCode().value() == HttpStatus.NOT_MODIFIED.value()) {
+                return new Download(null, knownEtag.orElse(null), true);
+              }
+              if (!response.getStatusCode().is2xxSuccessful()) {
+                throw new IllegalStateException(
+                    "the Données Québec statutes zip answered " + response.getStatusCode().value());
+              }
+              byte[] body = response.getBody().readAllBytes();
+              if (body.length == 0) {
+                throw new IllegalStateException("the Données Québec statutes zip answered empty");
+              }
+              return new Download(body, response.getHeaders().getETag(), false);
+            });
+  }
+
+  /** The snapshot is named by its date: {@code 20261021_lois.zip} is current to 2026-10-21. */
+  private static LocalDate consolidatedTo(String url) {
+    Matcher match = SNAPSHOT_DATE.matcher(url);
+    return match.find() ? LocalDate.parse(match.group(1), DateTimeFormatter.BASIC_ISO_DATE) : null;
+  }
+
+  /** What the publisher answered. */
+  private record Download(byte[] body, String etag, boolean notModified) {}
 
   /** Lets the parser read one zip entry without closing the zip. */
   private static final class UnclosedStream extends FilterInputStream {

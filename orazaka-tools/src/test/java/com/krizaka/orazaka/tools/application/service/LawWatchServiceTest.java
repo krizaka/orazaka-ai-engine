@@ -83,7 +83,7 @@ class LawWatchServiceTest {
     LawWatchReport report = watcher().run();
 
     assertThat(requests.opened).hasSize(1);
-    LawChange change = requests.opened.get(0);
+    LawChange change = requests.opened.getFirst();
     assertThat(change.kind()).isEqualTo(LawChange.Kind.CHANGED);
     assertThat(change.subject().ref()).isEqualTo("1942");
     assertThat(change.previous().text()).contains("trois mois");
@@ -93,7 +93,7 @@ class LawWatchServiceTest {
     LawArticle current =
         store.currentVersions("CCQ-1991").stream()
             .map(LawArticleVersion::article)
-            .filter(a -> a.ref().equals("1942"))
+            .filter(a -> "1942".equals(a.ref()))
             .findFirst()
             .orElseThrow();
     assertThat(current.text()).contains("quatre mois");
@@ -110,12 +110,12 @@ class LawWatchServiceTest {
     watcher().run();
 
     assertThat(requests.opened).hasSize(1);
-    LawChange change = requests.opened.get(0);
+    LawChange change = requests.opened.getFirst();
     assertThat(change.kind()).isEqualTo(LawChange.Kind.REMOVED);
     assertThat(change.current()).isNull();
     assertThat(change.subject().ref()).isEqualTo("1942");
     assertThat(change.detectedOn()).isEqualTo(LocalDate.of(2026, 10, 23));
-    assertThat(store.currentVersions("CCQ-1991")).noneMatch(v -> v.article().ref().equals("1942"));
+    assertThat(store.currentVersions("CCQ-1991")).noneMatch(v -> "1942".equals(v.article().ref()));
     assertThat(store.closed).containsKey("CCQ-1991|1942|fr");
   }
 
@@ -133,7 +133,7 @@ class LawWatchServiceTest {
     assertThat(
             store.currentVersions("CCQ-1991").stream()
                 .map(LawArticleVersion::article)
-                .filter(a -> a.ref().equals("1942"))
+                .filter(a -> "1942".equals(a.ref()))
                 .findFirst()
                 .orElseThrow()
                 .text())

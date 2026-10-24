@@ -42,7 +42,7 @@ class LawStatuteXmlParserTest {
             in -> parser.parseJustice(in, "E-15", "en", "https://laws.test/E-15.xml"));
 
     assertThat(articles).extracting(LawArticle::ref).contains("1", "2");
-    LawArticle shortTitle = articles.get(0);
+    LawArticle shortTitle = articles.getFirst();
     assertThat(shortTitle.inForceFrom()).isEqualTo(LocalDate.of(2003, 1, 1));
     assertThat(shortTitle.text()).contains("This Act may be cited as the Excise Tax Act");
     assertThat(shortTitle.officialUrl())

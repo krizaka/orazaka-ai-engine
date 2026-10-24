@@ -48,8 +48,8 @@ class QuebecOpenDataSourceTest {
         source.fetch("QC", List.of(LawTarget.of("QC", "CCQ-1991", List.of("1942"))));
 
     server.verify();
-    assertThat(articles).isNotEmpty().allMatch(a -> a.instrument().equals("CCQ-1991"));
-    assertThat(articles).allMatch(a -> a.language().equals("fr"));
+    assertThat(articles).isNotEmpty().allMatch(a -> "CCQ-1991".equals(a.instrument()));
+    assertThat(articles).allMatch(a -> "fr".equals(a.language()));
     assertThat(articles).extracting(LawArticle::ref).contains("1942");
     assertThat(source.serves("QC")).isTrue();
     assertThat(source.serves("CA")).isFalse();

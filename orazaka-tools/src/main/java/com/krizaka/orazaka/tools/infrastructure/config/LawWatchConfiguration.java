@@ -1,15 +1,11 @@
 package com.krizaka.orazaka.tools.infrastructure.config;
 
 import com.krizaka.orazaka.tools.application.port.law.LawChangeRequests;
-import com.krizaka.orazaka.tools.application.port.law.LawCorpusStore;
+import com.krizaka.orazaka.tools.application.port.law.LawSettings;
 import com.krizaka.orazaka.tools.application.port.law.LawSource;
+import com.krizaka.orazaka.tools.application.service.LawImportService;
 import com.krizaka.orazaka.tools.application.service.LawWatchService;
-import com.krizaka.orazaka.tools.domain.model.law.LawTarget;
 import com.krizaka.orazaka.tools.infrastructure.adapter.law.GitHubLawChangeRequests;
-import com.krizaka.orazaka.tools.infrastructure.adapter.law.JusticeLawsXmlSource;
-import com.krizaka.orazaka.tools.infrastructure.adapter.law.LawStatuteXmlParser;
-import com.krizaka.orazaka.tools.infrastructure.adapter.law.QuebecOpenDataSource;
-import java.time.Clock;
 import java.util.List;
 import java.util.Objects;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -21,8 +17,11 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.web.client.RestClient;
 
 /**
- * Wires the law watcher. Off by default; {@code orazaka.law.watcher.enabled=true} starts it, and
- * then the {@link LawCorpusStore} bean (the law tables, ADR-089 cut item 2) must exist.
+ * Wires the law watcher on top of {@link LawCorpusConfiguration}. Off by default; {@code
+ * orazaka.law.watcher.enabled=true} starts the schedule, and then the corpus store (the job-service
+ * law tables) must exist, as {@link LawCorpusConfiguration} needs it. What the watcher imports is
+ * read from the {@code law.import.instruments} setting at each run, and it does nothing while
+ * {@code law.corpus.enabled} is false.
  */
 @Configuration(proxyBeanMethods = false)
 @EnableScheduling
@@ -30,32 +29,8 @@ import org.springframework.web.client.RestClient;
 @ConditionalOnProperty(prefix = "orazaka.law.watcher", name = "enabled", havingValue = "true")
 public class LawWatchConfiguration {
 
-  /** Identifies the watcher to the publishers, as ADR-087 asks: never a browser disguise. */
-  static final String USER_AGENT = "OrazakaLawWatcher/0.1 (+https://www.orazaka.com)";
-
   @Bean
-  LawWatchService lawWatchService(LawWatchProperties properties, LawCorpusStore store) {
-    LawStatuteXmlParser parser = new LawStatuteXmlParser();
-    RestClient open =
-        RestClient.builder().defaultHeader(HttpHeaders.USER_AGENT, USER_AGENT).build();
-    List<LawSource> sources =
-        List.of(
-            new QuebecOpenDataSource(open, properties.quebec().datasetUrl(), parser),
-            new JusticeLawsXmlSource(open, parser));
-    List<LawTarget> targets =
-        properties.targets().stream()
-            .map(scope -> LawTarget.of(scope.jurisdiction(), scope.instrument(), scope.refs()))
-            .toList();
-    LawChangeRequests requests = changeRequests(properties);
-    return new LawWatchService(sources, targets, store, requests, Clock.systemUTC());
-  }
-
-  @Bean
-  LawWatchJob lawWatchJob(LawWatchService service) {
-    return new LawWatchJob(service);
-  }
-
-  private static LawChangeRequests changeRequests(LawWatchProperties properties) {
+  LawChangeRequests lawChangeRequests(LawWatchProperties properties) {
     LawWatchProperties.GitHub github = properties.github();
     String token =
         Objects.requireNonNull(
@@ -63,11 +38,22 @@ public class LawWatchConfiguration {
     RestClient api =
         RestClient.builder()
             .baseUrl("https://api.github.com")
-            .defaultHeader(HttpHeaders.USER_AGENT, USER_AGENT)
+            .defaultHeader(HttpHeaders.USER_AGENT, LawCorpusConfiguration.USER_AGENT)
             .defaultHeader(HttpHeaders.ACCEPT, "application/vnd.github+json")
             .defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + token)
             .build();
     return new GitHubLawChangeRequests(
         api, github.owner(), github.repository(), github.baseBranch());
+  }
+
+  @Bean
+  LawWatchService lawWatchService(
+      List<LawSource> sources, LawSettings settings, LawImportService importer) {
+    return new LawWatchService(sources, settings, importer);
+  }
+
+  @Bean
+  LawWatchJob lawWatchJob(LawWatchService service) {
+    return new LawWatchJob(service);
   }
 }

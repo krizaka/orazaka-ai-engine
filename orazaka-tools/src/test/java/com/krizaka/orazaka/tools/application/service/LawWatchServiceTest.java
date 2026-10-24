@@ -1,81 +1,107 @@
 package com.krizaka.orazaka.tools.application.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.krizaka.orazaka.tools.application.port.law.LawChangeRequests;
-import com.krizaka.orazaka.tools.application.port.law.LawCorpusStore;
-import com.krizaka.orazaka.tools.application.port.law.LawSource;
-import com.krizaka.orazaka.tools.domain.model.law.LawArticle;
 import com.krizaka.orazaka.tools.domain.model.law.LawArticleVersion;
 import com.krizaka.orazaka.tools.domain.model.law.LawChange;
-import com.krizaka.orazaka.tools.domain.model.law.LawTarget;
+import com.krizaka.orazaka.tools.domain.model.law.LawImportMode;
+import com.krizaka.orazaka.tools.domain.model.law.LawImportStatus;
 import com.krizaka.orazaka.tools.domain.model.law.LawWatchReport;
-import com.krizaka.orazaka.tools.infrastructure.adapter.law.LawStatuteXmlParser;
-import java.io.InputStream;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
-import java.util.Objects;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * The watcher on recorded XML: the first real Données Québec slice of C.c.Q. (1851-2000), then
- * derived variants of it (one article amended, one removed). No network.
+ * The importers on recorded XML: the first real Données Québec slice of C.c.Q. (1851-2000), then
+ * derived variants of it (one article amended, one removed, one reverted). No network, no database:
+ * the corpus is in memory, with the semantics of the store port.
  */
 class LawWatchServiceTest {
 
   private static final Clock CLOCK =
       Clock.fixed(Instant.parse("2026-10-23T06:00:00Z"), ZoneOffset.UTC);
-  private static final LawTarget CCQ = LawTarget.of("QC", "CCQ-1991", List.of("1851-2000"));
   private static final String RECORDED = "/law/CCQ-1991_FR-slice.xml";
   private static final String AMENDED = "/law/CCQ-1991_FR-slice-amended.xml";
+  private static final String UNDATED = "/law/CCQ-1991_FR-slice-amended-undated.xml";
   private static final String REMOVED = "/law/CCQ-1991_FR-slice-1942-removed.xml";
+  private static final String REVERTED = "/law/CCQ-1991_FR-slice-reverted.xml";
 
-  private InMemoryCorpus store;
+  private InMemoryLawCorpus store;
   private RecordingRequests requests;
-  private FixtureSource source;
+  private FixtureLawSource source;
+  private FixedLawSettings settings;
 
   @BeforeEach
   void setUp() {
-    store = new InMemoryCorpus();
+    store = new InMemoryLawCorpus();
     requests = new RecordingRequests();
-    source = new FixtureSource();
+    source = new FixtureLawSource();
+    settings = new FixedLawSettings();
+    settings.instruments =
+        List.of(
+            com.krizaka.orazaka.tools.domain.model.law.LawTarget.wholeInstrument("QC", "CCQ-1991"));
   }
 
   private LawWatchService watcher() {
-    return new LawWatchService(List.of(source), List.of(CCQ), store, requests, CLOCK);
+    LawImportService importer = new LawImportService(store, settings, requests, CLOCK);
+    return new LawWatchService(List.of(source), settings, importer);
+  }
+
+  private List<LawArticleVersion> history1942() {
+    return store.history("CCQ-1991", "1942", "fr");
   }
 
   @Test
-  void the_first_import_stores_the_texts_and_opens_no_request() {
+  void the_first_import_stores_the_texts_opens_no_request_and_is_a_law_import_row() {
     source.serve(RECORDED);
 
     LawWatchReport report = watcher().run();
 
     assertThat(requests.opened).isEmpty();
     assertThat(report.stored()).isEqualTo(6);
-    assertThat(store.currentVersions("CCQ-1991")).hasSize(6);
+    assertThat(store.currentVersions("QC", "CCQ-1991")).hasSize(6);
+    assertThat(report.imports()).hasSize(1);
+    InMemoryLawCorpus.ImportRow row = store.imports.get(report.imports().getFirst());
+    assertThat(row.start.mode()).isEqualTo(LawImportMode.AUTOMATED);
+    assertThat(row.start.sourceKey()).isEqualTo("donnees-quebec");
+    assertThat(row.start.datasetUrl()).isEqualTo(FixtureLawSource.DATASET);
+    assertThat(row.status()).isEqualTo(LawImportStatus.SUCCEEDED);
+    assertThat(row.result.datasetSha256()).hasSize(64);
+    assertThat(row.result.articlesNew()).isEqualTo(6);
+    assertThat(row.result.articlesChanged()).isZero();
+    assertThat(row.result.articlesUnchanged()).isZero();
+    assertThat(store.versions).allMatch(v -> report.imports().contains(v.importId()));
   }
 
   @Test
-  void an_unchanged_article_opens_nothing() {
+  void an_unchanged_article_opens_nothing_and_only_moves_last_seen_at() {
     source.serve(RECORDED);
     watcher().run();
+    Instant firstSeen = store.currentVersions("QC", "CCQ-1991").getFirst().firstSeenAt();
 
     LawWatchReport second = watcher().run();
 
     assertThat(requests.opened).isEmpty();
     assertThat(second.unchanged()).isEqualTo(6);
     assertThat(second.failures()).isEmpty();
+    assertThat(store.versions).hasSize(6);
+    assertThat(store.imports).hasSize(2);
+    InMemoryLawCorpus.ImportRow row = store.imports.get(second.imports().getFirst());
+    assertThat(row.result.articlesUnchanged()).isEqualTo(6);
+    assertThat(row.result.articlesNew()).isZero();
+    assertThat(store.currentVersions("QC", "CCQ-1991"))
+        .allMatch(v -> v.firstSeenAt().equals(firstSeen));
   }
 
   @Test
-  void a_changed_article_opens_one_pull_request_and_becomes_the_current_version() {
+  void a_changed_article_opens_one_request_closes_the_old_row_and_stores_a_new_dated_one() {
     source.serve(RECORDED);
     watcher().run();
     source.serve(AMENDED);
@@ -90,13 +116,16 @@ class LawWatchServiceTest {
     assertThat(change.current().text()).contains("quatre mois");
     assertThat(report.requests()).hasSize(1);
 
-    LawArticle current =
-        store.currentVersions("CCQ-1991").stream()
-            .map(LawArticleVersion::article)
-            .filter(a -> "1942".equals(a.ref()))
-            .findFirst()
-            .orElseThrow();
-    assertThat(current.text()).contains("quatre mois");
+    List<LawArticleVersion> rows = history1942();
+    assertThat(rows).hasSize(2);
+    assertThat(rows.getFirst().inForceTo()).isEqualTo(LocalDate.of(2026, 10, 1));
+    assertThat(rows.getFirst().article().text()).contains("trois mois");
+    assertThat(rows.get(1).inForceTo()).isNull();
+    assertThat(rows.get(1).article().inForceFrom()).isEqualTo(LocalDate.of(2026, 10, 1));
+    assertThat(rows.get(1).article().text()).contains("quatre mois");
+    assertThat(rows.get(1).importId()).isEqualTo(report.imports().getFirst());
+    assertThat(store.imports.get(report.imports().getFirst()).result.articlesChanged())
+        .isEqualTo(1);
 
     assertThat(watcher().run().requests()).isEmpty();
   }
@@ -115,8 +144,52 @@ class LawWatchServiceTest {
     assertThat(change.current()).isNull();
     assertThat(change.subject().ref()).isEqualTo("1942");
     assertThat(change.detectedOn()).isEqualTo(LocalDate.of(2026, 10, 23));
-    assertThat(store.currentVersions("CCQ-1991")).noneMatch(v -> "1942".equals(v.article().ref()));
-    assertThat(store.closed).containsKey("CCQ-1991|1942|fr");
+    assertThat(store.currentVersions("QC", "CCQ-1991"))
+        .noneMatch(v -> "1942".equals(v.article().ref()));
+    assertThat(history1942())
+        .singleElement()
+        .extracting(LawArticleVersion::inForceTo)
+        .isEqualTo(LocalDate.of(2026, 10, 23));
+  }
+
+  @Test
+  void a_reverted_text_is_a_new_dated_row_not_the_old_one_reopened() {
+    source.serve(RECORDED);
+    watcher().run();
+    source.serve(AMENDED);
+    watcher().run();
+    source.serve(REVERTED);
+
+    LawWatchReport report = watcher().run();
+
+    assertThat(report.failures()).isEmpty();
+    List<LawArticleVersion> rows = history1942();
+    assertThat(rows).hasSize(3);
+    assertThat(rows.getFirst().article().contentHash())
+        .isEqualTo(rows.get(2).article().contentHash());
+    assertThat(rows.getFirst().article().inForceFrom()).isEqualTo(LocalDate.of(1999, 4, 1));
+    assertThat(rows.getFirst().inForceTo()).isEqualTo(LocalDate.of(2026, 10, 1));
+    assertThat(rows.get(1).inForceTo()).isEqualTo(LocalDate.of(2026, 10, 15));
+    assertThat(rows.get(2).article().inForceFrom()).isEqualTo(LocalDate.of(2026, 10, 15));
+    assertThat(rows.get(2).inForceTo()).isNull();
+    assertThat(rows.get(2).importId()).isEqualTo(report.imports().getFirst());
+  }
+
+  @Test
+  void a_text_that_changes_without_a_new_in_force_date_is_refused_and_no_request_is_opened() {
+    source.serve(RECORDED);
+    watcher().run();
+    source.serve(UNDATED);
+
+    LawWatchReport report = watcher().run();
+
+    assertThat(requests.opened).isEmpty();
+    assertThat(report.failures()).singleElement().asString().contains("1942", "in-force date");
+    assertThat(history1942())
+        .singleElement()
+        .satisfies(v -> assertThat(v.article().text()).contains("trois mois"));
+    assertThat(store.imports.get(report.imports().getFirst()).status())
+        .isEqualTo(LawImportStatus.FAILED);
   }
 
   @Test
@@ -130,92 +203,124 @@ class LawWatchServiceTest {
 
     assertThat(report.requests()).isEmpty();
     assertThat(report.failures()).hasSize(1);
-    assertThat(
-            store.currentVersions("CCQ-1991").stream()
-                .map(LawArticleVersion::article)
-                .filter(a -> "1942".equals(a.ref()))
-                .findFirst()
-                .orElseThrow()
-                .text())
-        .contains("trois mois");
+    assertThat(history1942())
+        .singleElement()
+        .satisfies(v -> assertThat(v.article().text()).contains("trois mois"));
+    assertThat(store.imports.get(report.imports().getFirst()).status())
+        .isEqualTo(LawImportStatus.FAILED);
 
     assertThat(watcher().run().requests()).hasSize(1);
   }
 
-  /** A recorded document, parsed by the real parser; the test chooses which one a run reads. */
-  private static final class FixtureSource implements LawSource {
-    private final LawStatuteXmlParser parser = new LawStatuteXmlParser();
-    private String resource;
+  @Test
+  void a_source_that_cannot_be_read_leaves_a_failed_import_row_and_changes_nothing() {
+    source.serve(RECORDED);
+    watcher().run();
+    source.failNext();
 
-    void serve(String resource) {
-      this.resource = resource;
-    }
+    LawWatchReport report = watcher().run();
 
-    @Override
-    public boolean serves(String jurisdiction) {
-      return "QC".equals(jurisdiction);
-    }
-
-    @Override
-    public List<LawArticle> fetch(String jurisdiction, Collection<LawTarget> targets) {
-      try (InputStream in = LawWatchServiceTest.class.getResourceAsStream(resource)) {
-        return parser.parseQuebec(
-            Objects.requireNonNull(in, resource), "CCQ-1991", "fr", "https://donnees.test/ccq.xml");
-      } catch (java.io.IOException e) {
-        throw new IllegalStateException(e);
-      }
-    }
+    assertThat(report.failures()).hasSize(1);
+    InMemoryLawCorpus.ImportRow row = store.imports.get(report.imports().getFirst());
+    assertThat(row.status()).isEqualTo(LawImportStatus.FAILED);
+    assertThat(row.result.datasetSha256()).isNull();
+    assertThat(store.versions).hasSize(6);
   }
 
-  /** The corpus in memory, with the same semantics as the store port. */
-  private static final class InMemoryCorpus implements LawCorpusStore {
-    private final List<LawArticleVersion> versions = new ArrayList<>();
-    private final java.util.Map<String, LocalDate> closed = new java.util.HashMap<>();
+  @Test
+  void an_article_longer_than_the_setting_fails_the_whole_import_loudly_and_stores_nothing() {
+    source.serve(RECORDED);
+    settings.maxArticleChars = 100;
 
-    @Override
-    public List<LawArticleVersion> currentVersions(String instrument) {
-      return versions.stream()
-          .filter(v -> v.inForceTo() == null)
-          .filter(v -> v.article().instrument().equals(instrument))
-          .toList();
-    }
+    LawWatchReport report = watcher().run();
 
-    @Override
-    public void add(LawArticleVersion version) {
-      versions.add(version);
-    }
+    assertThat(report.failures())
+        .singleElement()
+        .asString()
+        .contains("law.import.max-article-chars");
+    assertThat(store.versions).isEmpty();
+    assertThat(store.imports.get(report.imports().getFirst()).status())
+        .isEqualTo(LawImportStatus.FAILED);
+  }
 
-    @Override
-    public void close(String instrument, String ref, String language, LocalDate inForceTo) {
-      closed.put(instrument + "|" + ref + "|" + language, inForceTo);
-      for (int i = 0; i < versions.size(); i++) {
-        LawArticleVersion v = versions.get(i);
-        if (v.inForceTo() == null && matches(v.article(), instrument, ref, language)) {
-          versions.set(
-              i, new LawArticleVersion(v.article(), v.firstSeenAt(), v.lastSeenAt(), inForceTo));
-        }
-      }
-    }
+  @Test
+  void a_dataset_the_publisher_says_is_unchanged_is_not_read_again() {
+    source.serve(RECORDED);
+    source.validator("\"abc\"");
+    watcher().run();
+    store.etag = "\"abc\"";
 
-    @Override
-    public void touch(String instrument, String ref, String language, Instant seenAt) {
-      for (int i = 0; i < versions.size(); i++) {
-        LawArticleVersion v = versions.get(i);
-        if (v.inForceTo() == null && matches(v.article(), instrument, ref, language)) {
-          versions.set(i, v.seenAt(seenAt));
-        }
-      }
-    }
+    LawWatchReport second = watcher().run();
 
-    private static boolean matches(LawArticle a, String instrument, String ref, String lang) {
-      return a.instrument().equals(instrument) && a.ref().equals(ref) && a.language().equals(lang);
-    }
+    assertThat(source.lastKnownEtag).contains("\"abc\"");
+    assertThat(second.unchanged()).isZero();
+    assertThat(second.failures()).isEmpty();
+    InMemoryLawCorpus.ImportRow row = store.imports.get(second.imports().getFirst());
+    assertThat(row.status()).isEqualTo(LawImportStatus.SUCCEEDED);
+    assertThat(row.result.datasetEtag()).isEqualTo("\"abc\"");
+    assertThat(store.versions).hasSize(6);
+  }
+
+  @Test
+  void the_validator_is_not_sent_until_every_instrument_was_imported_whole_once() {
+    source.serve(RECORDED);
+    store.etag = "\"abc\"";
+
+    watcher().run();
+
+    assertThat(source.lastKnownEtag).isEmpty();
+  }
+
+  @Test
+  void a_source_that_returns_nothing_for_a_stored_language_changes_nothing() {
+    source.serve(RECORDED);
+    watcher().run();
+    source.serve("/law/CCQ-1991_FR-empty.xml");
+
+    LawWatchReport report = watcher().run();
+
+    assertThat(requests.opened).isEmpty();
+    assertThat(report.failures()).singleElement().asString().contains("no fr article of CCQ-1991");
+    assertThat(store.currentVersions("QC", "CCQ-1991")).hasSize(6);
+  }
+
+  @Test
+  void nothing_runs_while_the_corpus_is_switched_off() {
+    source.serve(RECORDED);
+    settings.enabled = false;
+
+    LawWatchReport report = watcher().run();
+
+    assertThat(report).isEqualTo(LawWatchReport.EMPTY);
+    assertThat(store.imports).isEmpty();
+    assertThat(store.versions).isEmpty();
+  }
+
+  @Test
+  void an_instrument_that_is_not_in_the_setting_is_not_read() {
+    source.serve(RECORDED);
+    settings.instruments = List.of();
+
+    LawWatchReport report = watcher().run();
+
+    assertThat(report.imports()).isEmpty();
+    assertThat(store.versions).isEmpty();
+  }
+
+  @Test
+  void a_jurisdiction_with_no_source_is_a_configuration_error() {
+    settings.instruments =
+        List.of(com.krizaka.orazaka.tools.domain.model.law.LawTarget.wholeInstrument("FR", "X"));
+
+    assertThatThrownBy(() -> watcher().run())
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("no law source serves FR");
   }
 
   /** Records the requests; can be told to fail the next one. */
-  private static final class RecordingRequests implements LawChangeRequests {
-    private final List<LawChange> opened = new ArrayList<>();
-    private boolean failNext;
+  static final class RecordingRequests implements LawChangeRequests {
+    final List<LawChange> opened = new ArrayList<>();
+    boolean failNext;
 
     @Override
     public String open(LawChange change) {

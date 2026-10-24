@@ -1,6 +1,5 @@
 package com.krizaka.orazaka.tools.infrastructure.config;
 
-import java.util.List;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
@@ -10,24 +9,14 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @param cron the schedule, Spring cron (sec min hour day month weekday); weekly by default
  * @param quebec the Données Québec snapshot
  * @param github the rulesets repository and the App token that opens the review requests
- * @param targets the articles followed; the defaults are the C.c.Q. lease articles, the QST law
- *     (art. 16 and 201) and the Loi 25 instrument, which no pack cites by article yet
  */
 @ConfigurationProperties(prefix = "orazaka.law.watcher")
-public record LawWatchProperties(
-    boolean enabled, String cron, Quebec quebec, GitHub github, List<Scope> targets) {
-
-  private static final List<Scope> DEFAULT_TARGETS =
-      List.of(
-          new Scope("QC", "CCQ-1991", List.of("1851-2000")),
-          new Scope("QC", "T-0.1", List.of("16", "201")),
-          new Scope("QC", "P-39.1", List.of()));
+public record LawWatchProperties(boolean enabled, String cron, Quebec quebec, GitHub github) {
 
   public LawWatchProperties {
     cron = cron == null || cron.isBlank() ? "0 0 6 * * MON" : cron;
     quebec = quebec == null ? new Quebec(null) : quebec;
     github = github == null ? new GitHub(null, null, null, null) : github;
-    targets = targets == null || targets.isEmpty() ? DEFAULT_TARGETS : List.copyOf(targets);
   }
 
   /**
@@ -59,20 +48,6 @@ public record LawWatchProperties(
       owner = owner == null || owner.isBlank() ? "krizaka" : owner;
       repository = repository == null || repository.isBlank() ? "orazaka-packs" : repository;
       baseBranch = baseBranch == null || baseBranch.isBlank() ? "main" : baseBranch;
-    }
-  }
-
-  /**
-   * One followed instrument.
-   *
-   * @param jurisdiction {@code CA} or {@code QC}
-   * @param instrument the instrument code
-   * @param refs the article references, or ranges such as {@code 1851-2000}
-   */
-  public record Scope(String jurisdiction, String instrument, List<String> refs) {
-
-    public Scope {
-      refs = refs == null ? List.of() : List.copyOf(refs);
     }
   }
 }

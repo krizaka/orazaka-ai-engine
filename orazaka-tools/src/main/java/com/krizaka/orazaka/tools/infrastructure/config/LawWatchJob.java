@@ -27,7 +27,8 @@ public class LawWatchJob {
   public void run() {
     LawWatchReport report = service.run();
     LOG.info(
-        "law watch done: unchanged={} stored={} requests={} failures={}",
+        "law watch done: imports={} unchanged={} stored={} requests={} failures={}",
+        report.imports().size(),
         report.unchanged(),
         report.stored(),
         report.requests().size(),

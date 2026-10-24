@@ -8,12 +8,34 @@ import java.util.List;
  *
  * @param jurisdiction {@code CA} or {@code QC}
  * @param instrument the instrument code
- * @param refs the article references followed, expanded from ranges
+ * @param refs the article references followed, expanded from ranges; empty means the whole
+ *     instrument
  */
 public record LawTarget(String jurisdiction, String instrument, List<String> refs) {
 
   public LawTarget {
     refs = List.copyOf(refs);
+  }
+
+  /**
+   * A target that follows every article of the instrument, as {@code law.import.instruments} does.
+   *
+   * @param jurisdiction the jurisdiction
+   * @param instrument the instrument code
+   * @return the target
+   */
+  public static LawTarget wholeInstrument(String jurisdiction, String instrument) {
+    return new LawTarget(jurisdiction, instrument, List.of());
+  }
+
+  /**
+   * Whether an article of this instrument is followed.
+   *
+   * @param ref the article reference
+   * @return true for every article of a whole-instrument target, else when the reference is listed
+   */
+  public boolean covers(String ref) {
+    return refs.isEmpty() || refs.contains(ref);
   }
 
   /**

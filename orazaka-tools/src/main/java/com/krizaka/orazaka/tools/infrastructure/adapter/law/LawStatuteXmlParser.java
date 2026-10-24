@@ -2,12 +2,14 @@ package com.krizaka.orazaka.tools.infrastructure.adapter.law;
 
 import com.krizaka.orazaka.tools.domain.model.law.ContentHash;
 import com.krizaka.orazaka.tools.domain.model.law.LawArticle;
+import com.krizaka.orazaka.tools.domain.model.law.OfficialUrls;
+import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
+import java.util.Optional;
 import java.util.regex.Pattern;
 import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -65,7 +67,7 @@ public final class LawStatuteXmlParser {
               language,
               LocalDate.parse(dated, BASIC_DATE),
               text,
-              quebecCitation(instrument, language, ref),
+              OfficialUrls.of("QC", instrument, language, ref),
               sourceUrl));
     }
     return articles;
@@ -105,10 +107,23 @@ public final class LawStatuteXmlParser {
               language,
               LocalDate.parse(dated),
               text,
-              federalCitation(instrument, language, ref),
+              OfficialUrls.of("CA", instrument, language, ref),
               sourceUrl));
     }
     return articles;
+  }
+
+  /**
+   * The day a federal consolidation is current to, when the file says ({@code lims:current-date} on
+   * the root element).
+   *
+   * @param xml the federal XML
+   * @return the date, or empty when the root carries none
+   */
+  public Optional<LocalDate> federalConsolidatedTo(byte[] xml) {
+    String value =
+        read(new ByteArrayInputStream(xml)).getDocumentElement().getAttribute("lims:current-date");
+    return value.isEmpty() ? Optional.empty() : Optional.of(LocalDate.parse(value));
   }
 
   /**
@@ -134,23 +149,6 @@ public final class LawStatuteXmlParser {
    */
   boolean isRepealed(String normalisedText) {
     return REPEALED.matcher(normalisedText).matches();
-  }
-
-  static String quebecCitation(String instrument, String language, String ref) {
-    String lang = language.toLowerCase(Locale.ROOT);
-    return "https://www.legisquebec.gouv.qc.ca/"
-        + lang
-        + "/version/lc/"
-        + instrument
-        + "?code=se:"
-        + ref;
-  }
-
-  static String federalCitation(String instrument, String language, String ref) {
-    if ("fr".equals(language)) {
-      return "https://laws-lois.justice.gc.ca/fra/lois/" + instrument + "/article-" + ref + ".html";
-    }
-    return "https://laws-lois.justice.gc.ca/eng/acts/" + instrument + "/section-" + ref + ".html";
   }
 
   private static void removeAll(Element root, String name) {

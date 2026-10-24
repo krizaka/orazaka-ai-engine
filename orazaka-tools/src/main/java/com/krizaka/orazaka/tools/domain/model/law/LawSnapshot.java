@@ -1,6 +1,9 @@
 package com.krizaka.orazaka.tools.domain.model.law;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -32,6 +35,39 @@ public record LawSnapshot(
   public LawSnapshot {
     articles = List.copyOf(articles);
     languages = Set.copyOf(languages);
+  }
+
+  /**
+   * One snapshot from several files read from the same publisher, such as one XML file per act and
+   * language. The fingerprint is the digest of each file's address and digest, in order, so that a
+   * change in any file changes it.
+   *
+   * @param datasetUrl the address recorded for the whole read
+   * @param files one snapshot per file, each with its address and digest
+   * @return the articles of every file, the languages they cover and the latest consolidation day
+   */
+  public static LawSnapshot merge(String datasetUrl, List<LawSnapshot> files) {
+    List<LawArticle> articles = new ArrayList<>();
+    Set<String> languages = new HashSet<>();
+    StringBuilder digests = new StringBuilder();
+    LocalDate consolidatedTo = null;
+    for (LawSnapshot file : files) {
+      articles.addAll(file.articles());
+      languages.addAll(file.languages());
+      digests.append(file.datasetUrl()).append(' ').append(file.datasetSha256()).append('\n');
+      if (file.consolidatedTo() != null
+          && (consolidatedTo == null || file.consolidatedTo().isAfter(consolidatedTo))) {
+        consolidatedTo = file.consolidatedTo();
+      }
+    }
+    return new LawSnapshot(
+        articles,
+        languages,
+        datasetUrl,
+        null,
+        Sha256.hex(digests.toString().getBytes(StandardCharsets.UTF_8)),
+        consolidatedTo,
+        false);
   }
 
   /**

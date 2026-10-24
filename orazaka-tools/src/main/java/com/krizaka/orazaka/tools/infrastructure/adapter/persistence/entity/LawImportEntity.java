@@ -68,14 +68,6 @@ public class LawImportEntity {
     this.id = id;
   }
 
-  public String getSourceKey() {
-    return sourceKey;
-  }
-
-  public void setSourceKey(String sourceKey) {
-    this.sourceKey = sourceKey;
-  }
-
   public String getMode() {
     return mode;
   }
@@ -170,5 +162,13 @@ public class LawImportEntity {
 
   public void setStatus(String status) {
     this.status = status;
+  }
+
+  public String getSourceKey() {
+    return sourceKey;
+  }
+
+  public void setSourceKey(String sourceKey) {
+    this.sourceKey = sourceKey;
   }
 }

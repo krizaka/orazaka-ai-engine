@@ -2,15 +2,7 @@ package com.krizaka.orazaka.core.application.checks;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.krizaka.orazaka.core.domain.model.checks.CheckAudit;
-import com.krizaka.orazaka.core.domain.model.checks.CheckCall;
-import com.krizaka.orazaka.core.domain.model.checks.CheckOutcome;
-import com.krizaka.orazaka.core.domain.model.checks.CheckPurpose;
-import com.krizaka.orazaka.core.domain.model.checks.CheckRefusal;
-import com.krizaka.orazaka.core.domain.model.checks.CheckRequest;
-import com.krizaka.orazaka.core.domain.model.checks.CheckResult;
-import com.krizaka.orazaka.core.domain.model.checks.CheckSubject;
-import com.krizaka.orazaka.core.domain.model.checks.KeySource;
+import com.krizaka.orazaka.core.domain.model.checks.*;
 import com.krizaka.orazaka.core.domain.ports.outbound.CheckAuditLog;
 import com.krizaka.orazaka.core.domain.ports.outbound.CheckKeyStore;
 import com.krizaka.orazaka.core.domain.ports.outbound.ConsentRegistry;
@@ -120,8 +112,8 @@ class ExternalCheckServiceTest {
     assertThat(result.refusal()).isEqualTo(CheckRefusal.NO_CONSENT);
     assertThat(reached).isEmpty();
     assertThat(audit).hasSize(1);
-    assertThat(audit.get(0).outcome()).isEqualTo(CheckOutcome.REFUSED);
-    assertThat(audit.get(0).keySource()).isNull();
+    assertThat(audit.getFirst().outcome()).isEqualTo(CheckOutcome.REFUSED);
+    assertThat(audit.getFirst().keySource()).isNull();
   }
 
   @Test
@@ -146,11 +138,11 @@ class ExternalCheckServiceTest {
     CheckResult result = service.verifyCourtRecords(call(USER));
 
     assertThat(reached).hasSize(1);
-    assertThat(reached.get(0).key().source()).isEqualTo(KeySource.USER);
-    assertThat(reached.get(0).key().value()).isEqualTo("user-key");
+    assertThat(reached.getFirst().key().source()).isEqualTo(KeySource.USER);
+    assertThat(reached.getFirst().key().value()).isEqualTo("user-key");
     assertThat(result.outcome()).isEqualTo(CheckOutcome.MATCH);
     assertThat(result.providerRef()).isEqualTo("case-7");
-    assertThat(audit.get(0).keySource()).isEqualTo(KeySource.USER);
+    assertThat(audit.getFirst().keySource()).isEqualTo(KeySource.USER);
   }
 
   @Test
@@ -161,9 +153,9 @@ class ExternalCheckServiceTest {
 
     CheckResult result = service.verifyCourtRecords(call(USER));
 
-    assertThat(reached.get(0).key().source()).isEqualTo(KeySource.PLATFORM);
+    assertThat(reached.getFirst().key().source()).isEqualTo(KeySource.PLATFORM);
     assertThat(result.outcome()).isEqualTo(CheckOutcome.NO_MATCH);
-    assertThat(audit.get(0).keySource()).isEqualTo(KeySource.PLATFORM);
+    assertThat(audit.getFirst().keySource()).isEqualTo(KeySource.PLATFORM);
   }
 
   @Test
@@ -194,19 +186,14 @@ class ExternalCheckServiceTest {
 
     assertThat(result.outcome()).isEqualTo(CheckOutcome.PROVIDER_ERROR);
     assertThat(audit).hasSize(1);
-    assertThat(audit.get(0).outcome()).isEqualTo(CheckOutcome.PROVIDER_ERROR);
-    assertThat(audit.get(0).toString()).doesNotContain("Tremblay", "1980");
+    assertThat(audit.getFirst().outcome()).isEqualTo(CheckOutcome.PROVIDER_ERROR);
+    assertThat(audit.getFirst().toString()).doesNotContain("Tremblay", "1980");
   }
 
   @Test
   @DisplayName("a connector that answers REFUSED is treated as a provider fault")
   void aConnectorCannotRefuseForTheService() {
-    ExternalCheckService service =
-        service(
-            connector(
-                r -> {
-                  return null;
-                }));
+    ExternalCheckService service = service(connector(r -> null));
 
     CheckResult result = service.verifyCourtRecords(call(USER));
 
@@ -223,8 +210,8 @@ class ExternalCheckServiceTest {
     CheckResult result = service.verifyCourtRecords(call(USER));
 
     assertThat(result.outcome()).isEqualTo(CheckOutcome.TIMEOUT);
-    assertThat(audit.get(0).outcome()).isEqualTo(CheckOutcome.TIMEOUT);
-    assertThat(audit.get(0).durationMs()).isNotNull();
+    assertThat(audit.getFirst().outcome()).isEqualTo(CheckOutcome.TIMEOUT);
+    assertThat(audit.getFirst().durationMs()).isNotNull();
   }
 
   @Test
@@ -235,7 +222,7 @@ class ExternalCheckServiceTest {
 
     service.verifyCourtRecords(call(USER));
 
-    CheckAudit line = audit.get(0);
+    CheckAudit line = audit.getFirst();
     assertThat(line.subjectRef()).hasSize(64).doesNotContain(SUBJECT);
     assertThat(line.runId()).isEqualTo(UUID.fromString("00000000-0000-0000-0000-000000000042"));
     assertThat(line.at()).isEqualTo(Instant.parse("2026-10-23T12:00:00Z"));

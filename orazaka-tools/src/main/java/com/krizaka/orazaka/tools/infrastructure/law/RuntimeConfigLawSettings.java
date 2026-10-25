@@ -23,6 +23,11 @@ public final class RuntimeConfigLawSettings implements LawSettings {
   static final String KEY_RETRIEVAL_MAX_ARTICLES = "law.retrieval.max-articles";
   static final String KEY_RETRIEVAL_MAX_AGE_DAYS = "law.retrieval.max-age-days";
   static final String KEY_VERIFY_MODE = "research.verify.mode";
+  static final String KEY_DERIVE_MAX_CREDITS = "law.derive.max-credits";
+  static final String KEY_DERIVE_MAX_RULES = "law.derive.max-rules-per-kind";
+
+  /** The seeded default of {@code law.derive.max-rules-per-kind}, when the row is missing. */
+  private static final int SEEDED_DERIVE_MAX_RULES = 30;
 
   /** The seeded defaults of the retrieval rows, when one is missing. */
   private static final int SEEDED_RETRIEVAL_MAX_ARTICLES = 40;
@@ -92,5 +97,16 @@ public final class RuntimeConfigLawSettings implements LawSettings {
     return "STRICT".equalsIgnoreCase(config.getString(KEY_VERIFY_MODE, "MARK"))
         ? VerifyMode.STRICT
         : VerifyMode.MARK;
+  }
+
+  /** A missing row is a cap of 0: derivation spends nothing it was not allowed to. */
+  @Override
+  public int deriveMaxCredits() {
+    return config.getInt(KEY_DERIVE_MAX_CREDITS, 0);
+  }
+
+  @Override
+  public int deriveMaxRulesPerKind() {
+    return config.getInt(KEY_DERIVE_MAX_RULES, SEEDED_DERIVE_MAX_RULES);
   }
 }

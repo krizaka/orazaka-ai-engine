@@ -47,6 +47,18 @@ class RuntimeConfigLawSettingsTest {
   }
 
   @Test
+  void derivation_is_off_without_its_row_and_reads_both_rows_at_each_call() {
+    // A missing cap is 0: a derivation spends nothing it was not allowed to.
+    assertThat(settings.deriveMaxCredits()).isZero();
+    assertThat(settings.deriveMaxRulesPerKind()).isEqualTo(30);
+
+    rows.put("law.derive.max-credits", "2000");
+    rows.put("law.derive.max-rules-per-kind", "5");
+    assertThat(settings.deriveMaxCredits()).isEqualTo(2_000);
+    assertThat(settings.deriveMaxRulesPerKind()).isEqualTo(5);
+  }
+
+  @Test
   void the_article_limit_is_the_row() {
     assertThat(settings.maxArticleChars()).isEqualTo(20_000);
     rows.put("law.import.max-article-chars", "5000");

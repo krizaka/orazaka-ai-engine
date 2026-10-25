@@ -16,6 +16,7 @@ final class FixedLawSettings implements LawSettings {
   VerifyMode mode = VerifyMode.MARK;
   int deriveMaxCredits = 2000;
   int deriveMaxRules = 30;
+  int minGoldenCases = 3;
   List<LawTarget> instruments =
       List.of(LawTarget.wholeInstrument("QC", "CCQ-1991"), LawTarget.wholeInstrument("CA", "E-15"));
 
@@ -62,5 +63,10 @@ final class FixedLawSettings implements LawSettings {
   @Override
   public int deriveMaxRulesPerKind() {
     return deriveMaxRules;
+  }
+
+  @Override
+  public int reviewMinGoldenCases() {
+    return minGoldenCases;
   }
 }

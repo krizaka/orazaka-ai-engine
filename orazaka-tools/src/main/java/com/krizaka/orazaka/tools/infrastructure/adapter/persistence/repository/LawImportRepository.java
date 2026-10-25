@@ -1,8 +1,10 @@
 package com.krizaka.orazaka.tools.infrastructure.adapter.persistence.repository;
 
 import com.krizaka.orazaka.tools.infrastructure.adapter.persistence.entity.LawImportEntity;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 /** The imports of the law corpus. */
@@ -19,4 +21,12 @@ public interface LawImportRepository extends JpaRepository<LawImportEntity, UUID
    */
   Optional<LawImportEntity> findFirstBySourceKeyAndDatasetUrlAndModeAndStatusOrderByStartedAtDesc(
       String sourceKey, String datasetUrl, String mode, String status);
+
+  /**
+   * The imports, newest first.
+   *
+   * @param page the page
+   * @return the rows
+   */
+  List<LawImportEntity> findAllByOrderByStartedAtDesc(Pageable page);
 }

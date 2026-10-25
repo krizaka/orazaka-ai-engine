@@ -25,6 +25,15 @@ public final class RuntimeConfigLawSettings implements LawSettings {
   static final String KEY_VERIFY_MODE = "research.verify.mode";
   static final String KEY_DERIVE_MAX_CREDITS = "law.derive.max-credits";
   static final String KEY_DERIVE_MAX_RULES = "law.derive.max-rules-per-kind";
+  static final String KEY_REVIEW_MIN_GOLDEN = "law.review.min-golden-cases";
+
+  /**
+   * The seeded default of {@code law.review.min-golden-cases}, and its lower bound: a clean case, a
+   * defective one and the blank form cannot be fewer than two documents.
+   */
+  private static final int SEEDED_REVIEW_MIN_GOLDEN = 3;
+
+  private static final int LEAST_REVIEW_MIN_GOLDEN = 2;
 
   /** The seeded default of {@code law.derive.max-rules-per-kind}, when the row is missing. */
   private static final int SEEDED_DERIVE_MAX_RULES = 30;
@@ -108,5 +117,12 @@ public final class RuntimeConfigLawSettings implements LawSettings {
   @Override
   public int deriveMaxRulesPerKind() {
     return config.getInt(KEY_DERIVE_MAX_RULES, SEEDED_DERIVE_MAX_RULES);
+  }
+
+  @Override
+  public int reviewMinGoldenCases() {
+    // Below its bound the gate would open with less than the ADR asks: never lower than 2.
+    return Math.max(
+        LEAST_REVIEW_MIN_GOLDEN, config.getInt(KEY_REVIEW_MIN_GOLDEN, SEEDED_REVIEW_MIN_GOLDEN));
   }
 }

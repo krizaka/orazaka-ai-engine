@@ -74,4 +74,12 @@ public interface LawSettings {
    * @return the limit
    */
   int deriveMaxRulesPerKind();
+
+  /**
+   * The golden documents a kind needs before promotion ({@code law.review.min-golden-cases}): one
+   * clean, one with errors and the blank form among them.
+   *
+   * @return the minimum
+   */
+  int reviewMinGoldenCases();
 }

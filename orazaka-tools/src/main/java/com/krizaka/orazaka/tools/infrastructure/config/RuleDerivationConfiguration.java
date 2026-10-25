@@ -2,12 +2,12 @@ package com.krizaka.orazaka.tools.infrastructure.config;
 
 import com.krizaka.orazaka.tools.application.port.law.LawSettings;
 import com.krizaka.orazaka.tools.application.port.law.RuleDerivationModel;
-import com.krizaka.orazaka.tools.application.port.law.RuleProposalStore;
+import com.krizaka.orazaka.tools.application.port.law.RulesetPack;
+import com.krizaka.orazaka.tools.application.service.KindDerivationService;
 import com.krizaka.orazaka.tools.application.service.LawRetrievalService;
 import com.krizaka.orazaka.tools.application.service.LawStatuteLookupService;
 import com.krizaka.orazaka.tools.application.service.RuleDerivationService;
 import com.krizaka.orazaka.tools.application.service.RuleProposalService;
-import java.time.Clock;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -15,7 +15,8 @@ import org.springframework.context.annotation.Configuration;
 
 /**
  * Wires stage 3 of ADR-089 (the derivation of proposed rules, {@code vet} and {@code
- * rule_proposal}) on top of {@link LawRetrievalConfiguration}. Off by default: {@code
+ * rule_proposal}) on top of {@link LawRetrievalConfiguration} and {@link LawReviewConfiguration}
+ * (which owns {@code RuleProposalService}). Off by default: {@code
  * orazaka.law.derivation.enabled=true} registers it, and even then nothing runs while {@code
  * law.derive.max-credits} is 0 or the retrieval is off.
  *
@@ -27,11 +28,6 @@ import org.springframework.context.annotation.Configuration;
 public class RuleDerivationConfiguration {
 
   @Bean
-  RuleProposalService ruleProposalService(RuleProposalStore store) {
-    return new RuleProposalService(store, Clock.systemUTC());
-  }
-
-  @Bean
   RuleDerivationService ruleDerivationService(
       LawSettings settings,
       LawRetrievalService retrievals,
@@ -40,6 +36,13 @@ public class RuleDerivationConfiguration {
       RuleProposalService proposals) {
     return new RuleDerivationService(
         settings, retrievals, lookups, model.getIfAvailable(UnwiredModel::new), proposals);
+  }
+
+  @Bean
+  KindDerivationService kindDerivationService(
+      ObjectProvider<RulesetPack> pack, RuleDerivationService derivations) {
+    return new KindDerivationService(
+        pack.getIfAvailable(LawReviewConfiguration.UnwiredPack::new), derivations);
   }
 
   /**

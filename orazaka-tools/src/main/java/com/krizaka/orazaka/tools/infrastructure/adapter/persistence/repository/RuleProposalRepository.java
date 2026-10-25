@@ -1,10 +1,13 @@
 package com.krizaka.orazaka.tools.infrastructure.adapter.persistence.repository;
 
 import com.krizaka.orazaka.tools.infrastructure.adapter.persistence.entity.RuleProposalEntity;
+import jakarta.persistence.LockModeType;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -74,4 +77,55 @@ public interface RuleProposalRepository extends JpaRepository<RuleProposalEntity
           + " AND (:kindId IS NULL OR p.kindId = :kindId)"
           + " ORDER BY p.createdAt DESC, p.ruleId, p.proposalRevision DESC")
   List<RuleProposalEntity> queue(@Param("status") String status, @Param("kindId") String kindId);
+
+  /**
+   * Records a review decision when the row is still in one of {@code from} and in no pull request.
+   *
+   * @return 1 when written, 0 when the row is missing or no longer reviewable
+   */
+  @Modifying(clearAutomatically = true, flushAutomatically = true)
+  @Query(
+      value =
+          "UPDATE rule_proposal SET status = :to, reviewed_by = :reviewedBy, reviewed_at = :at,"
+              + " decision_note = :note WHERE id = :id AND status IN (:from) AND packs_pr_url IS"
+              + " NULL",
+      nativeQuery = true)
+  int decide(
+      @Param("id") UUID id,
+      @Param("from") Collection<String> from,
+      @Param("to") String to,
+      @Param("reviewedBy") String reviewedBy,
+      @Param("note") String note,
+      @Param("at") Instant at);
+
+  /** The status of a row, locked until the transaction ends. */
+  @Query(value = "SELECT status FROM rule_proposal WHERE id = :id FOR UPDATE", nativeQuery = true)
+  String lockStatus(@Param("id") UUID id);
+
+  /**
+   * The waiting and approved revisions of a rule become {@code SUPERSEDED}: an edit replaces them,
+   * and an edit after approval returns to review.
+   */
+  @Modifying(clearAutomatically = true, flushAutomatically = true)
+  @Query(
+      value =
+          "UPDATE rule_proposal SET status = 'SUPERSEDED' WHERE jurisdiction = :jurisdiction"
+              + " AND kind_id = :kindId AND rule_id = :ruleId AND status IN ('PROPOSED','APPROVED')",
+      nativeQuery = true)
+  int supersedeReviewable(
+      @Param("jurisdiction") String jurisdiction,
+      @Param("kindId") String kindId,
+      @Param("ruleId") String ruleId);
+
+  /** The rows of a promotion, locked in id order until the transaction ends. */
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query("SELECT p FROM RuleProposalEntity p WHERE p.id IN :ids ORDER BY p.id")
+  List<RuleProposalEntity> lockAll(@Param("ids") Collection<UUID> ids);
+
+  /** Writes the pull request of a promotion on its rows. */
+  @Modifying(clearAutomatically = true, flushAutomatically = true)
+  @Query(
+      value = "UPDATE rule_proposal SET packs_pr_url = :url WHERE id IN (:ids)",
+      nativeQuery = true)
+  int attachPullRequest(@Param("ids") Collection<UUID> ids, @Param("url") String url);
 }

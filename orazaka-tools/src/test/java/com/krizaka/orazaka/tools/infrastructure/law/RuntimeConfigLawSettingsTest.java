@@ -59,6 +59,15 @@ class RuntimeConfigLawSettingsTest {
   }
 
   @Test
+  void the_golden_minimum_is_the_row_never_below_two_and_three_without_it() {
+    assertThat(settings.reviewMinGoldenCases()).isEqualTo(3);
+    rows.put("law.review.min-golden-cases", "5");
+    assertThat(settings.reviewMinGoldenCases()).isEqualTo(5);
+    rows.put("law.review.min-golden-cases", "0");
+    assertThat(settings.reviewMinGoldenCases()).isEqualTo(2);
+  }
+
+  @Test
   void the_article_limit_is_the_row() {
     assertThat(settings.maxArticleChars()).isEqualTo(20_000);
     rows.put("law.import.max-article-chars", "5000");

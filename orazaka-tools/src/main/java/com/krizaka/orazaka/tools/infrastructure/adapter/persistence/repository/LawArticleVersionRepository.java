@@ -78,4 +78,25 @@ public interface LawArticleVersionRepository
       @Param("language") String language,
       @Param("refs") Collection<String> refs,
       @Param("seenAt") Instant seenAt);
+
+  /**
+   * The versions of an article, newest first (the queue's history; metadata only is read from it).
+   *
+   * @param instrumentId the instrument
+   * @param ref the article reference
+   * @param language {@code fr} or {@code en}
+   * @return the versions
+   */
+  List<LawArticleVersionEntity> findByIdInstrumentIdAndIdRefAndIdLanguageOrderByIdInForceFromDesc(
+      UUID instrumentId, String ref, String language);
+
+  /**
+   * Per instrument: the articles with an open version, and every version.
+   *
+   * @return rows of {@code [instrumentId, open, total]}
+   */
+  @Query(
+      "select v.id.instrumentId, sum(case when v.inForceTo is null then 1L else 0L end), count(v)"
+          + " from LawArticleVersionEntity v group by v.id.instrumentId")
+  List<Object[]> countsByInstrument();
 }

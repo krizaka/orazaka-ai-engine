@@ -2,6 +2,7 @@ package com.krizaka.orazaka.tools.application.service;
 
 import com.krizaka.orazaka.tools.application.port.law.LawCorpusStore;
 import com.krizaka.orazaka.tools.application.port.law.LawSettings;
+import com.krizaka.orazaka.tools.domain.model.law.InForceArticles;
 import com.krizaka.orazaka.tools.domain.model.law.LawArticle;
 import com.krizaka.orazaka.tools.domain.model.law.LawArticleVersion;
 import com.krizaka.orazaka.tools.domain.model.law.StatuteLookup;
@@ -117,5 +118,22 @@ public class LawStatuteLookupService {
 
   private static boolean isBlank(String value) {
     return value == null || value.isBlank();
+  }
+
+  /**
+   * The corpus of one jurisdiction as it stood on a day, for the vet and the promotion: each
+   * article as {@link #lookupStatute} finds it in force on that day.
+   *
+   * @param jurisdiction the jurisdiction
+   * @param asOf the day
+   * @return the articles in force on that day
+   */
+  public InForceArticles inForceOn(String jurisdiction, LocalDate asOf) {
+    return (instrument, ref, language) -> {
+      StatuteLookup found = lookupStatute(jurisdiction, instrument, ref, language, asOf);
+      return found.outcome() == StatuteLookup.Outcome.FOUND
+          ? Optional.of(found.version())
+          : Optional.empty();
+    };
   }
 }

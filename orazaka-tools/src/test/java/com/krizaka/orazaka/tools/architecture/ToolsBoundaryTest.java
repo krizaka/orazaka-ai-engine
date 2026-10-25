@@ -116,4 +116,42 @@ class ToolsBoundaryTest {
         .because("Entities must not import or depend on outer service or router layers [ERR-109]")
         .check(toolsClasses);
   }
+
+  @Test
+  @DisplayName("[BILL-001] the billing contract is reached only through the CALL meters")
+  void billingOnlyThroughTheMeters() {
+    noClasses()
+        .that()
+        .resideInAPackage(PKG_TOOLS)
+        .and()
+        .resideOutsideOfPackages(
+            "com.krizaka.orazaka.tools.infrastructure.adapter.billing..",
+            "com.krizaka.orazaka.tools.infrastructure.config..")
+        .should()
+        .dependOnClassesThat()
+        .resideInAPackage("com.krizaka.billing..")
+        .because(
+            "a service meters a call through its port (ResearchMeter, CheckMeter); only their"
+                + " credit-hold adapters speak the billing contract, so no call is held, settled"
+                + " or released twice or by a second protocol (ADR-033)")
+        .check(toolsClasses);
+  }
+
+  @Test
+  @DisplayName("[BILL-002] the CALL meters never log")
+  void metersNeverLog() {
+    noClasses()
+        .that()
+        .resideInAPackage("com.krizaka.orazaka.tools.infrastructure.adapter.billing..")
+        .should()
+        .dependOnClassesThat()
+        .resideInAnyPackage("org.slf4j..", "java.util.logging..", "org.apache.commons.logging..")
+        .orShould()
+        .dependOnClassesThat()
+        .belongToAnyOf(System.Logger.class)
+        .because(
+            "a meter holds who is billed and which run it is for; the ledger is the record of a"
+                + " hold, a log line of its arguments is a copy of them nobody audits")
+        .check(toolsClasses);
+  }
 }

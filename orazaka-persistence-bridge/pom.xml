@@ -16,7 +16,7 @@
     <description>
         Platform bridge library: package-private @Service adapters that implement the core's
         DB-backed outbound ports (CapabilityProvider, PipelineConfigProvider, PlatformToolConfigProvider,
-        PlatformMcpServerProvider, UserMcpServerProvider, ValidationPipelineRepository) by delegating to
+        PlatformMcpServerProvider, UserMcpServerProvider, ValidationPipelineRepository, CheckSubjectPepper) by delegating to
         the orazaka-persistence-app-api inbound ports. Bundled by every service that runs the cognitive
         pipeline in-process (conversation-service, job-service, …) so the shared core beans wire without
         each service re-implementing the same DB adapters. Discovered via the hosts' com.krizaka.orazaka
@@ -37,6 +37,14 @@
             <artifactId>orazaka-persistence-app-api</artifactId>
         </dependency>
 
+        <!-- The platform's master keyring (ADR-054): opens the sealed settings, e.g. the subject
+             pepper of the external checks. The keyring itself is the host's bean. -->
+        <dependency>
+            <groupId>com.krizaka.orazaka</groupId>
+            <artifactId>orazaka-crypto</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
         <!-- @Service stereotype + constructor DI (no web/boot starters). -->
         <dependency>
             <groupId>org.springframework</groupId>
@@ -44,6 +52,18 @@
         </dependency>
 
         <!-- Testing -->
+        <!-- The operator's sealing tool: the adapter must open what it seals. -->
+        <dependency>
+            <groupId>com.krizaka.orazaka</groupId>
+            <artifactId>orazaka-assets</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-api</artifactId>

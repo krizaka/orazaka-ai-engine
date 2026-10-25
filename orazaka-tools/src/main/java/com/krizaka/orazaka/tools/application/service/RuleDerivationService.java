@@ -108,7 +108,9 @@ public class RuleDerivationService {
       Optional<StatuteVersion> text =
           corpus.inForce(article.instrument(), article.ref(), article.language());
       if (text.isEmpty() || !text.get().contentHash().equals(article.contentHash())) {
-        // The corpus moved since the retrieval: never propose from a text it no longer holds.
+        // The corpus moved since the retrieval: never propose from a text it no longer holds, and
+        // say so, so the result accounts for every article that had verified claims.
+        notDerived.add(article);
         continue;
       }
       RuleDerivationModel.Answer answer =

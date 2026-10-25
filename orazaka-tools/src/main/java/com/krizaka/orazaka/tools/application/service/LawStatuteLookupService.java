@@ -10,6 +10,8 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.util.Locale;
 import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * {@code lookupStatute} with a point in time (ADR-089 §2): the text of an article as it was in
@@ -19,8 +21,15 @@ import java.util.Optional;
  * corpus holds none for that day (the article is unknown, or the oldest text we hold took effect
  * after the day asked, or the article was not in force then), the answer is {@code
  * LAW_VERSION_UNKNOWN}: a later text is never read in place of an earlier one.
+ *
+ * <p>Every version is checked before its text leaves (issue #89): the text read back is hashed
+ * again with the corpus's own normaliser and compared with the {@code content_hash} recorded with
+ * the row. A mismatch is {@code LAW_INTEGRITY_ERROR}, with no text; it is logged with the article's
+ * key and both hashes, never the text.
  */
 public class LawStatuteLookupService {
+
+  private static final Logger LOG = LoggerFactory.getLogger(LawStatuteLookupService.class);
 
   private final LawCorpusStore store;
   private final LawSettings settings;
@@ -47,7 +56,8 @@ public class LawStatuteLookupService {
    * @param ref the article reference, such as {@code 1931} or {@code 169(4)}
    * @param language {@code fr} or {@code en}
    * @param asOf the day the text must be in force; null means today
-   * @return the version in force, {@code LAW_VERSION_UNKNOWN}, or {@code LAW_CORPUS_DISABLED}
+   * @return the version in force, {@code LAW_VERSION_UNKNOWN}, {@code LAW_CORPUS_DISABLED}, or
+   *     {@code LAW_INTEGRITY_ERROR}
    * @throws IllegalArgumentException when a part of the question is blank or the language is not
    *     {@code fr} or {@code en}
    */
@@ -68,10 +78,31 @@ public class LawStatuteLookupService {
     Optional<LawArticleVersion> version =
         store.inForceOn(
             jurisdiction.trim().toUpperCase(Locale.ROOT), instrument.trim(), ref.trim(), lang, day);
-    return version
-        .map(LawStatuteLookupService::toVersion)
-        .map(StatuteLookup::found)
-        .orElseGet(StatuteLookup::unknown);
+    if (version.isEmpty()) {
+      return StatuteLookup.unknown();
+    }
+    if (!version.get().intact()) {
+      logIntegrityError(version.get());
+      return StatuteLookup.integrityError();
+    }
+    return StatuteLookup.found(toVersion(version.get()));
+  }
+
+  /** The key and both hashes, never the text: the text is exactly what cannot be trusted. */
+  static void logIntegrityError(LawArticleVersion stored) {
+    LawArticle article = stored.article();
+    LOG.error(
+        "law.integrity jurisdiction={} instrument={} ref={} language={} inForceFrom={}"
+            + " importId={} recordedHash={} recomputedHash={}: the stored text no longer gives"
+            + " its recorded hash, it is not served",
+        article.jurisdiction(),
+        article.instrument(),
+        article.ref(),
+        article.language(),
+        article.inForceFrom(),
+        stored.importId(),
+        stored.recordedHash(),
+        article.contentHash().hex());
   }
 
   private static StatuteVersion toVersion(LawArticleVersion stored) {

@@ -7,6 +7,8 @@ import com.krizaka.orazaka.tools.application.port.law.LawCorpusStore;
 import com.krizaka.orazaka.tools.application.port.law.LawFileReader;
 import com.krizaka.orazaka.tools.application.port.law.LawSettings;
 import com.krizaka.orazaka.tools.application.port.law.LawSource;
+import com.krizaka.orazaka.tools.application.port.law.ResearchMeter;
+import com.krizaka.orazaka.tools.application.service.LawArticleReadService;
 import com.krizaka.orazaka.tools.application.service.LawImportService;
 import com.krizaka.orazaka.tools.application.service.LawManualImportService;
 import com.krizaka.orazaka.tools.application.service.LawStatuteLookupService;
@@ -29,9 +31,9 @@ import org.springframework.web.client.RestClient;
 
 /**
  * Wires the law corpus (ADR-089 §2): the {@code law.*} settings, the importers of the official
- * sources, the shared import, the manual import and {@code lookupStatute}. Nothing here reads the
- * network or writes the corpus until a caller asks, and every call checks {@code
- * law.corpus.enabled}. The scheduled watcher is {@link LawWatchConfiguration}.
+ * sources, the shared import, the manual import, {@code lookupStatute} and the read API's use case.
+ * Nothing here reads the network or writes the corpus until a caller asks, and every call checks
+ * {@code law.corpus.enabled}. The scheduled watcher is {@link LawWatchConfiguration}.
  */
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(LawWatchProperties.class)
@@ -87,6 +89,16 @@ public class LawCorpusConfiguration {
   @Bean
   LawStatuteLookupService lawStatuteLookupService(LawCorpusStore store, LawSettings settings) {
     return new LawStatuteLookupService(store, settings, Clock.systemUTC());
+  }
+
+  /**
+   * The read API's use case (issue #89). The meter is the host's {@link ResearchMeter} bean; with
+   * none, every read is refused ({@code LAW_METERING_UNAVAILABLE}), never served unmetered.
+   */
+  @Bean
+  LawArticleReadService lawArticleReadService(
+      LawStatuteLookupService lookups, LawSettings settings, ObjectProvider<ResearchMeter> meter) {
+    return new LawArticleReadService(lookups, settings, meter.getIfAvailable());
   }
 
   @Bean

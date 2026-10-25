@@ -165,4 +165,16 @@ class LawStatuteLookupServiceTest {
     assertThat(at("1942", "fr", LocalDate.of(2025, 6, 1)).outcome())
         .isEqualTo(Outcome.LAW_CORPUS_DISABLED);
   }
+
+  @Test
+  void a_text_that_no_longer_gives_its_recorded_hash_is_an_integrity_error_with_no_text() {
+    store.rewriteText("CCQ-1991", "1942", "fr", "Le bail est d'un an.");
+
+    StatuteLookup lookup = at("1942", "fr", LocalDate.of(2025, 6, 1));
+
+    assertThat(lookup.outcome()).isEqualTo(Outcome.LAW_INTEGRITY_ERROR);
+    assertThat(lookup.version()).isNull();
+    // The other articles are untouched and still read.
+    assertThat(at("1943", "fr", LocalDate.of(2025, 6, 1)).outcome()).isEqualTo(Outcome.FOUND);
+  }
 }

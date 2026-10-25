@@ -12,8 +12,8 @@ import java.util.Objects;
  * @param proposals the {@code rule_proposal} rows written, {@code PROPOSED} and {@code
  *     REJECTED_AUTO}, in the order proposed
  * @param creditsSpent what the model calls were charged
- * @param notDerived the articles with verified claims that no call was made for, because the cap
- *     was reached
+ * @param notDerived the articles with verified claims that no call was made for: the cap was
+ *     reached, or the corpus no longer holds, on {@code asOf}, the text the claims were verified on
  */
 public record RuleDerivationResult(
     Outcome outcome,

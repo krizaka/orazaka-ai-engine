@@ -99,8 +99,51 @@ class RuleDerivationConfigurationTest {
             List.of(),
             30);
 
-    assertThat(unwired.callCeiling()).isPositive();
+    assertThatThrownBy(unwired::callCeiling).isInstanceOf(IllegalStateException.class);
     assertThatThrownBy(() -> unwired.propose(prompt)).isInstanceOf(IllegalStateException.class);
+  }
+
+  @Test
+  void without_a_model_a_derivation_is_refused_before_the_retrieval_is_spent() {
+    // A cap is set and the corpus is on, so only the missing model can stop it: were the
+    // retrieval run first, these stubs would answer NOT_RETRIEVED instead of refusing.
+    new ApplicationContextRunner()
+        .withUserConfiguration(
+            LawCorpusConfiguration.class,
+            LawRetrievalConfiguration.class,
+            RuleDerivationConfiguration.class)
+        .withBean(RuntimeConfigProvider.class, CappedConfig::new)
+        .withBean(LawCorpusStore.class, LawCorpusConfigurationTest.EmptyStore::new)
+        .withBean(ResearchStore.class, NoResearch::new)
+        .withBean(LawRetrievalCache.class, NoCache::new)
+        .withBean(RuleProposalStore.class, NoProposals::new)
+        .withBean(CitationVerifier.class, () -> (answer, mode, read) -> answer)
+        .withPropertyValues(
+            "orazaka.law.retrieval.enabled=true", "orazaka.law.derivation.enabled=true")
+        .run(
+            context ->
+                assertThatThrownBy(
+                        () -> context.getBean(RuleDerivationService.class).derive(request()))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("no derivation model"));
+  }
+
+  /** The corpus and research on, a derivation cap set. */
+  private static final class CappedConfig implements RuntimeConfigProvider {
+    @Override
+    public boolean getBoolean(String key, boolean defaultValue) {
+      return true;
+    }
+
+    @Override
+    public int getInt(String key, int defaultValue) {
+      return "law.derive.max-credits".equals(key) ? 1_000 : defaultValue;
+    }
+
+    @Override
+    public String getString(String key, String defaultValue) {
+      return defaultValue;
+    }
   }
 
   private static LawRetrievalRequest request() {

@@ -45,12 +45,15 @@ public class RuleDerivationConfiguration {
         pack.getIfAvailable(LawReviewConfiguration.UnwiredPack::new), derivations);
   }
 
-  /** No model: a call is refused before anything is asked or charged. */
+  /**
+   * No model: a derivation is refused before anything is asked or charged. The service reads the
+   * ceiling before the retrieval, so refusing there spends no retrieval on a call that cannot run.
+   */
   static final class UnwiredModel implements RuleDerivationModel {
 
     @Override
     public long callCeiling() {
-      return 1;
+      throw new IllegalStateException("no derivation model is wired");
     }
 
     @Override

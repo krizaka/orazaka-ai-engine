@@ -45,6 +45,8 @@ class RuleDerivationServiceTest {
   private final InMemoryRuleProposals store = new InMemoryRuleProposals();
   private final GroundedModel grounded = new GroundedModel();
   private final RecordedDerivationModel model = new RecordedDerivationModel();
+  private final Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
+  private LawRetrievalService retrievals;
   private RuleDerivationService service;
 
   @BeforeEach
@@ -54,8 +56,7 @@ class RuleDerivationServiceTest {
     for (LawArticle article : DerivationFixtures.visitArticles()) {
       corpus.add(importId, "donnees-quebec", article, NOW);
     }
-    Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
-    LawRetrievalService retrievals =
+    retrievals =
         new LawRetrievalService(
             settings,
             research,
@@ -252,6 +253,45 @@ class RuleDerivationServiceTest {
     assertThat(again.proposals()).allMatch(p -> p.proposalRevision() == 2);
     assertThat(store.list(ProposalStatus.SUPERSEDED, KIND)).hasSize(4);
     assertThat(store.list(ProposalStatus.PROPOSED, KIND)).hasSize(4);
+  }
+
+  @Test
+  @DisplayName("an article whose text moved since the retrieval gets no call and is listed")
+  void an_article_whose_text_moved_is_not_derived_from_and_is_listed() {
+    // The corpus the lookup reads moved after the retrieval: 1933 has a new text in force on the
+    // day asked, so the claims verified on the old one cannot ground a proposal.
+    InMemoryLawCorpus moved = new InMemoryLawCorpus();
+    UUID importId = UUID.randomUUID();
+    for (LawArticle article : DerivationFixtures.visitArticles()) {
+      moved.add(importId, "donnees-quebec", article, NOW);
+      if ("1933".equals(article.ref())) {
+        moved.replace(
+            importId,
+            article,
+            new LawArticle(
+                article.jurisdiction(),
+                article.instrument(),
+                article.ref(),
+                article.language(),
+                article.inForceFrom().plusDays(1),
+                article.text() + " Texte modifié.",
+                article.officialUrl(),
+                article.sourceUrl()),
+            NOW);
+      }
+    }
+    RuleDerivationService raced =
+        new RuleDerivationService(
+            settings,
+            retrievals,
+            new LawStatuteLookupService(moved, settings, clock),
+            model,
+            new RuleProposalService(store, clock));
+
+    RuleDerivationResult result = raced.derive(visitNotice());
+
+    assertThat(model.prompts).extracting(p -> p.article().ref()).containsExactly("1931", "1932");
+    assertThat(result.notDerived()).extracting(CitedArticle::ref).containsExactly("1933");
   }
 
   @Test

@@ -22,7 +22,12 @@ public record StatuteLookup(Outcome outcome, StatuteVersion version) {
      */
     LAW_VERSION_UNKNOWN,
     /** {@code law.corpus.enabled} is false: the corpus is off. */
-    LAW_CORPUS_DISABLED
+    LAW_CORPUS_DISABLED,
+    /**
+     * The stored text no longer gives the hash recorded with it (changed after its import): no text
+     * is returned, fail closed (issue #89).
+     */
+    LAW_INTEGRITY_ERROR
   }
 
   /** Checks that a version comes with {@link Outcome#FOUND}, and only with it. */
@@ -59,5 +64,14 @@ public record StatuteLookup(Outcome outcome, StatuteVersion version) {
    */
   public static StatuteLookup disabled() {
     return new StatuteLookup(Outcome.LAW_CORPUS_DISABLED, null);
+  }
+
+  /**
+   * The stored text failed its hash check.
+   *
+   * @return the answer, with no text
+   */
+  public static StatuteLookup integrityError() {
+    return new StatuteLookup(Outcome.LAW_INTEGRITY_ERROR, null);
   }
 }

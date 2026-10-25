@@ -27,7 +27,9 @@ import java.util.Optional;
  * verifier checks every quote against the very text the corpus holds.
  *
  * <p>An article with no version in force on {@code asOf} is never replaced by a later text: it is
- * reported unknown ({@code LAW_VERSION_UNKNOWN}).
+ * reported unknown ({@code LAW_VERSION_UNKNOWN}). Nor is an article whose stored text no longer
+ * gives the hash recorded with it (issue #89): it is reported unknown too, and logged without its
+ * text.
  */
 public class LawCorpusResearchService {
 
@@ -89,9 +91,12 @@ public class LawCorpusResearchService {
         }
         Optional<LawArticleVersion> version =
             corpus.inForceOn(juris, target.instrument().trim(), ref.trim(), lang, asOf);
-        if (version.isPresent()) {
+        if (version.isPresent() && version.get().intact()) {
           documents.add(toDocument(juris, version.get()));
         } else {
+          // A text that no longer gives its recorded hash is never read to a model (#89): it is
+          // reported like a missing version, so the rule built on it has no evidence.
+          version.ifPresent(LawStatuteLookupService::logIntegrityError);
           unknown.add(target.instrument() + " " + ref);
         }
       }

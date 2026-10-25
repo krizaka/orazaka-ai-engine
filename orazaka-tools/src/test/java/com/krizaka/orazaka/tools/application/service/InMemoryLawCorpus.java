@@ -33,6 +33,7 @@ final class InMemoryLawCorpus implements LawCorpusStore {
   final Map<UUID, ImportRow> imports = new LinkedHashMap<>();
   final List<LawArticleVersion> versions = new ArrayList<>();
   String etag;
+  RuntimeException readFailure;
 
   @Override
   public UUID beginImport(LawImportStart start) {
@@ -83,7 +84,46 @@ final class InMemoryLawCorpus implements LawCorpusStore {
     versions.set(
         index,
         new LawArticleVersion(
-            v.article(), v.firstSeenAt(), v.lastSeenAt(), inForceTo, v.importId()));
+            v.article(),
+            v.firstSeenAt(),
+            v.lastSeenAt(),
+            inForceTo,
+            v.importId(),
+            v.recordedHash()));
+  }
+
+  /**
+   * Changes the stored text of every version of an article behind the corpus's back, as a hand edit
+   * of the table would: the recorded hash stays the one written with the row.
+   */
+  void rewriteText(String instrument, String ref, String language, String text) {
+    for (int i = 0; i < versions.size(); i++) {
+      LawArticleVersion v = versions.get(i);
+      LawArticle a = v.article();
+      if (a.instrument().equals(instrument)
+          && a.ref().equals(ref)
+          && a.language().equals(language)) {
+        LawArticle edited =
+            new LawArticle(
+                a.jurisdiction(),
+                a.instrument(),
+                a.ref(),
+                a.language(),
+                a.inForceFrom(),
+                text,
+                a.officialUrl(),
+                a.sourceUrl());
+        versions.set(
+            i,
+            new LawArticleVersion(
+                edited,
+                v.firstSeenAt(),
+                v.lastSeenAt(),
+                v.inForceTo(),
+                v.importId(),
+                v.recordedHash()));
+      }
+    }
   }
 
   @Override
@@ -98,6 +138,9 @@ final class InMemoryLawCorpus implements LawCorpusStore {
   @Override
   public Optional<LawArticleVersion> inForceOn(
       String jurisdiction, String instrument, String ref, String language, LocalDate asOf) {
+    if (readFailure != null) {
+      throw readFailure;
+    }
     return versions.stream()
         .filter(v -> same(v.article(), jurisdiction, instrument, ref, language))
         .filter(v -> !v.article().inForceFrom().isAfter(asOf))

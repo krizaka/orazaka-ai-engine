@@ -6,8 +6,8 @@ import java.util.UUID;
 /**
  * Response payload of the {@code lookupStatute} tool.
  *
- * @param outcome {@code FOUND}, {@code LAW_VERSION_UNKNOWN}, {@code LAW_CORPUS_DISABLED} or {@code
- *     INVALID_REQUEST}
+ * @param outcome {@code FOUND}, {@code LAW_VERSION_UNKNOWN}, {@code LAW_CORPUS_DISABLED}, {@code
+ *     LAW_INTEGRITY_ERROR} or {@code INVALID_REQUEST}
  * @param text the article text; only when found
  * @param contentHash the SHA-256 of the text; only when found
  * @param inForceFrom the day the text took effect; only when found

@@ -335,7 +335,14 @@ class JpaLawCorpusStore implements LawCorpusStore {
             row.getText(),
             officialUrl,
             sourceUrl == null ? officialUrl : sourceUrl);
+    // The hash recorded with the row, never one recomputed here: comparing the two is how a reader
+    // finds a text changed after its import (#89).
     return new LawArticleVersion(
-        article, row.getFirstSeenAt(), row.getLastSeenAt(), row.getInForceTo(), row.getImportId());
+        article,
+        row.getFirstSeenAt(),
+        row.getLastSeenAt(),
+        row.getInForceTo(),
+        row.getImportId(),
+        row.getContentHash());
   }
 }

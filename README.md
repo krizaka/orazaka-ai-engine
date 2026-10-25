@@ -32,7 +32,7 @@ part of the [Orazaka platform](https://github.com/krizaka/orazaka) by [Krizaka](
 |:---|:---|:---|
 | `orazaka-core` | SDK | Cognitive engine: `AiClient`, provider mesh (DB-driven routing), agent loop, interceptor contract. Web/DB-agnostic. |
 | `orazaka-interceptors` | SDK | Ordered, short-circuitable pipeline: security, token, context, translation, enrichment, validation, governance. |
-| `orazaka-tools` | SDK | MCP client, RAG, sandbox. |
+| `orazaka-tools` | SDK | MCP client, RAG, sandbox, law retrieval, the `CALL` meters (research, external checks). |
 | `orazaka-business` | Owned | App factory: `Intention` → `UseCase`, deterministic DAG or saga. |
 | `orazaka-persistence-app` | Owned | CQRS persistence of the AI state (chat, jobs, models, configs, outbox). |
 | `orazaka-persistence-bridge` | Owned | Adapters from core outbound ports to persistence-app. |
@@ -104,6 +104,13 @@ the generator and generated documentation are not present in this standalone rep
 - **MCP server tokens are sealed** for their owner with the platform's master keyring (`SecretSealer`, ADR-054) before
   they reach `user_mcp_servers` / `platform_mcp_servers`; rows written in clear are sealed at startup, and without a
   keyring a token is refused, never stored in clear (#58).
+- **The subject pepper of the external checks is sealed** the same way, in the setting `checks.subject-pepper` of
+  `orazaka_runtime_config` (for its own platform scope), never an environment variable. `SealedCheckSubjectPepperAdapter`
+  (`orazaka-persistence-bridge`) opens it at each check; absent, in clear, unopenable or shorter than 32 bytes, it answers
+  empty and no check runs. It is never logged, thrown or printed (`SealedCheckSubjectPepperAdapterTest`), and only that
+  adapter and the sealing tool name the setting (`[CHK-001]`). The operator writes it with
+  `java -cp … com.krizaka.orazaka.assets.infrastructure.tool.CheckSubjectPepperTool seal <keyfile>`, which draws 32 random
+  bytes, seals them and prints the one `INSERT … ON CONFLICT` to run: nobody sees the pepper (krizaka/orazaka-packs#138).
 - **`searchKnowledge`** searches the organisation's knowledge base, not the web (it was called `searchWeb`, #59).
   Searching and reading the web is ADR-087's grounded research.
 
@@ -165,6 +172,8 @@ connection pool (ADR-083). Nothing here runs while the setting `law.corpus.enabl
 | **Watcher** | `LawWatchService` runs weekly (`orazaka.law.watcher.cron`, Monday 06:00 UTC) when `orazaka.law.watcher.enabled=true`: it imports every instrument of `law.import.instruments`, and every difference with the corpus opens one pull request in `krizaka/orazaka-packs` (a review file with the diff, both hashes and the citation). The first import of an instrument and language stores silently; an unchanged article opens nothing; a removed article is flagged. |
 | **Manual import** | `LawManualImportService.importFile(ManualLawFile)`: the same parser and comparison, `mode = MANUAL`. `imported_by`, the address the file came from and the **SHA-256 of the file** are required (the service refuses the upload, and the table refuses the row, without them). Only an instrument of `law.import.instruments` is stored. The HTTP endpoint (`POST /api/v1/admin/law/imports`) belongs to the host that authenticates the administrator; it calls this service. |
 | **`lookupStatute`** | `LawStatuteLookupService.lookupStatute(jurisdiction, instrument, ref, language, asOf)` returns the version in force on `asOf` (`in_force_from <= asOf < in_force_to`; no day means today) as `{text, contentHash, inForceFrom, officialUrl, importId}`, or `LAW_VERSION_UNKNOWN` (also: the article is unknown, the oldest text we hold took effect after `asOf`, or it was not in force then), or `LAW_CORPUS_DISABLED`. A later text is never read in place of an earlier one. As a model tool (`LookupStatuteTool`, arguments `jurisdiction`, `instrument`, `reference`, `asOf`, `language`) it is registered in the one `ToolRegistry` only with `orazaka.law.lookup.enabled=true`, because a registered tool is attached to every non-streaming request. |
+| **Integrity (#89)** | A version is served only when its text, normalised again by the corpus's own rule (`ContentHash`: NFC, whitespace collapsed; the historical note is never hashed), still gives the `content_hash` recorded with its row. `JpaLawCorpusStore` carries that recorded hash (`LawArticleVersion.recordedHash`), never a recomputed one, and `LawArticleVersion.intact()` compares the two. A mismatch is `LAW_INTEGRITY_ERROR` with no text in `lookupStatute`, and an unknown article in a retrieval (never handed to the model); it is logged with the article's key and both hashes, never the text. ArchUnit `LawCorpusReadRulesTest` holds it: only `LawStatuteLookupService` and `LawCorpusResearchService` read an article by day (`[LAW-001]`), and no store builds a version from its text alone (`[LAW-002]`). |
+| **Read API use case (#89)** | `LawArticleReadService.read(LawArticleQuery, actorId)` is what the host's `GET /api/v1/law/articles` calls (the controller lives in `orazaka-conversation-service`; this library has none). `asOf` is **required** (an ISO day; missing or unreadable is refused, never read from a clock); `language` is `fr` or `en`; an optional `quote` is checked against the article text under the same normalisation (`QuoteCheck`: `VERIFIED` or `NOT_IN_ARTICLE`, no model). Metered as one `RESEARCH` `CALL` on provider `law-corpus` through the `ResearchMeter` port: an invalid question and a switched-off corpus are answered before anything is held; then the call is held, **settled only on `FOUND`** (whatever the quote check), released on `LAW_VERSION_UNKNOWN`, `LAW_INTEGRITY_ERROR` or a failed read. No `ResearchMeter` bean means `LAW_METERING_UNAVAILABLE`: a read is never served unmetered. A budget that cannot hold the call is `LAW_BUDGET_EXCEEDED`. |
 
 - **Every import is a `law_import` row**: source, `AUTOMATED` or `MANUAL`, dataset address, ETag, SHA-256, the day the
   consolidation is current to, who, start and end, counts (`articles_new`, `articles_changed` (a removal counts here),
@@ -214,7 +223,13 @@ names the articles (`targets`, from the pack's `kinds/*.json`) and the question;
 
 The model and the meter come from the grounded-research capability (ADR-087 slice 5, `orazaka.core.research.grounded`) and the run
 budget (ADR-088). Until they are wired the service **fails closed**: no meter means the call is refused (`BUDGET_EXHAUSTED`), no
-model means an error, never an unmetered call. Tests: `LawRetrievalServiceTest` (the golden case: a visit notice brings art. 1931 to
+model means an error, never an unmetered call. **The meter is `CreditHoldResearchMeter`** (`orazaka-tools`, registered by
+`CallMeteringAutoConfiguration` wherever a billing `CreditAuthorizationClient` exists): a `RESEARCH` hold priced by the
+pricebook row `(RESEARCH, <provider key>, CALL)`, settled with `calls: 1` under the key `research:<holdId>`, released on a
+failure; insufficient credits are `BUDGET_EXHAUSTED`. The same configuration registers `CreditHoldCheckMeter` for the
+external checks (`EXTERNAL_CHECK`, `model_name` = the connector's provider, key `external-check:<holdId>`). A host without a
+billing client gets neither, and the fallbacks above apply. Only these adapters speak the billing contract in `orazaka-tools`
+(`[BILL-001]`), and they never log (`[BILL-002]`). Tests: `LawRetrievalServiceTest` (the golden case: a visit notice brings art. 1931 to
 1933 and no rent article; a cached retrieval makes no model call, asserted on the model port; a changed article recomputes; off by
 default; metering and the budget), `JpaLawRetrievalCacheIT` (JSONB, the stale mark in the same transaction, concurrent saves),
 `LawRetrievalConfigurationTest`.

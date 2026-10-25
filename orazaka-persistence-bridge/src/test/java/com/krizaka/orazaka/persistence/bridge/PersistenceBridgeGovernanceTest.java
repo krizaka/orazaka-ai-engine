@@ -1,11 +1,19 @@
 package com.krizaka.orazaka.persistence.bridge;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import com.krizaka.orazaka.test.architecture.GovernanceRules;
+import com.krizaka.orazaka.test.architecture.PackPurityRules;
 import com.krizaka.orazaka.test.architecture.SourceFileScanner;
 import com.tngtech.archunit.core.domain.JavaClasses;
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -19,6 +27,8 @@ import org.junit.jupiter.api.Test;
 class PersistenceBridgeGovernanceTest {
 
   private static final String BASE = "com.krizaka.orazaka.persistence.bridge";
+
+  private static final String PEPPER_SETTING = "checks." + "subject-pepper";
 
   private final JavaClasses classes = GovernanceRules.importProductionClasses(BASE);
 
@@ -110,5 +120,32 @@ class PersistenceBridgeGovernanceTest {
   @DisplayName("[ERR-113] No Environment injection in production beans")
   void noEnvironmentInjection() {
     SourceFileScanner.assertNoEnvironmentInjection(Path.of("src", "main", "java"));
+  }
+
+  /**
+   * The subject pepper of the external checks is read by its adapter alone, and written by the
+   * operator's sealing tool alone. A second reader of the row would hold the sealed text, or the
+   * pepper, where nobody checked that it never logs, throws or prints it.
+   */
+  @Test
+  @DisplayName("[CHK-001] the subject pepper's setting is read by its sealed adapter alone")
+  void subjectPepperSettingHasOneReader() throws IOException {
+    Path root = PackPurityRules.locateRepositoryRoot(Path.of(System.getProperty("user.dir")));
+    Set<String> holders = new TreeSet<>();
+    try (Stream<Path> files = Files.walk(root)) {
+      for (Path file :
+          files
+              .filter(f -> f.toString().endsWith(".java"))
+              .filter(f -> f.toString().contains("src" + File.separator + "main"))
+              .toList()) {
+        if (Files.readString(file).contains("\"" + PEPPER_SETTING + "\"")) {
+          holders.add(file.getFileName().toString());
+        }
+      }
+    }
+    assertThat(holders)
+        .as("main sources naming the setting %s", PEPPER_SETTING)
+        .containsExactlyInAnyOrder(
+            "SealedCheckSubjectPepperAdapter.java", "CheckSubjectPepperTool.java");
   }
 }

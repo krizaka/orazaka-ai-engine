@@ -24,6 +24,13 @@
             <groupId>com.krizaka.orazaka</groupId>
             <artifactId>orazaka-core</artifactId>
         </dependency>
+        <!-- Tier-1 billing contract: the CALL meters of a grounded research and of an external check
+             speak the hold -> settle/release ports (ADR-033), never the billing service's
+             implementation. Shared freely per AGENTS.md §2 sharing tiers. -->
+        <dependency>
+            <groupId>com.krizaka</groupId>
+            <artifactId>krizaka-billing-api</artifactId>
+        </dependency>
         <dependency>
             <groupId>com.github.ben-manes.caffeine</groupId>
             <artifactId>caffeine</artifactId>

@@ -6,14 +6,11 @@ import com.krizaka.orazaka.core.domain.ports.outbound.ToolRegistry;
 import com.krizaka.orazaka.persistence.domain.ports.inbound.RuntimeConfigProvider;
 import com.krizaka.orazaka.tools.application.port.law.LawCorpusStore;
 import com.krizaka.orazaka.tools.application.port.law.LawSource;
+import com.krizaka.orazaka.tools.application.port.law.ResearchMeter;
+import com.krizaka.orazaka.tools.application.service.LawArticleReadService;
 import com.krizaka.orazaka.tools.application.service.LawManualImportService;
 import com.krizaka.orazaka.tools.application.service.LawStatuteLookupService;
-import com.krizaka.orazaka.tools.domain.model.law.LawArticle;
-import com.krizaka.orazaka.tools.domain.model.law.LawArticleVersion;
-import com.krizaka.orazaka.tools.domain.model.law.LawImportResult;
-import com.krizaka.orazaka.tools.domain.model.law.LawImportStart;
-import com.krizaka.orazaka.tools.domain.model.law.LookupStatuteRequest;
-import com.krizaka.orazaka.tools.domain.model.law.LookupStatuteResponse;
+import com.krizaka.orazaka.tools.domain.model.law.*;
 import com.krizaka.orazaka.tools.infrastructure.adapter.mcp.LookupStatuteTool;
 import com.krizaka.orazaka.tools.infrastructure.adapter.mcp.LookupStatuteToolRegistration;
 import java.time.Instant;
@@ -34,6 +31,13 @@ class LawCorpusConfigurationTest {
       new ApplicationContextRunner()
           .withUserConfiguration(LawCorpusConfiguration.class)
           .withBean(RuntimeConfigProvider.class, OffConfig::new)
+          .withBean(LawCorpusStore.class, EmptyStore::new);
+
+  /** The same wiring with the corpus switched on. */
+  private final ApplicationContextRunner corpusOn =
+      new ApplicationContextRunner()
+          .withUserConfiguration(LawCorpusConfiguration.class)
+          .withBean(RuntimeConfigProvider.class, OnConfig::new)
           .withBean(LawCorpusStore.class, EmptyStore::new);
 
   @Test
@@ -82,6 +86,61 @@ class LawCorpusConfigurationTest {
           assertThat(tool.apply(new LookupStatuteRequest("QC", "CCQ-1991", "", null, "fr")))
               .isEqualTo(LookupStatuteResponse.invalid());
         });
+  }
+
+  @Test
+  void the_read_api_use_case_is_wired_and_with_no_meter_it_refuses_never_serves_unmetered() {
+    LawArticleQuery query = new LawArticleQuery("QC", "CCQ-1991", "1942", "fr", "2025-06-01", null);
+    corpusOn.run(
+        context -> {
+          assertThat(context).hasNotFailed();
+          assertThat(context.getBean(LawArticleReadService.class).read(query, "actor").outcome())
+              .isEqualTo(LawArticleRead.Outcome.LAW_METERING_UNAVAILABLE);
+        });
+  }
+
+  @Test
+  void the_read_api_use_case_meters_through_the_research_meter_bean_when_one_is_wired() {
+    List<String> held = new ArrayList<>();
+    ResearchMeter meter =
+        (runId, actorId, providerKey) -> {
+          held.add(providerKey);
+          return new ResearchMeter.Hold() {
+            @Override
+            public void settle() {}
+
+            @Override
+            public void release(String reason) {}
+          };
+        };
+    LawArticleQuery query = new LawArticleQuery("QC", "CCQ-1991", "1942", "fr", "2025-06-01", null);
+    corpusOn
+        .withBean(ResearchMeter.class, () -> meter)
+        .run(
+            context -> {
+              assertThat(
+                      context.getBean(LawArticleReadService.class).read(query, "actor").outcome())
+                  .isEqualTo(LawArticleRead.Outcome.LAW_VERSION_UNKNOWN);
+              assertThat(held).containsExactly("law-corpus");
+            });
+  }
+
+  /** The runtime settings with the corpus switched on. */
+  static final class OnConfig implements RuntimeConfigProvider {
+    @Override
+    public boolean getBoolean(String key, boolean defaultValue) {
+      return "law.corpus.enabled".equals(key) || defaultValue;
+    }
+
+    @Override
+    public int getInt(String key, int defaultValue) {
+      return defaultValue;
+    }
+
+    @Override
+    public String getString(String key, String defaultValue) {
+      return defaultValue;
+    }
   }
 
   /** The runtime settings with no law row: everything off. */

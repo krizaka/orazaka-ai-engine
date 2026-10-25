@@ -125,6 +125,38 @@ class JpaLawCorpusStoreIT extends AbstractContainerIntegrationTest {
   }
 
   @Test
+  @DisplayName(
+      "a version is read back with the hash recorded with its row, not one recomputed (#89)")
+  void readBackCarriesTheRecordedHash() {
+    LawArticle a = article("1931", "Avis de 24 heures.", LocalDate.of(1994, 1, 1));
+    store.add(importId, SOURCE, a, T0);
+    LocalDate day = LocalDate.of(2026, 1, 1);
+
+    assertThat(store.inForceOn("QC", instrument, "1931", "fr", day))
+        .hasValueSatisfying(
+            v -> {
+              assertThat(v.recordedHash()).isEqualTo(a.contentHash().hex());
+              assertThat(v.intact()).isTrue();
+            });
+
+    // A hand edit of the text, the row's content_hash left as it was.
+    UUID instrumentId =
+        instruments.findByJurisdictionAndCode("QC", instrument).orElseThrow().getId();
+    jdbc.update(
+        "UPDATE law_article_version SET text = ? WHERE instrument_id = ? AND ref = ?",
+        "Avis de 2 heures.",
+        instrumentId,
+        "1931");
+
+    assertThat(store.inForceOn("QC", instrument, "1931", "fr", day))
+        .hasValueSatisfying(
+            v -> {
+              assertThat(v.recordedHash()).isEqualTo(a.contentHash().hex());
+              assertThat(v.intact()).isFalse();
+            });
+  }
+
+  @Test
   @DisplayName("a changed text closes the old row at the new day and adds the new row")
   void replaceClosesAndAdds() {
     LawArticle v1 = article("1942", "Trois mois.", LocalDate.of(1999, 4, 1));

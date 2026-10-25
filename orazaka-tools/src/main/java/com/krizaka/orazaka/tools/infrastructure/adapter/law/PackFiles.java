@@ -16,7 +16,7 @@ import tools.jackson.databind.json.JsonMapper;
  */
 final class PackFiles {
 
-  static final JsonMapper JSON = JsonMapper.builder().build();
+  static final JsonMapper MAPPER = JsonMapper.builder().build();
 
   private final RestClient github;
   private final String repo;
@@ -42,7 +42,7 @@ final class PackFiles {
 
   /** A file's JSON content, or empty when the base branch has none at that path. */
   Optional<JsonNode> json(String path) {
-    return content(path).map(JSON::readTree);
+    return content(path).map(MAPPER::readTree);
   }
 
   /** A file's text, or empty when the base branch has none at that path. */
@@ -58,7 +58,7 @@ final class PackFiles {
   /** A directory's listing, or empty when the base branch has none at that path. */
   JsonNode listing(String path) {
     JsonNode listing = get(path, JsonNode.class);
-    return listing == null ? JSON.createArrayNode() : listing;
+    return listing == null ? MAPPER.createArrayNode() : listing;
   }
 
   private <T> T get(String path, Class<T> type) {

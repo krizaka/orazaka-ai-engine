@@ -26,7 +26,7 @@ final class PromotedRulesetJson {
   private static final DefaultIndenter TWO_SPACES = new DefaultIndenter("  ", "\n");
 
   private static final ObjectWriter WRITER =
-      PackFiles.JSON
+      PackFiles.MAPPER
           .writer()
           .with(
               new DefaultPrettyPrinter(
@@ -41,7 +41,7 @@ final class PromotedRulesetJson {
 
   /** The ruleset revision, its law blocks pinned and its provenance. */
   static String ruleset(RulesetPromotion promotion, String label) {
-    ObjectNode root = PackFiles.JSON.createObjectNode();
+    ObjectNode root = PackFiles.MAPPER.createObjectNode();
     root.put("rulesetId", promotion.kindId());
     root.put("label", label);
     root.put("jurisdiction", promotion.jurisdiction());
@@ -80,7 +80,7 @@ final class PromotedRulesetJson {
 
   /** One pinned article version, as {@code citations.py} reads it. */
   static String article(PinnedArticle article) {
-    ObjectNode node = PackFiles.JSON.createObjectNode();
+    ObjectNode node = PackFiles.MAPPER.createObjectNode();
     node.put("instrument", article.instrument());
     node.put("ref", article.ref());
     node.put("language", article.language());
@@ -106,7 +106,7 @@ final class PromotedRulesetJson {
 
   private static ObjectNode rule(PromotedRule promoted) {
     ObjectNode node =
-        (ObjectNode) PackFiles.JSON.readTree(ProposedRulesJson.write(promoted.rule()));
+        (ObjectNode) PackFiles.MAPPER.readTree(ProposedRulesJson.write(promoted.rule()));
     ArrayNode law = node.putArray("law");
     for (PinnedLaw block : promoted.law()) {
       ObjectNode b = law.addObject();

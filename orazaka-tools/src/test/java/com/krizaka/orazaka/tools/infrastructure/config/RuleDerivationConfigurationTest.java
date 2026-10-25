@@ -33,29 +33,33 @@ import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
 class RuleDerivationConfigurationTest {
 
-  private final ApplicationContextRunner runner =
-      new ApplicationContextRunner()
-          .withUserConfiguration(
-              LawCorpusConfiguration.class,
-              LawRetrievalConfiguration.class,
-              LawReviewConfiguration.class,
-              RuleDerivationConfiguration.class)
-          .withBean(RuntimeConfigProvider.class, LawCorpusConfigurationTest.OffConfig::new)
-          .withBean(LawCorpusStore.class, LawCorpusConfigurationTest.EmptyStore::new)
-          .withBean(ResearchStore.class, NoResearch::new)
-          .withBean(LawRetrievalCache.class, NoCache::new)
-          .withBean(RuleProposalStore.class, NoProposals::new)
-          .withBean(
-              com.krizaka.orazaka.tools.application.port.law.KindDemandStore.class,
-              () ->
-                  org.mockito.Mockito.mock(
-                      com.krizaka.orazaka.tools.application.port.law.KindDemandStore.class))
-          .withBean(
-              com.krizaka.orazaka.tools.application.port.law.LawCorpusCatalogue.class,
-              () ->
-                  org.mockito.Mockito.mock(
-                      com.krizaka.orazaka.tools.application.port.law.LawCorpusCatalogue.class))
-          .withBean(CitationVerifier.class, () -> (answer, mode, read) -> answer);
+  private final ApplicationContextRunner runner = runner(LawCorpusConfigurationTest.OffConfig::new);
+
+  private static ApplicationContextRunner runner(
+      java.util.function.Supplier<RuntimeConfigProvider> config) {
+    return new ApplicationContextRunner()
+        .withUserConfiguration(
+            LawCorpusConfiguration.class,
+            LawRetrievalConfiguration.class,
+            LawReviewConfiguration.class,
+            RuleDerivationConfiguration.class)
+        .withBean(RuntimeConfigProvider.class, config)
+        .withBean(LawCorpusStore.class, LawCorpusConfigurationTest.EmptyStore::new)
+        .withBean(ResearchStore.class, NoResearch::new)
+        .withBean(LawRetrievalCache.class, NoCache::new)
+        .withBean(RuleProposalStore.class, NoProposals::new)
+        .withBean(
+            com.krizaka.orazaka.tools.application.port.law.KindDemandStore.class,
+            () ->
+                org.mockito.Mockito.mock(
+                    com.krizaka.orazaka.tools.application.port.law.KindDemandStore.class))
+        .withBean(
+            com.krizaka.orazaka.tools.application.port.law.LawCorpusCatalogue.class,
+            () ->
+                org.mockito.Mockito.mock(
+                    com.krizaka.orazaka.tools.application.port.law.LawCorpusCatalogue.class))
+        .withBean(CitationVerifier.class, () -> (answer, mode, read) -> answer);
+  }
 
   @Test
   void derivation_is_not_wired_unless_the_property_says_so() {
@@ -107,17 +111,7 @@ class RuleDerivationConfigurationTest {
   void without_a_model_a_derivation_is_refused_before_the_retrieval_is_spent() {
     // A cap is set and the corpus is on, so only the missing model can stop it: were the
     // retrieval run first, these stubs would answer NOT_RETRIEVED instead of refusing.
-    new ApplicationContextRunner()
-        .withUserConfiguration(
-            LawCorpusConfiguration.class,
-            LawRetrievalConfiguration.class,
-            RuleDerivationConfiguration.class)
-        .withBean(RuntimeConfigProvider.class, CappedConfig::new)
-        .withBean(LawCorpusStore.class, LawCorpusConfigurationTest.EmptyStore::new)
-        .withBean(ResearchStore.class, NoResearch::new)
-        .withBean(LawRetrievalCache.class, NoCache::new)
-        .withBean(RuleProposalStore.class, NoProposals::new)
-        .withBean(CitationVerifier.class, () -> (answer, mode, read) -> answer)
+    runner(CappedConfig::new)
         .withPropertyValues(
             "orazaka.law.retrieval.enabled=true", "orazaka.law.derivation.enabled=true")
         .run(

@@ -317,6 +317,21 @@ class LawRetrievalServiceTest {
   }
 
   @Test
+  @DisplayName(
+      "an article whose text no longer gives its recorded hash never reaches the model (#89)")
+  void a_tampered_article_is_never_read_to_the_model() {
+    corpus.rewriteText(CCQ, "1932", "fr", "Le locateur entre quand il veut.");
+
+    LawRetrievalResult result = service.retrieve(visitNotice());
+
+    assertThat(result.articles()).extracting(CitedArticle::ref).containsExactly("1931", "1933");
+    assertThat(result.unknown()).containsExactly("CCQ-1991 1932");
+    assertThat(model.passages.getFirst())
+        .extracting(GroundedClaimsModel.Passage::text)
+        .noneMatch(text -> text.contains("quand il veut"));
+  }
+
+  @Test
   @DisplayName("law.retrieval.max-articles bounds what one retrieval keeps")
   void the_articles_are_bounded() {
     settings.maxArticles = 2;

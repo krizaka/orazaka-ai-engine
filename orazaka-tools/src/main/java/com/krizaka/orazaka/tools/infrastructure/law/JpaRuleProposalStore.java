@@ -10,9 +10,13 @@ import com.krizaka.orazaka.tools.infrastructure.adapter.persistence.repository.R
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -93,6 +97,95 @@ class JpaRuleProposalStore implements RuleProposalStore {
     return proposals.queue(status == null ? null : status.name(), kindId).stream()
         .map(JpaRuleProposalStore::toDomain)
         .toList();
+  }
+
+  @Override
+  @Transactional
+  public Optional<RuleProposal> decide(
+      UUID id,
+      Set<ProposalStatus> from,
+      ProposalStatus to,
+      String reviewedBy,
+      String note,
+      Instant at) {
+    int written =
+        proposals.decide(
+            id, from.stream().map(Enum::name).toList(), to.name(), reviewedBy, note, at);
+    return written == 0
+        ? Optional.empty()
+        : proposals.findById(id).map(JpaRuleProposalStore::toDomain);
+  }
+
+  @Override
+  @Transactional
+  public Optional<RuleProposal> revise(
+      UUID previousId, Set<ProposalStatus> editable, VettedProposal edited, Instant at) {
+    Optional<RuleProposalEntity> found = proposals.findById(previousId);
+    if (found.isEmpty()) {
+      return Optional.empty();
+    }
+    RuleProposalEntity previous = found.get();
+    String jurisdiction = previous.getJurisdiction();
+    String kindId = previous.getKindId();
+    String ruleId = previous.getRuleId();
+    proposals.lockKind("rule_proposal|" + jurisdiction + "|" + kindId);
+    // Read again under the locks: a review decided meanwhile wins over this edit.
+    String status = proposals.lockStatus(previousId);
+    if (status == null || !editable.contains(ProposalStatus.valueOf(status))) {
+      return Optional.empty();
+    }
+    if (edited.status() == ProposalStatus.PROPOSED) {
+      proposals.supersedeReviewable(jurisdiction, kindId, ruleId);
+    }
+    int revision = proposals.maxRevision(jurisdiction, kindId, ruleId) + 1;
+    UUID id = UUID.randomUUID();
+    proposals.insert(
+        id,
+        jurisdiction,
+        kindId,
+        ruleId,
+        revision,
+        ProposedRulesJson.write(edited.rule()),
+        ProposedRulesJson.write(edited.rule().law()),
+        previous.getDerivationRunId(),
+        edited.status().name(),
+        ProposedRulesJson.write(edited.report()),
+        at);
+    return Optional.of(
+        new RuleProposal(
+            id,
+            jurisdiction,
+            kindId,
+            ruleId,
+            revision,
+            edited.rule(),
+            previous.getDerivationRunId(),
+            edited.status(),
+            edited.report(),
+            null,
+            null,
+            null,
+            null,
+            at));
+  }
+
+  @Override
+  @Transactional
+  public String promote(List<UUID> ids, PromotionStep step) {
+    Map<UUID, RuleProposal> locked =
+        proposals.lockAll(ids).stream()
+            .map(JpaRuleProposalStore::toDomain)
+            .collect(Collectors.toMap(RuleProposal::id, Function.identity()));
+    if (!locked.isEmpty()) {
+      // One promotion of a kind at a time, beside the row locks: two promotions of disjoint rows
+      // of the same kind would otherwise open two pull requests for one ruleset.
+      RuleProposal first = locked.values().iterator().next();
+      proposals.lockKind("rule_proposal.promote|" + first.jurisdiction() + "|" + first.kindId());
+    }
+    List<RuleProposal> ordered = ids.stream().map(locked::get).filter(Objects::nonNull).toList();
+    String url = step.open(ordered);
+    proposals.attachPullRequest(ids, url);
+    return url;
   }
 
   /** The id the model gave, or a placeholder for a rule rejected for having none. */

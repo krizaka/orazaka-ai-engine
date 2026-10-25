@@ -297,5 +297,10 @@ class LawCorpusImportIT extends AbstractContainerIntegrationTest {
     public int deriveMaxRulesPerKind() {
       return 30;
     }
+
+    @Override
+    public int reviewMinGoldenCases() {
+      return 3;
+    }
   }
 }

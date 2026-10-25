@@ -262,6 +262,61 @@ the same comparison before each step.
 - `RuleDerivationServiceTest`: art. 1931 to 1933 parsed from the official XML, recorded model answers, the cap, the verified-only rule, an article outside the corpus;
 - `JpaRuleProposalStoreIT` (Testcontainers): JSONB, revisions, and eight concurrent derivations giving distinct revisions.
 
+## The review queue and promotion (ADR-089 §5 and §8, cut 9)
+
+The use cases behind the console's **Law → Proposals** screen. The host (orazaka-conversation-service,
+`/api/v1/admin/law/**`) authenticates the administrator and audits each write; every rule is enforced here.
+
+| Use case | What it does |
+|:---|:---|
+| `RuleProposalService.approve(id, reviewer, note)` | `PROPOSED` → `APPROVED`, with who and when. Any other status is refused (`PROPOSAL_NOT_REVIEWABLE`). |
+| `RuleProposalService.reject(id, reviewer, reason)` | `PROPOSED` or `APPROVED` (in no pull request yet) → `REJECTED`. The reason is required. |
+| `RuleProposalReviewService.edit(id, rule)` | Writes a new `proposal_revision`, vetted again by `RuleProposalVet` on the day the proposal was vetted. If it passes, it is `PROPOSED` and the `PROPOSED` / `APPROVED` revisions of the rule become `SUPERSEDED`: an edit after approval returns to review. If the vet refuses it, it is `REJECTED_AUTO` and the previous revision is left as it was. |
+| `RulesetPromotionService.promote(kindId, ids, effectiveFrom, note)` | Opens the packs pull request; see below. |
+| `RulesetPromotionService.goldenCases(kindId)` | The kind's golden cases (`worker/fixtures/<kindId>/*.txt` in orazaka-packs) against `law.review.min-golden-cases`. |
+| `KindDerivationService.start(jurisdiction, kindId, asOf, language, actor)` | Starts a derivation. The kind's targets and question are read from the pack's `kinds/<kindId>.json`, never typed by the caller. |
+| `LawCorpusCatalogueService` | The Corpus tab: instruments with their counts, imports, and an article by point in time. It returns metadata only. The text leaves only through the metered read. |
+| `KindDemandService` | The Demand tab: `kind_demand`, the most asked first. |
+
+**Promotion refuses (409)** before anything is opened, and checks the statuses again while the rows are locked:
+- `PROPOSAL_NOT_APPROVED`: a proposal is not `APPROVED`;
+- `ALREADY_IN_REVIEW`: a proposal is already in a pull request;
+- `KIND_MISMATCH`, `DUPLICATE_RULE`;
+- `GOLDEN_MINIMUM_NOT_MET`: fewer than `law.review.min-golden-cases` golden cases, or no `compliant`, `defective` or `blank` one among them;
+- `LAW_VERSION_MISMATCH`: a pinned hash is not the version in force on `effectiveFrom`;
+- `QUOTE_TOO_LONG`: a quote is over 300 characters.
+
+A new revision of an existing version must say what it corrects.
+
+**The pull request.** `GitHubRulesetPromotionPublisher` makes one commit on a new branch, `law-promote/<kindId>/<effectiveFrom>-r<revision>-<id>`. The commit holds:
+- `rulesets/<kindId>/<effectiveFrom>.json`: `version` is the in-force day, then `revision` / `revisionNote`, `reviewStatus: REVIEWED_INTERNAL` (the `TO_REVIEW_BY_LAWYER` mark stays in `reviewNote`), the `law` blocks pinned with `inForceFrom` and `officialUrl`, and `provenance` (`derivationRunIds`, `proposalIds`, `reviewedBy`, `reviewedAt`, `lawImportIds`);
+- the pinned article versions under `law/`;
+- `kinds/<kindId>.json` set to `PROMOTED`.
+
+It then opens the pull request against `main`. It never writes `main`. The merge, by a person, is the promotion. Meanwhile the proposals stay `APPROVED` and carry `packs_pr_url`.
+
+**The GitHub App, never a personal token.** `GitHubAppInstallationTokens` signs the App's JWT (RS256, 9 minutes) and mints
+an installation token, renewed 5 minutes before it ends. It reads the private key as GitHub gives it (PKCS#1) or as PKCS#8.
+Properties (`RulesetPromotionProperties`, off by default):
+
+| Property | Default |
+|:---|:---|
+| `orazaka.law.promotion.enabled` | `false`. When off, promotion and golden reads answer `LAW_PROMOTION_OFF` (503). |
+| `orazaka.law.promotion.app-id`, `installation-id`, `private-key` | required when on (the `krizaka-agents` App: contents and pull requests on orazaka-packs only) |
+| `orazaka.law.promotion.owner` / `repository` / `base-branch` / `api-url` | `krizaka` / `orazaka-packs` / `main` / `https://api.github.com` |
+
+**Rules.**
+- `[LAW-005]`: only `RulesetPromotionService` opens a promotion (`RulesetPromotionPublisher.open`, `RuleProposalService.promote`).
+- `[LAW-006]`: only `RuleProposalReviewService` records an edit (`RuleProposalService.revise`), so no edit skips the vet.
+
+Both are in `RuleProposalRulesTest`, each run on a planted violation (`fixture/PromotionThatSkipsTheGate`).
+
+**Tests.**
+- `RuleProposalReviewTest`, `RulesetPromotionServiceTest`: every refusal, and that a refused promotion opens nothing.
+- `GitHubRulesetPromotionPublisherTest`, `GitHubRulesetPackTest`, `GitHubAppInstallationTokensTest`: the GitHub API is recorded (`src/test/resources/github/promotion/`), and no test calls GitHub.
+- `JpaRuleProposalStoreIT`: conditional decisions, an edit superseding an approval, a failed promotion writing nothing, and four concurrent promotions opening one pull request.
+- `LawReviewReadsIT`: the Corpus and Demand reads.
+
 ## Position in the platform
 
 | | |

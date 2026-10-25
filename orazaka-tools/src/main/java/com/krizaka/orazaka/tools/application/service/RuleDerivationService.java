@@ -89,7 +89,7 @@ public class RuleDerivationService {
       return RuleDerivationResult.nothing(Outcome.NO_VERIFIED_CLAIMS, law.outcome());
     }
 
-    InForceArticles corpus = inForce(kind);
+    InForceArticles corpus = lookups.inForceOn(kind.jurisdiction(), kind.asOf());
     int maxRules = settings.deriveMaxRulesPerKind();
     List<ProposedRule> proposed = new ArrayList<>();
     List<CitedArticle> notDerived = new ArrayList<>();
@@ -156,17 +156,6 @@ public class RuleDerivationService {
     return claim.citations().stream()
         .map(Citation::contentHash)
         .anyMatch(article.contentHash()::equals);
-  }
-
-  /** The corpus at the derivation's day, in the derivation's jurisdiction. */
-  private InForceArticles inForce(LawRetrievalRequest kind) {
-    return (instrument, ref, language) -> {
-      StatuteLookup found =
-          lookups.lookupStatute(kind.jurisdiction(), instrument, ref, language, kind.asOf());
-      return found.outcome() == StatuteLookup.Outcome.FOUND
-          ? Optional.of(found.version())
-          : Optional.empty();
-    };
   }
 
   private static RuleDerivationModel.Article toModel(CitedArticle article, StatuteVersion text) {

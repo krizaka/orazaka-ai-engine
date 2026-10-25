@@ -4,7 +4,11 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.krizaka.orazaka.tools.application.port.law.RuleProposalStore;
+import com.krizaka.orazaka.tools.application.port.law.RulesetPromotionPublisher;
+import com.krizaka.orazaka.tools.application.service.RuleProposalReviewService;
 import com.krizaka.orazaka.tools.application.service.RuleProposalService;
+import com.krizaka.orazaka.tools.application.service.RulesetPromotionService;
+import com.krizaka.orazaka.tools.architecture.fixture.PromotionThatSkipsTheGate;
 import com.krizaka.orazaka.tools.architecture.fixture.ProposalWriterThatSkipsTheService;
 import com.krizaka.orazaka.tools.domain.model.law.RuleProposalVet;
 import com.krizaka.orazaka.tools.domain.model.law.VettedProposal;
@@ -61,6 +65,51 @@ class RuleProposalRulesTest {
   }
 
   /**
+   * [LAW-005] Only the promotion service opens a promotion: no route skips its checks (approved,
+   * golden minimum, pinned hashes) on its way to a packs pull request.
+   */
+  static ArchRule onlyThePromotionServicePromotes() {
+    return noClasses()
+        .that()
+        .doNotHaveFullyQualifiedName(RulesetPromotionService.class.getName())
+        .and()
+        .doNotHaveFullyQualifiedName(RuleProposalService.class.getName())
+        .should()
+        .callMethodWhere(
+            DescribedPredicate.describe(
+                "target is RulesetPromotionPublisher.open or RuleProposalService.promote",
+                (JavaCall<?> call) ->
+                    (call.getTargetOwner().isAssignableTo(RulesetPromotionPublisher.class)
+                            && "open".equals(call.getName())
+                            && !call.getOriginOwner()
+                                .isAssignableTo(RulesetPromotionPublisher.class))
+                        || (call.getTargetOwner().isAssignableTo(RuleProposalService.class)
+                            && "promote".equals(call.getName()))))
+        .because(
+            "a packs pull request is opened only by RulesetPromotionService, after its checks"
+                + " [LAW-005]");
+  }
+
+  /** [LAW-006] Only the review service records an edit, after vetting it again. */
+  static ArchRule onlyTheReviewServiceRevises() {
+    return noClasses()
+        .that()
+        .doNotHaveFullyQualifiedName(RuleProposalReviewService.class.getName())
+        .and()
+        .doNotHaveFullyQualifiedName(RuleProposalService.class.getName())
+        .should()
+        .callMethodWhere(
+            DescribedPredicate.describe(
+                "target is RuleProposalService.revise",
+                (JavaCall<?> call) ->
+                    call.getTargetOwner().isAssignableTo(RuleProposalService.class)
+                        && "revise".equals(call.getName())))
+        .because(
+            "an edit is a new revision vetted again: only RuleProposalReviewService records one"
+                + " [LAW-006]");
+  }
+
+  /**
    * A call into a store from a class that is not itself a store (its own private helpers are not
    * doors).
    */
@@ -87,6 +136,32 @@ class RuleProposalRulesTest {
   @DisplayName("[LAW-004] only RuleProposalService calls RuleProposalStore")
   void onlyTheServiceWritesProposalsInProduction() {
     onlyTheServiceWritesProposals().check(production);
+  }
+
+  @Test
+  @DisplayName("[LAW-005] only RulesetPromotionService opens a promotion")
+  void onlyThePromotionServicePromotesInProduction() {
+    onlyThePromotionServicePromotes().check(production);
+  }
+
+  @Test
+  @DisplayName("[LAW-006] only RuleProposalReviewService records an edit")
+  void onlyTheReviewServiceRevisesInProduction() {
+    onlyTheReviewServiceRevises().check(production);
+  }
+
+  @Test
+  @DisplayName("[LAW-005] and [LAW-006] fail on their planted violations")
+  void theReviewRulesFailOnTheirPlantedViolations() {
+    JavaClasses planted = new ClassFileImporter().importClasses(PromotionThatSkipsTheGate.class);
+
+    assertThatThrownBy(() -> onlyThePromotionServicePromotes().check(planted))
+        .isInstanceOf(AssertionError.class)
+        .hasMessageContaining("PromotionThatSkipsTheGate.open")
+        .hasMessageContaining("PromotionThatSkipsTheGate.promote");
+    assertThatThrownBy(() -> onlyTheReviewServiceRevises().check(planted))
+        .isInstanceOf(AssertionError.class)
+        .hasMessageContaining("PromotionThatSkipsTheGate.edit");
   }
 
   @Test

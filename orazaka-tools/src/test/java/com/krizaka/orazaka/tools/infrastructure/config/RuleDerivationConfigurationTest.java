@@ -9,6 +9,7 @@ import com.krizaka.orazaka.tools.application.port.law.LawCorpusStore;
 import com.krizaka.orazaka.tools.application.port.law.LawRetrievalCache;
 import com.krizaka.orazaka.tools.application.port.law.RuleDerivationModel;
 import com.krizaka.orazaka.tools.application.port.law.RuleProposalStore;
+import com.krizaka.orazaka.tools.application.service.KindDerivationService;
 import com.krizaka.orazaka.tools.application.service.RuleDerivationService;
 import com.krizaka.orazaka.tools.application.service.RuleProposalService;
 import com.krizaka.orazaka.tools.domain.model.law.LawRetrievalRequest;
@@ -37,12 +38,23 @@ class RuleDerivationConfigurationTest {
           .withUserConfiguration(
               LawCorpusConfiguration.class,
               LawRetrievalConfiguration.class,
+              LawReviewConfiguration.class,
               RuleDerivationConfiguration.class)
           .withBean(RuntimeConfigProvider.class, LawCorpusConfigurationTest.OffConfig::new)
           .withBean(LawCorpusStore.class, LawCorpusConfigurationTest.EmptyStore::new)
           .withBean(ResearchStore.class, NoResearch::new)
           .withBean(LawRetrievalCache.class, NoCache::new)
           .withBean(RuleProposalStore.class, NoProposals::new)
+          .withBean(
+              com.krizaka.orazaka.tools.application.port.law.KindDemandStore.class,
+              () ->
+                  org.mockito.Mockito.mock(
+                      com.krizaka.orazaka.tools.application.port.law.KindDemandStore.class))
+          .withBean(
+              com.krizaka.orazaka.tools.application.port.law.LawCorpusCatalogue.class,
+              () ->
+                  org.mockito.Mockito.mock(
+                      com.krizaka.orazaka.tools.application.port.law.LawCorpusCatalogue.class))
           .withBean(CitationVerifier.class, () -> (answer, mode, read) -> answer);
 
   @Test
@@ -53,7 +65,9 @@ class RuleDerivationConfigurationTest {
             context -> {
               assertThat(context).hasNotFailed();
               assertThat(context).doesNotHaveBean(RuleDerivationService.class);
-              assertThat(context).doesNotHaveBean(RuleProposalService.class);
+              assertThat(context).doesNotHaveBean(KindDerivationService.class);
+              // The review queue does not need derivation: its door is wired with the corpus.
+              assertThat(context).hasSingleBean(RuleProposalService.class);
             });
   }
 
@@ -66,6 +80,7 @@ class RuleDerivationConfigurationTest {
             context -> {
               assertThat(context).hasNotFailed();
               assertThat(context).hasSingleBean(RuleProposalService.class);
+              assertThat(context).hasSingleBean(KindDerivationService.class);
               assertThat(context.getBean(RuleDerivationService.class).derive(request()).outcome())
                   .isEqualTo(Outcome.DERIVATION_OFF);
             });
@@ -119,6 +134,31 @@ class RuleDerivationConfigurationTest {
     @Override
     public List<RuleProposal> list(ProposalStatus status, String kindId) {
       return List.of();
+    }
+
+    @Override
+    public Optional<RuleProposal> decide(
+        UUID id,
+        java.util.Set<ProposalStatus> from,
+        ProposalStatus to,
+        String reviewedBy,
+        String note,
+        Instant at) {
+      return Optional.empty();
+    }
+
+    @Override
+    public Optional<RuleProposal> revise(
+        UUID previousId,
+        java.util.Set<ProposalStatus> editable,
+        VettedProposal edited,
+        Instant at) {
+      return Optional.empty();
+    }
+
+    @Override
+    public String promote(List<UUID> ids, PromotionStep step) {
+      throw new AssertionError("nothing is promoted here");
     }
   }
 

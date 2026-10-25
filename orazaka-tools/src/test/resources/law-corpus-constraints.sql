@@ -17,3 +17,20 @@ BEGIN
     END IF;
 END
 $do$;
+
+-- rule_proposal (ADR-089 §3): the statuses and the reviewed rows, as the job-service declares them.
+DO $do$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_rule_proposal_status') THEN
+        ALTER TABLE rule_proposal ADD CONSTRAINT ck_rule_proposal_status CHECK (status IN
+            ('PROPOSED','REJECTED_AUTO','APPROVED','REJECTED','PROMOTED','SUPERSEDED'));
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_rule_proposal_reviewed') THEN
+        ALTER TABLE rule_proposal ADD CONSTRAINT ck_rule_proposal_reviewed CHECK (
+            status NOT IN ('APPROVED','REJECTED','PROMOTED') OR (reviewed_by IS NOT NULL AND reviewed_at IS NOT NULL));
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_rule_proposal_revision') THEN
+        ALTER TABLE rule_proposal ADD CONSTRAINT ck_rule_proposal_revision CHECK (proposal_revision >= 1);
+    END IF;
+END
+$do$;

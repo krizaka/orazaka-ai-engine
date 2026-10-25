@@ -14,6 +14,8 @@ final class FixedLawSettings implements LawSettings {
   int maxArticles = 40;
   int maxAgeDays = 90;
   VerifyMode mode = VerifyMode.MARK;
+  int deriveMaxCredits = 2000;
+  int deriveMaxRules = 30;
   List<LawTarget> instruments =
       List.of(LawTarget.wholeInstrument("QC", "CCQ-1991"), LawTarget.wholeInstrument("CA", "E-15"));
 
@@ -50,5 +52,15 @@ final class FixedLawSettings implements LawSettings {
   @Override
   public VerifyMode verifyMode() {
     return mode;
+  }
+
+  @Override
+  public int deriveMaxCredits() {
+    return deriveMaxCredits;
+  }
+
+  @Override
+  public int deriveMaxRulesPerKind() {
+    return deriveMaxRules;
   }
 }

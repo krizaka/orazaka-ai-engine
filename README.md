@@ -234,6 +234,49 @@ billing client gets neither, and the fallbacks above apply. Only these adapters 
 default; metering and the budget), `JpaLawRetrievalCacheIT` (JSONB, the stale mark in the same transaction, concurrent saves),
 `LawRetrievalConfigurationTest`.
 
+## Deriving proposed rules from the law: `vet` and `rule_proposal` (ADR-089 §3, #82)
+
+`RuleDerivationService.derive(LawRetrievalRequest)` (`orazaka-tools`) proposes the checks of a kind of document from its law.
+Nothing it proposes judges a document. A proposal becomes a ruleset only through promotion (stage 5, a pull request to orazaka-packs).
+
+1. **`law.derive.max-credits` is 0** (or its row is missing): nothing runs. The result is `DERIVATION_OFF`.
+2. **Retrieval.** The kind's law is retrieved through `LawRetrievalService`, cache first. Only the **`VERIFIED`** claims are used.
+   An article with none gets no call.
+3. **Model calls.** The model port `RuleDerivationModel` is called once per article, in the retrieval's order. Before each call,
+   the credits spent plus the port's `callCeiling()` must fit in `law.derive.max-credits`. When they do not, the run stops
+   (`BUDGET_EXHAUSTED`): what was already derived is vetted and recorded, and `notDerived` lists the rest. No call is made
+   once `law.derive.max-rules-per-kind` rules are proposed.
+4. **`RuleProposalVet` (domain, no model).** It rejects a rule for each of these reasons (`VetReason`):
+   - `SCHEMA_INVALID`: not a ruleset rule of `REQUIRED_PATTERN`, `FORBIDDEN_PATTERN` or `JUDGMENT`, or a `JUDGMENT` that is not `ADVISORY`;
+   - `REGEX_INVALID`: the pattern does not compile, uses a construct the Python worker reads differently, or nests unbounded quantifiers;
+   - `REGEX_MATCHES_EMPTY`: the pattern matches the empty string;
+   - `LAW_VERSION_UNKNOWN`: no version is in force on `asOf`, or the version cited is another one;
+   - `QUOTE_NOT_IN_ARTICLE`: the quote is not in the article;
+   - `UNSUPPORTED_NUMBER`: a number the rule states (« 24 heures », « trois mois ») is in none of its quotes;
+   - `SUBJECT_MISSING`: a `FORBIDDEN_PATTERN` or `JUDGMENT` rule has no `subject`;
+   - `FIXTURES_INDISTINCT`: the rule does not tell its own fixture pair apart (ADR-072);
+   - `OVER_RULE_LIMIT`: the rule comes past `law.derive.max-rules-per-kind`.
+5. **`RuleProposalService`, the only door to `rule_proposal` (job-service).** It writes `PROPOSED`, or `REJECTED_AUTO` with
+   the `vet_report`. Under a transaction lock per (jurisdiction, kind), it computes the next `proposal_revision`; the
+   unreviewed `PROPOSED` revision of the same rule becomes `SUPERSEDED`. It also gives the reads of the review queue
+   (`find`, `list(status, kindId)`).
+
+**A proposal cannot skip vet.** The store (`RuleProposalStore`, `JpaRuleProposalStore`) takes only a `VettedProposal`.
+Only `RuleProposalVet` constructs one (`[LAW-003]`), and only `RuleProposalService` calls the store (`[LAW-004]`). Both are
+ArchUnit rules in `RuleProposalRulesTest`, each also run on a planted violation.
+
+**Wiring.** `orazaka.law.derivation.enabled=true` wires it, on top of the retrieval. Without a host `RuleDerivationModel`,
+a call is refused.
+
+**The cap and ADR-088.** The credit check is the run budget of ADR-088 (proposed) applied to the one paid step. Once it
+lands, a derivation becomes a `rule-derivation` Studio run with `credit_cap = law.derive.max-credits`, and the saga makes
+the same comparison before each step.
+
+**Tests.** The data is mirrored from orazaka-packs `document-validation/derivation/`:
+- `RuleProposalVetTest`: each planted proposal is rejected for exactly its reason, and the golden visit-notice rules pass;
+- `RuleDerivationServiceTest`: art. 1931 to 1933 parsed from the official XML, recorded model answers, the cap, the verified-only rule, an article outside the corpus;
+- `JpaRuleProposalStoreIT` (Testcontainers): JSONB, revisions, and eight concurrent derivations giving distinct revisions.
+
 ## Position in the platform
 
 | | |

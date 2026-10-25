@@ -60,4 +60,18 @@ public interface LawSettings {
    * @return {@code MARK} (the default) or {@code STRICT}
    */
   VerifyMode verifyMode();
+
+  /**
+   * The credit cap of one derivation run ({@code law.derive.max-credits}); 0 turns derivation off.
+   *
+   * @return the cap in credits
+   */
+  int deriveMaxCredits();
+
+  /**
+   * The most rules one derivation may propose for a kind ({@code law.derive.max-rules-per-kind}).
+   *
+   * @return the limit
+   */
+  int deriveMaxRulesPerKind();
 }

@@ -38,7 +38,6 @@ public final class RuleProposalVet {
   static final String ADVISORY = "ADVISORY";
 
   private static final Set<String> SEVERITIES = Set.of("BLOCKING", "MAJOR", ADVISORY);
-  private static final Pattern RULE_ID = Pattern.compile("[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+");
   private static final Pattern HASH = Pattern.compile("[0-9a-f]{64}");
 
   private final InForceArticles articles;
@@ -114,7 +113,7 @@ public final class RuleProposalVet {
 
   private static List<VetFinding> shape(ProposedRule rule, Set<String> seen) {
     List<String> missing = new ArrayList<>();
-    if (blank(rule.ruleId()) || !RULE_ID.matcher(rule.ruleId()).matches()) {
+    if (!isRuleId(rule.ruleId())) {
       missing.add("ruleId (UPPER-CASE-WITH-DASHES)");
     } else if (seen.contains(rule.ruleId())) {
       missing.add("a ruleId of its own (" + rule.ruleId() + " is proposed twice)");
@@ -170,6 +169,24 @@ public final class RuleProposalVet {
         || fixtures.fail().stream().anyMatch(RuleProposalVet::blank)) {
       missing.add("fixtures: a pass and a fail fragment, none blank");
     }
+  }
+
+  /**
+   * UPPER-CASE-WITH-DASHES: at least two parts, letters and digits, the first starting with a
+   * letter.
+   */
+  private static boolean isRuleId(String ruleId) {
+    if (blank(ruleId) || !Character.isUpperCase(ruleId.charAt(0))) {
+      return false;
+    }
+    String[] parts = ruleId.split("-", -1);
+    return parts.length >= 2
+        && java.util.Arrays.stream(parts)
+            .allMatch(
+                part ->
+                    !part.isEmpty()
+                        && part.chars()
+                            .allMatch(ch -> (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9')));
   }
 
   private static boolean complete(LawBlock block) {

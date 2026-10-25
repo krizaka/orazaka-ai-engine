@@ -168,6 +168,42 @@ class RuleProposalVetTest {
   }
 
   @Test
+  @DisplayName("nested unbounded quantifiers are found by a scan, as the pack's linter finds them")
+  void nested_unbounded_quantifiers_are_refused() {
+    for (String bad : List.of("(a+)+", "(\\w*\\s?)*", "(?:x+y)+", "(ab*){2,}", "((a)+b)*")) {
+      assertThat(WorkerRegex.nestsUnboundedQuantifiers(bad)).as(bad).isTrue();
+    }
+    for (String good :
+        List.of(
+            "(?i)d[ée]p[ôo]ts?\\s+(?:de\\s+)?garantie",
+            "(\\d{1,2})\\s+(janvier|f[ée]vrier)",
+            "(?:ab)+",
+            "a+b*",
+            "[(+]+x",
+            "(a+){2,3}",
+            "\\(a+\\)+")) {
+      assertThat(WorkerRegex.nestsUnboundedQuantifiers(good)).as(good).isFalse();
+    }
+  }
+
+  @Test
+  @DisplayName("a rule id is UPPER-CASE-WITH-DASHES")
+  void rule_ids_are_upper_case_with_dashes() {
+    ProposedRule sound = DerivationFixtures.visitAnswers().get("1931").getFirst();
+    for (String bad :
+        List.of("qc-visit-1", "QCVISIT", "QC--VISIT", "QC-VISIT-", "-QC-1", "QC_VISIT-1")) {
+      assertThat(
+              vet(30)
+                  .vet(List.of(withCheck(sound, sound.check(), bad)))
+                  .getFirst()
+                  .report()
+                  .reasons())
+          .as(bad)
+          .containsExactly(VetReason.SCHEMA_INVALID);
+    }
+  }
+
+  @Test
   @DisplayName("a pattern is read with Unicode classes and case folding, as Python reads it")
   void patterns_are_unicode_aware() {
     assertThat(WorkerRegex.finds("(?i)préavis", "PRÉAVIS")).isTrue();

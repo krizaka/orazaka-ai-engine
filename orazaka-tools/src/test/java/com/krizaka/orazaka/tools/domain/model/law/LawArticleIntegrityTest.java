@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.Locale;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
@@ -79,12 +80,24 @@ class LawArticleIntegrityTest {
   }
 
   @Test
-  void a_recorded_hash_is_a_sha256_in_lowercase_hex() {
+  void a_recorded_hash_is_required() {
     LawArticle article = article("Texte.");
     assertThatThrownBy(() -> new LawArticleVersion(article, NOW, NOW, null, null, null))
-        .isInstanceOf(IllegalArgumentException.class);
-    assertThatThrownBy(() -> new LawArticleVersion(article, NOW, NOW, null, null, "ABC"))
-        .isInstanceOf(IllegalArgumentException.class);
+        .isInstanceOf(NullPointerException.class);
+  }
+
+  @Test
+  void a_recorded_hash_that_is_not_a_digest_is_a_corrupted_row_never_intact() {
+    LawArticle article = article("Texte.");
+    String hex = article.contentHash().hex();
+
+    // A corrupted row fails the check (LAW_INTEGRITY_ERROR), it is not a bad question (400).
+    assertThat(new LawArticleVersion(article, NOW, NOW, null, null, "ABC").intact()).isFalse();
+    assertThat(new LawArticleVersion(article, NOW, NOW, null, null, "").intact()).isFalse();
+    assertThat(
+            new LawArticleVersion(article, NOW, NOW, null, null, hex.toUpperCase(Locale.ROOT))
+                .intact())
+        .isFalse();
   }
 
   @Test

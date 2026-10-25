@@ -2,6 +2,7 @@ package com.krizaka.orazaka.tools.domain.model.law;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.Objects;
 import java.util.UUID;
 
 /**
@@ -23,11 +24,13 @@ public record LawArticleVersion(
     UUID importId,
     String recordedHash) {
 
-  /** Checks that the recorded hash is a SHA-256 digest. */
+  /**
+   * Requires a recorded hash. Its form is not checked here: a row whose {@code content_hash} is not
+   * a digest is a corrupted row, so it is read as a version that is not {@link #intact()} (served
+   * as {@code LAW_INTEGRITY_ERROR}, with no text) rather than as an error of the caller's question.
+   */
   public LawArticleVersion {
-    if (recordedHash == null || !recordedHash.matches("[0-9a-f]{64}")) {
-      throw new IllegalArgumentException("the recorded hash is a SHA-256 digest in lowercase hex");
-    }
+    Objects.requireNonNull(recordedHash, "recordedHash");
   }
 
   /**

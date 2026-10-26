@@ -1,5 +1,6 @@
 package com.krizaka.orazaka.tools.domain.model.research;
 
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -14,8 +15,8 @@ public record FetchResult(
 
   /** Validates that exactly one of document and refusal is present. */
   public FetchResult {
-    document = document == null ? Optional.empty() : document;
-    refusal = refusal == null ? Optional.empty() : refusal;
+    Objects.requireNonNull(document, "document must not be null");
+    Objects.requireNonNull(refusal, "refusal must not be null");
     if (document.isPresent() == refusal.isPresent()) {
       throw new IllegalArgumentException(
           "a fetch result is a document or a refusal, never both or neither");

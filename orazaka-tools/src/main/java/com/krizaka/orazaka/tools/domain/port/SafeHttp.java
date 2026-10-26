@@ -3,6 +3,8 @@ package com.krizaka.orazaka.tools.domain.port;
 import com.krizaka.orazaka.tools.domain.model.research.FetchLimits;
 import com.krizaka.orazaka.tools.domain.model.research.FetchRefusal;
 import java.net.URI;
+import java.util.Arrays;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 
@@ -33,7 +35,39 @@ public interface SafeHttp {
       String charset,
       byte[] body,
       String etag,
-      String lastModified) {}
+      String lastModified) {
+
+    @Override
+    public boolean equals(Object other) {
+      return other instanceof Response that
+          && status == that.status
+          && Objects.equals(finalUri, that.finalUri)
+          && Objects.equals(contentType, that.contentType)
+          && Objects.equals(charset, that.charset)
+          && Arrays.equals(body, that.body)
+          && Objects.equals(etag, that.etag)
+          && Objects.equals(lastModified, that.lastModified);
+    }
+
+    @Override
+    public int hashCode() {
+      return 31 * Objects.hash(finalUri, status, contentType, charset, etag, lastModified)
+          + Arrays.hashCode(body);
+    }
+
+    @Override
+    public String toString() {
+      return "Response[finalUri="
+          + finalUri
+          + ", status="
+          + status
+          + ", contentType="
+          + contentType
+          + ", body="
+          + (body == null ? "null" : body.length + " bytes")
+          + "]";
+    }
+  }
 
   /**
    * The answer, or why there is none.

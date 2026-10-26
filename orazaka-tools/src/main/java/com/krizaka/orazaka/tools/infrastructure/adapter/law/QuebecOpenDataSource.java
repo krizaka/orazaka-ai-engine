@@ -12,9 +12,11 @@ import java.io.InputStream;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -134,7 +136,30 @@ public final class QuebecOpenDataSource implements LawSource {
   }
 
   /** What the publisher answered. */
-  private record Download(byte[] body, String etag, boolean notModified) {}
+  private record Download(byte[] body, String etag, boolean notModified) {
+
+    @Override
+    public boolean equals(Object other) {
+      return other instanceof Download that
+          && notModified == that.notModified
+          && Arrays.equals(body, that.body)
+          && Objects.equals(etag, that.etag);
+    }
+
+    @Override
+    public int hashCode() {
+      return 31 * Objects.hash(etag, notModified) + Arrays.hashCode(body);
+    }
+
+    @Override
+    public String toString() {
+      return "Download[body="
+          + (body == null ? 0 : body.length)
+          + " bytes, notModified="
+          + notModified
+          + "]";
+    }
+  }
 
   /** Lets the parser read one zip entry without closing the zip. */
   private static final class UnclosedStream extends FilterInputStream {

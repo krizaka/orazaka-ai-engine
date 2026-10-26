@@ -45,4 +45,16 @@ class ReferenceScannerTest {
     assertThat(ReferenceScanner.key("Krizaka/Rules"))
         .isEqualTo(ReferenceScanner.key("krizaka/rules"));
   }
+
+  @Test
+  @DisplayName(
+      "[#91] a long run of spaces or digits is scanned in linear time, with no stack overflow")
+  void longInputsAreSafe() {
+    String hostile =
+        "RLRQ" + " ".repeat(100_000) + "c" + "art " + "1".repeat(100_000) + "9".repeat(50_000);
+    org.junit.jupiter.api.Assertions.assertTimeoutPreemptively(
+        java.time.Duration.ofSeconds(5), () -> ReferenceScanner.references(hostile));
+    assertThat(ReferenceScanner.references("https://example.org/a.,;:!?"))
+        .contains("https://example.org/a");
+  }
 }

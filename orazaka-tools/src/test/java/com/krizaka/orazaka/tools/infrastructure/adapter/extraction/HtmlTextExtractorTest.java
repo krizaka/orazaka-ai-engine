@@ -121,4 +121,26 @@ class HtmlTextExtractorTest {
             .extract("a  b\n c".getBytes(StandardCharsets.UTF_8), "text/plain", null, BASE);
     assertThat(page.text()).isEqualTo("a b\nc");
   }
+
+  @Test
+  @DisplayName(
+      "[#91] plain text: spaces collapse, lines lose the spaces around them, in linear time")
+  void plainTextIsNormalised() {
+    TextExtractor.Extracted plain =
+        new HtmlTextExtractor()
+            .extract(
+                "  a   b \n   c\t\td  \n\n  e  ".getBytes(StandardCharsets.UTF_8),
+                "text/plain",
+                null,
+                BASE);
+
+    assertThat(plain.text()).isEqualTo("a b\nc d\n\ne");
+
+    String spaces = " ".repeat(200_000) + "x" + "\n" + " ".repeat(200_000);
+    org.junit.jupiter.api.Assertions.assertTimeoutPreemptively(
+        java.time.Duration.ofSeconds(5),
+        () ->
+            new HtmlTextExtractor()
+                .extract(spaces.getBytes(StandardCharsets.UTF_8), "text/plain", null, BASE));
+  }
 }

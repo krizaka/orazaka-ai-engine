@@ -49,13 +49,13 @@ public class CitationVerificationService implements CitationVerifier {
   /**
    * A number, a date or a numbered reference as a claim writes it: 14, 1904, 2026-10-23, P-40.1.
    */
-  private static final Pattern NUMBERS = Pattern.compile("\\d+(?:[.,:/\\-]\\d+)*");
+  private static final Pattern NUMBERS = Pattern.compile("\\d++(?:[.,:/\\-]\\d++)*+");
 
   /** The label a section's paragraph starts with: « Article 12. », « Section 5 », « § 3 ». */
   private static final Pattern SECTION_LABEL =
       Pattern.compile(
           "(?iu)^(?:art(?:icle)?s?\\.?|section|§|chapitre|chapter|partie|part|titre|title)"
-              + "\\s*\\d+(?:[\\w-]|\\.(?=\\w))*");
+              + "\\s*+\\d++[\\w-]*+(?:\\.\\w[\\w-]*+)*+");
 
   private static final Pattern PARAGRAPHS = Pattern.compile("\\n[ \\t]*\\n");
 

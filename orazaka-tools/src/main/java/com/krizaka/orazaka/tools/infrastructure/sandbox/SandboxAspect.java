@@ -1,4 +1,4 @@
-package com.krizaka.orazaka.tools.sandbox;
+package com.krizaka.orazaka.tools.infrastructure.sandbox;
 
 import com.krizaka.orazaka.tools.api.McpWriteTool;
 import org.aspectj.lang.ProceedingJoinPoint;

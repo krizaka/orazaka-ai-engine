@@ -1,4 +1,4 @@
-package com.krizaka.orazaka.tools.sandbox;
+package com.krizaka.orazaka.tools.infrastructure.sandbox;
 
 import java.time.Duration;
 import java.time.Instant;

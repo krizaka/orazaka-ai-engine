@@ -8,7 +8,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @param enabled whether the scheduled watch runs
  * @param cron the schedule, Spring cron (sec min hour day month weekday); weekly by default
  * @param quebec the Données Québec snapshot
- * @param github the rulesets repository and the App token that opens the review requests
+ * @param github the rulesets repository and the GitHub App that opens the review requests
  */
 @ConfigurationProperties(prefix = "orazaka.law.watcher")
 public record LawWatchProperties(boolean enabled, String cron, Quebec quebec, GitHub github) {
@@ -16,7 +16,7 @@ public record LawWatchProperties(boolean enabled, String cron, Quebec quebec, Gi
   public LawWatchProperties {
     cron = cron == null || cron.isBlank() ? "0 0 6 * * MON" : cron;
     quebec = quebec == null ? new Quebec(null) : quebec;
-    github = github == null ? new GitHub(null, null, null, null) : github;
+    github = github == null ? new GitHub(null, null, null, null, null, null, null) : github;
   }
 
   /**
@@ -35,19 +35,49 @@ public record LawWatchProperties(boolean enabled, String cron, Quebec quebec, Gi
   }
 
   /**
-   * The rulesets repository.
+   * The rulesets repository and the GitHub App that opens the review requests. There is no token
+   * here on purpose: an installation token lives an hour, so the App mints one at run time from its
+   * id and private key (orazaka-ai-engine#77), and a personal token is never accepted.
    *
-   * @param token the GitHub App installation token of krizaka-agents; required when enabled
+   * @param appId the GitHub App id ({@code krizaka-agents}); required when enabled
+   * @param installationId the App's installation on the organisation; required when enabled
+   * @param privateKey the App's private key in PEM, from the deployment's secrets; required when
+   *     enabled
    * @param owner the owner, {@code krizaka} by default
    * @param repository the repository, {@code orazaka-packs} by default
    * @param baseBranch the branch requests are opened against, {@code main} by default
+   * @param apiUrl the GitHub API, {@code https://api.github.com} by default
    */
-  public record GitHub(String token, String owner, String repository, String baseBranch) {
+  public record GitHub(
+      String appId,
+      Long installationId,
+      String privateKey,
+      String owner,
+      String repository,
+      String baseBranch,
+      String apiUrl) {
 
     public GitHub {
       owner = owner == null || owner.isBlank() ? "krizaka" : owner;
       repository = repository == null || repository.isBlank() ? "orazaka-packs" : repository;
       baseBranch = baseBranch == null || baseBranch.isBlank() ? "main" : baseBranch;
+      apiUrl = apiUrl == null || apiUrl.isBlank() ? "https://api.github.com" : apiUrl;
+    }
+
+    @Override
+    public String toString() {
+      // The private key is never printed.
+      return "GitHub[appId="
+          + appId
+          + ", installationId="
+          + installationId
+          + ", repository="
+          + owner
+          + "/"
+          + repository
+          + "@"
+          + baseBranch
+          + "]";
     }
   }
 }

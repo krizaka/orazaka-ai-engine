@@ -7,8 +7,20 @@ import java.util.Objects;
  *
  * @param subject the person checked
  * @param key the provider key to call with
+ * @param endpoint the provider's endpoint from its admin row, or {@code null} (a connector that
+ *     needs one answers "not configured" without it)
  */
-public record CheckRequest(CheckSubject subject, CheckKey key) {
+public record CheckRequest(CheckSubject subject, CheckKey key, String endpoint) {
+
+  /**
+   * A request with no endpoint (the mock's).
+   *
+   * @param subject the person checked
+   * @param key the provider key
+   */
+  public CheckRequest(CheckSubject subject, CheckKey key) {
+    this(subject, key, null);
+  }
 
   /** Validates the request. */
   public CheckRequest {

@@ -118,7 +118,7 @@ class ExternalCheckServiceTest {
 
   private ExternalCheckService service(ExternalCheckConnector connector) {
     return new ExternalCheckService(
-        connector, registry, keyStore, log, checkMeter, () -> pepper, CLOCK);
+        CheckRouter.fixed(connector), registry, keyStore, log, checkMeter, () -> pepper, CLOCK);
   }
 
   private static CheckCall call(String userId) {

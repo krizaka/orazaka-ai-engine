@@ -10,6 +10,11 @@ public enum CheckOutcome {
   PROVIDER_ERROR,
   /** The provider did not answer in time. */
   TIMEOUT,
+  /**
+   * The provider accepted the search and will answer later (webhook or polling): the result carries
+   * its reference. Charged once, at submission.
+   */
+  PENDING,
   /** The call was refused before any provider call: see {@link CheckRefusal}. */
   REFUSED
 }

@@ -19,6 +19,8 @@ import java.util.UUID;
  * @param subjectRef the HMAC-SHA-256 (hex) of the subject id, keyed by the sealed pepper
  * @param durationMs the time spent, or {@code null} when no provider call was made
  * @param providerRef the provider's opaque reference, or {@code null}
+ * @param providerCostMicros the provider's own price (admin row) when the platform key paid for the
+ *     call, in millionths of a Canadian dollar; {@code null} otherwise
  */
 public record CheckAudit(
     Instant at,
@@ -31,7 +33,50 @@ public record CheckAudit(
     CheckRefusal refusal,
     String subjectRef,
     Long durationMs,
-    String providerRef) {
+    String providerRef,
+    Long providerCostMicros) {
+
+  /**
+   * A line with no provider cost.
+   *
+   * @param at when
+   * @param actorId the actor
+   * @param runId the run
+   * @param provider the provider
+   * @param purpose the purpose
+   * @param keySource whose key
+   * @param outcome the outcome
+   * @param refusal why refused
+   * @param subjectRef the HMAC of the subject id
+   * @param durationMs the time spent
+   * @param providerRef the provider's reference
+   */
+  public CheckAudit(
+      Instant at,
+      String actorId,
+      UUID runId,
+      String provider,
+      CheckPurpose purpose,
+      KeySource keySource,
+      CheckOutcome outcome,
+      CheckRefusal refusal,
+      String subjectRef,
+      Long durationMs,
+      String providerRef) {
+    this(
+        at,
+        actorId,
+        runId,
+        provider,
+        purpose,
+        keySource,
+        outcome,
+        refusal,
+        subjectRef,
+        durationMs,
+        providerRef,
+        null);
+  }
 
   /** Validates the line. */
   public CheckAudit {

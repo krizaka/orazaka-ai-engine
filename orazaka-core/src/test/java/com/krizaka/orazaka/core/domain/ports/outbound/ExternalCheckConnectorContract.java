@@ -2,6 +2,7 @@ package com.krizaka.orazaka.core.domain.ports.outbound;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.krizaka.orazaka.core.application.checks.CheckRouter;
 import com.krizaka.orazaka.core.application.checks.ExternalCheckService;
 import com.krizaka.orazaka.core.domain.model.checks.*;
 import java.nio.charset.StandardCharsets;
@@ -55,6 +56,29 @@ public abstract class ExternalCheckConnectorContract {
    */
   protected abstract List<CheckSubject> subjects();
 
+  /**
+   * The purposes the connector serves; the contract asks only those.
+   *
+   * @return the purposes (all by default)
+   */
+  protected java.util.Set<CheckPurpose> purposes() {
+    return java.util.EnumSet.allOf(CheckPurpose.class);
+  }
+
+  private static CheckRouter routerOf(ExternalCheckConnector connector) {
+    CheckProviderRow row =
+        new CheckProviderRow(
+            connector.provider(),
+            connector.provider(),
+            java.util.EnumSet.allOf(CheckPurpose.class),
+            java.util.Set.of(),
+            0,
+            true,
+            "https://provider.test",
+            0);
+    return new CheckRouter(() -> List.of(row), java.util.Map.of(connector.provider(), connector));
+  }
+
   /** A hold that charges nothing: the contract is about data, not money. */
   private static final CheckMeter.Hold FREE =
       new CheckMeter.Hold() {
@@ -78,12 +102,13 @@ public abstract class ExternalCheckConnectorContract {
   }
 
   Stream<Case> cases() {
-    return subjects().stream()
-        .flatMap(s -> Stream.of(CheckPurpose.values()).map(p -> new Case(s, p)));
+    return subjects().stream().flatMap(s -> purposes().stream().map(p -> new Case(s, p)));
   }
 
   private static CheckResult ask(ExternalCheckConnector connector, Case c) {
-    CheckRequest request = new CheckRequest(c.subject(), new CheckKey(KeySource.PLATFORM, "k"));
+    CheckRequest request =
+        new CheckRequest(
+            c.subject(), new CheckKey(KeySource.PLATFORM, "k"), "https://provider.test");
     return switch (c.purpose()) {
       case COURT_RECORDS -> connector.verifyCourtRecords(request);
       case CREDIT -> connector.verifyCredit(request);
@@ -121,7 +146,7 @@ public abstract class ExternalCheckConnectorContract {
     List<CheckAudit> audit = new ArrayList<>();
     ExternalCheckService service =
         new ExternalCheckService(
-            connector(),
+            routerOf(connector()),
             (subjectId, purpose) -> true,
             new CheckKeyStore() {
               @Override

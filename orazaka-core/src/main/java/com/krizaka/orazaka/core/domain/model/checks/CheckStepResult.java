@@ -8,8 +8,9 @@ import java.util.Objects;
  * consumption it reports for the settlement (orazaka-job-service#68, ADR-033 hold then settle).
  *
  * @param result the result of the check
- * @param calls the provider calls charged: 1 when the provider answered ({@code MATCH} or {@code
- *     NO_MATCH}), 0 when the call was refused, failed or timed out
+ * @param calls the provider calls charged: 1 when the provider answered or accepted the search
+ *     ({@code MATCH}, {@code NO_MATCH} or {@code PENDING}), 0 when the call was refused, failed or
+ *     timed out
  */
 public record CheckStepResult(CheckResult result, int calls) {
 
@@ -28,7 +29,7 @@ public record CheckStepResult(CheckResult result, int calls) {
    * @return the step result
    */
   public static CheckStepResult of(CheckResult result) {
-    return new CheckStepResult(result, result.isAnswered() ? 1 : 0);
+    return new CheckStepResult(result, result.isCharged() ? 1 : 0);
   }
 
   /**

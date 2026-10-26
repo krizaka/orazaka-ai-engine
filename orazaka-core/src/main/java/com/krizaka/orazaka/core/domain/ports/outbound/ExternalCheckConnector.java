@@ -1,5 +1,6 @@
 package com.krizaka.orazaka.core.domain.ports.outbound;
 
+import com.krizaka.orazaka.core.domain.model.checks.CheckPurpose;
 import com.krizaka.orazaka.core.domain.model.checks.CheckRequest;
 import com.krizaka.orazaka.core.domain.model.checks.CheckResult;
 
@@ -43,4 +44,17 @@ public interface ExternalCheckConnector {
    * @return the answer; never {@code REFUSED}
    */
   CheckResult verifyIdentity(CheckRequest request);
+
+  /**
+   * Reads the answer of a search the provider accepted earlier ({@code PENDING}). A connector with
+   * no deferred answers keeps this default, which the service audits as a provider error.
+   *
+   * @param request the subject and the resolved key
+   * @param purpose what the search was for
+   * @param providerRef the reference the provider gave on submission
+   * @return the answer, {@code PENDING} again while the provider works; never {@code REFUSED}
+   */
+  default CheckResult poll(CheckRequest request, CheckPurpose purpose, String providerRef) {
+    throw new UnsupportedOperationException("this connector has no deferred answers");
+  }
 }

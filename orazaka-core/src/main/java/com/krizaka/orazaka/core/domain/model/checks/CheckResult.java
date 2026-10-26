@@ -25,6 +25,9 @@ public record CheckResult(
       throw new IllegalArgumentException(
           "a refusal comes with REFUSED, and REFUSED with a refusal");
     }
+    if (outcome == CheckOutcome.PENDING && (providerRef == null || providerRef.isBlank())) {
+      throw new IllegalArgumentException("a pending check carries the provider's reference");
+    }
     if (outcome != CheckOutcome.MATCH && category != CheckCategory.NONE) {
       throw new IllegalArgumentException("a category comes only with a match");
     }
@@ -75,5 +78,14 @@ public record CheckResult(
    */
   public boolean isAnswered() {
     return outcome == CheckOutcome.MATCH || outcome == CheckOutcome.NO_MATCH;
+  }
+
+  /**
+   * Whether the call is charged: the provider answered, or accepted the search to answer later.
+   *
+   * @return true on MATCH, NO_MATCH or PENDING
+   */
+  public boolean isCharged() {
+    return isAnswered() || outcome == CheckOutcome.PENDING;
   }
 }

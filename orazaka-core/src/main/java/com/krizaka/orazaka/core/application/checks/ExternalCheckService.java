@@ -17,7 +17,7 @@ import java.time.Instant;
 import java.util.HexFormat;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.function.Function;
+import java.util.function.BiFunction;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
@@ -45,7 +45,10 @@ public class ExternalCheckService implements ExternalCheckCapability {
 
   private static final String HMAC = "HmacSHA256";
 
-  private final ExternalCheckConnector connector;
+  /** The provider named in the audit when no row serves the call. */
+  private static final String UNROUTED = "unrouted";
+
+  private final CheckRouter router;
   private final ConsentRegistry consents;
   private final CheckKeyStore keys;
   private final CheckAuditLog audit;
@@ -54,6 +57,8 @@ public class ExternalCheckService implements ExternalCheckCapability {
   private final Clock clock;
 
   /**
+   * A service over one connector serving every purpose and region.
+   *
    * @param connector the provider
    * @param consents the consent register
    * @param keys the provider keys
@@ -70,7 +75,36 @@ public class ExternalCheckService implements ExternalCheckCapability {
       CheckMeter meter,
       CheckSubjectPepper pepper,
       Clock clock) {
-    this.connector = Objects.requireNonNull(connector, "connector must not be null");
+    this(
+        CheckRouter.fixed(Objects.requireNonNull(connector, "connector must not be null")),
+        consents,
+        keys,
+        audit,
+        meter,
+        pepper,
+        clock);
+  }
+
+  /**
+   * A service whose provider is chosen per call from the admin rows.
+   *
+   * @param router the provider routing (rows by {@code handler_key})
+   * @param consents the consent register
+   * @param keys the provider keys
+   * @param audit where the audit lines go
+   * @param meter the {@code CALL} metering against the run budget
+   * @param pepper the sealed pepper of the subject reference
+   * @param clock the clock (injected, never ambient)
+   */
+  public ExternalCheckService(
+      CheckRouter router,
+      ConsentRegistry consents,
+      CheckKeyStore keys,
+      CheckAuditLog audit,
+      CheckMeter meter,
+      CheckSubjectPepper pepper,
+      Clock clock) {
+    this.router = Objects.requireNonNull(router, "router must not be null");
     this.consents = Objects.requireNonNull(consents, "consents must not be null");
     this.keys = Objects.requireNonNull(keys, "keys must not be null");
     this.audit = Objects.requireNonNull(audit, "audit must not be null");
@@ -86,7 +120,7 @@ public class ExternalCheckService implements ExternalCheckCapability {
    * @return the result
    */
   public CheckResult verifyCourtRecords(CheckCall call) {
-    return verify(CheckPurpose.COURT_RECORDS, call, connector::verifyCourtRecords);
+    return verify(CheckPurpose.COURT_RECORDS, call, ExternalCheckConnector::verifyCourtRecords);
   }
 
   /**
@@ -96,7 +130,7 @@ public class ExternalCheckService implements ExternalCheckCapability {
    * @return the result
    */
   public CheckResult verifyCredit(CheckCall call) {
-    return verify(CheckPurpose.CREDIT, call, connector::verifyCredit);
+    return verify(CheckPurpose.CREDIT, call, ExternalCheckConnector::verifyCredit);
   }
 
   /**
@@ -106,7 +140,7 @@ public class ExternalCheckService implements ExternalCheckCapability {
    * @return the result
    */
   public CheckResult verifyIdentity(CheckCall call) {
-    return verify(CheckPurpose.IDENTITY, call, connector::verifyIdentity);
+    return verify(CheckPurpose.IDENTITY, call, ExternalCheckConnector::verifyIdentity);
   }
 
   @Override
@@ -126,42 +160,90 @@ public class ExternalCheckService implements ExternalCheckCapability {
     return CheckStepResult.of(result);
   }
 
+  /**
+   * Reads the deferred answer of a search that came back {@code PENDING}, by polling the provider
+   * that accepted it. Consent and the key are checked again; no new hold is taken (the search was
+   * charged at submission); the poll is audited.
+   *
+   * @param provider the provider named in the audit line of the submission
+   * @param purpose what the search was for
+   * @param call the actor, the run and the subject
+   * @param providerRef the reference the provider gave
+   * @return the answer, {@code PENDING} again while the provider works
+   */
+  public CheckResult collect(
+      String provider, CheckPurpose purpose, CheckCall call, String providerRef) {
+    String subjectId = call.subject().subjectId();
+    String subjectRef = subjectRef(subjectId);
+    Optional<CheckRouter.Route> route = router.routeOf(provider);
+    if (route.isEmpty()) {
+      return refused(purpose, call, subjectRef, provider, CheckRefusal.NOT_CONFIGURED);
+    }
+    if (!consents.isGranted(subjectId, purpose)) {
+      return refused(purpose, call, subjectRef, provider, CheckRefusal.NO_CONSENT);
+    }
+    Optional<CheckKey> key = resolveKey(call.userId(), provider);
+    if (key.isEmpty()) {
+      return refused(purpose, call, subjectRef, provider, CheckRefusal.NO_KEY);
+    }
+    CheckRouter.Route chosen = route.get();
+    Instant start = clock.instant();
+    CheckResult result;
+    try {
+      result =
+          answer(
+              (connector, request) -> connector.poll(request, purpose, providerRef),
+              chosen.connector(),
+              new CheckRequest(call.subject(), key.get(), chosen.row().endpoint()));
+    } catch (ProviderNotConfiguredException unconfigured) {
+      return refused(purpose, call, subjectRef, provider, CheckRefusal.NOT_CONFIGURED);
+    }
+    record(purpose, call, chosen, key.get(), result, subjectRef, start, false);
+    return result;
+  }
+
   private CheckResult verify(
-      CheckPurpose purpose, CheckCall call, Function<CheckRequest, CheckResult> operation) {
+      CheckPurpose purpose,
+      CheckCall call,
+      BiFunction<ExternalCheckConnector, CheckRequest, CheckResult> operation) {
     String subjectId = call.subject().subjectId();
     String subjectRef = subjectRef(subjectId);
 
-    if (!consents.isGranted(subjectId, purpose)) {
-      return refused(purpose, call, subjectRef, CheckRefusal.NO_CONSENT);
+    Optional<CheckRouter.Route> route = router.route(purpose, call.region());
+    if (route.isEmpty()) {
+      return refused(purpose, call, subjectRef, UNROUTED, CheckRefusal.NOT_CONFIGURED);
     }
-    Optional<CheckKey> key = resolveKey(call.userId());
+    CheckRouter.Route chosen = route.get();
+    String provider = chosen.row().provider();
+
+    if (!consents.isGranted(subjectId, purpose)) {
+      return refused(purpose, call, subjectRef, provider, CheckRefusal.NO_CONSENT);
+    }
+    Optional<CheckKey> key = resolveKey(call.userId(), provider);
     if (key.isEmpty()) {
-      return refused(purpose, call, subjectRef, CheckRefusal.NO_KEY);
+      return refused(purpose, call, subjectRef, provider, CheckRefusal.NO_KEY);
     }
     CheckMeter.Hold hold;
     try {
-      hold = meter.hold(call.runId(), call.userId(), connector.provider(), purpose);
+      hold = meter.hold(call.runId(), call.userId(), provider, purpose);
     } catch (CheckMeter.BudgetExhaustedException exhausted) {
-      return refused(purpose, call, subjectRef, CheckRefusal.BUDGET_EXHAUSTED);
+      return refused(purpose, call, subjectRef, provider, CheckRefusal.BUDGET_EXHAUSTED);
     }
 
     Instant start = clock.instant();
-    CheckResult result = answer(operation, new CheckRequest(call.subject(), key.get()));
-    Duration took = Duration.between(start, clock.instant());
-    audit.record(
-        new CheckAudit(
-            clock.instant(),
-            call.userId(),
-            call.runId(),
-            connector.provider(),
-            purpose,
-            key.get().source(),
-            result.outcome(),
-            null,
-            subjectRef,
-            took.toMillis(),
-            result.providerRef()));
-    if (result.isAnswered()) {
+    CheckResult result;
+    try {
+      result =
+          answer(
+              operation,
+              chosen.connector(),
+              new CheckRequest(call.subject(), key.get(), chosen.row().endpoint()));
+    } catch (ProviderNotConfiguredException unconfigured) {
+      hold.release("the provider is not configured");
+      return refused(purpose, call, subjectRef, provider, CheckRefusal.NOT_CONFIGURED);
+    }
+    record(purpose, call, chosen, key.get(), result, subjectRef, start, true);
+    if (result.isCharged()) {
       hold.settle();
     } else {
       hold.release("the provider did not answer: " + result.outcome());
@@ -169,14 +251,49 @@ public class ExternalCheckService implements ExternalCheckCapability {
     return result;
   }
 
-  private CheckResult answer(Function<CheckRequest, CheckResult> operation, CheckRequest request) {
+  private void record(
+      CheckPurpose purpose,
+      CheckCall call,
+      CheckRouter.Route chosen,
+      CheckKey key,
+      CheckResult result,
+      String subjectRef,
+      Instant start,
+      boolean billable) {
+    Duration took = Duration.between(start, clock.instant());
+    Long cost =
+        billable && key.source() == KeySource.PLATFORM && result.isCharged()
+            ? chosen.row().priceMicros()
+            : null;
+    audit.record(
+        new CheckAudit(
+            clock.instant(),
+            call.userId(),
+            call.runId(),
+            chosen.row().provider(),
+            purpose,
+            key.source(),
+            result.outcome(),
+            null,
+            subjectRef,
+            took.toMillis(),
+            result.providerRef(),
+            cost));
+  }
+
+  private CheckResult answer(
+      BiFunction<ExternalCheckConnector, CheckRequest, CheckResult> operation,
+      ExternalCheckConnector connector,
+      CheckRequest request) {
     try {
-      CheckResult result = operation.apply(request);
+      CheckResult result = operation.apply(connector, request);
       if (result == null || result.outcome() == CheckOutcome.REFUSED) {
         // A connector cannot refuse for the service: that is a provider fault.
         return CheckResult.answered(CheckOutcome.PROVIDER_ERROR, null);
       }
       return result;
+    } catch (ProviderNotConfiguredException unconfigured) {
+      throw unconfigured;
     } catch (RuntimeException failure) {
       // The message stays out: it may carry the provider's payload or the subject.
       return CheckResult.answered(CheckOutcome.PROVIDER_ERROR, null);
@@ -184,13 +301,17 @@ public class ExternalCheckService implements ExternalCheckCapability {
   }
 
   private CheckResult refused(
-      CheckPurpose purpose, CheckCall call, String subjectRef, CheckRefusal refusal) {
+      CheckPurpose purpose,
+      CheckCall call,
+      String subjectRef,
+      String provider,
+      CheckRefusal refusal) {
     audit.record(
         new CheckAudit(
             clock.instant(),
             call.userId(),
             call.runId(),
-            connector.provider(),
+            provider,
             purpose,
             null,
             CheckOutcome.REFUSED,
@@ -202,8 +323,7 @@ public class ExternalCheckService implements ExternalCheckCapability {
   }
 
   /** The actor's own key when there is one, else the platform's; empty when neither. */
-  private Optional<CheckKey> resolveKey(String userId) {
-    String provider = connector.provider();
+  private Optional<CheckKey> resolveKey(String userId, String provider) {
     if (userId != null) {
       Optional<String> own = keys.userKey(userId, provider);
       if (own.isPresent()) {

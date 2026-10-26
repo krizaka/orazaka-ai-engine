@@ -7,5 +7,10 @@ public enum CheckRefusal {
   /** Neither the actor nor the platform has a key for this provider. */
   NO_KEY,
   /** The run budget (or the credits) cannot hold the call: nothing is asked, nothing charged. */
-  BUDGET_EXHAUSTED
+  BUDGET_EXHAUSTED,
+  /**
+   * No enabled provider row serves this purpose and region, or the provider has no endpoint or key
+   * it can use: the check fails closed, nothing is asked, nothing charged.
+   */
+  NOT_CONFIGURED
 }

@@ -19,7 +19,7 @@ public final class ReferenceScanner {
           "(?<![\\w./-])([A-Za-z0-9][A-Za-z0-9-]{0,38})/([A-Za-z0-9._-]{1,100})(?![\\w/])");
   private static final Pattern STATUTE =
       Pattern.compile(
-          "(?i)\\b(?:art(?:icle)?s?\\.?\\s*\\d+[\\w.-]*|RLRQ\\s*,?\\s*c(?:h)?\\.?\\s*[A-Z]-?[\\d.]+|L\\.?R\\.?[CQ]\\.?\\s*\\d{4}|R\\.?S\\.?C\\.?\\s*\\d{4})");
+          "(?i)\\b(?:art(?:icle)?s?\\.?\\s*+\\d++[\\w.-]*+|RLRQ\\s*+,?+\\s*+c(?:h)?\\.?\\s*+[A-Z]-?+[\\d.]++|L\\.?R\\.?[CQ]\\.?\\s*+\\d{4}|R\\.?S\\.?C\\.?\\s*+\\d{4})");
 
   private ReferenceScanner() {}
 
@@ -94,6 +94,10 @@ public final class ReferenceScanner {
   }
 
   private static String trimPunctuation(String s) {
-    return s.replaceAll("[.,;:!?]+$", "");
+    int end = s.length();
+    while (end > 0 && ".,;:!?".indexOf(s.charAt(end - 1)) >= 0) {
+      end--;
+    }
+    return s.substring(0, end);
   }
 }

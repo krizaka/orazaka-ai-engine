@@ -12,6 +12,7 @@ import java.io.InterruptedIOException;
 import java.net.InetAddress;
 import java.net.URI;
 import java.net.UnknownHostException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -136,6 +137,33 @@ public class PinnedHttpClient implements SafeHttp {
       String location,
       String etag,
       String lastModified) {
+    @Override
+    public boolean equals(Object other) {
+      return other instanceof HopAnswer that
+          && status == that.status
+          && Arrays.equals(body, that.body)
+          && Objects.equals(contentType, that.contentType)
+          && Objects.equals(charset, that.charset)
+          && Objects.equals(location, that.location)
+          && Objects.equals(etag, that.etag)
+          && Objects.equals(lastModified, that.lastModified);
+    }
+
+    @Override
+    public int hashCode() {
+      return 31 * Objects.hash(status, contentType, charset, location, etag, lastModified)
+          + Arrays.hashCode(body);
+    }
+
+    @Override
+    public String toString() {
+      return "HopAnswer[status="
+          + status
+          + ", body="
+          + (body == null ? 0 : body.length)
+          + " bytes]";
+    }
+
     Response response(URI finalUri) {
       return new Response(finalUri, status, contentType, charset, body, etag, lastModified);
     }

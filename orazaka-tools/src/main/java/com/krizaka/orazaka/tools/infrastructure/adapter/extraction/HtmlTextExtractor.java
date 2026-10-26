@@ -169,9 +169,24 @@ class HtmlTextExtractor implements TextExtractor {
   }
 
   private static String normalise(String text) {
-    return text.replace(' ', ' ')
-        .replaceAll("[ \\t\\x0B\\f\\r]+", " ")
-        .replaceAll(" *\\n *", "\n")
-        .strip();
+    String collapsed = text.replace(' ', ' ').replaceAll("[ \\t\\x0B\\f\\r]++", " ");
+    List<String> lines = new ArrayList<>();
+    for (String line : collapsed.split("\n", -1)) {
+      lines.add(trimSpaces(line));
+    }
+    return String.join("\n", lines).strip();
+  }
+
+  /** Removes the plain spaces at both ends of a line, and nothing else. */
+  private static String trimSpaces(String line) {
+    int start = 0;
+    int end = line.length();
+    while (start < end && line.charAt(start) == ' ') {
+      start++;
+    }
+    while (end > start && line.charAt(end - 1) == ' ') {
+      end--;
+    }
+    return line.substring(start, end);
   }
 }

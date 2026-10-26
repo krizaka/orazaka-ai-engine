@@ -58,26 +58,17 @@ public record LawWatchProperties(boolean enabled, String cron, Quebec quebec, Gi
       String apiUrl) {
 
     public GitHub {
-      owner = owner == null || owner.isBlank() ? "krizaka" : owner;
-      repository = repository == null || repository.isBlank() ? "orazaka-packs" : repository;
-      baseBranch = baseBranch == null || baseBranch.isBlank() ? "main" : baseBranch;
-      apiUrl = apiUrl == null || apiUrl.isBlank() ? "https://api.github.com" : apiUrl;
+      owner = GitHubAppDefaults.owner(owner);
+      repository = GitHubAppDefaults.repository(repository);
+      baseBranch = GitHubAppDefaults.baseBranch(baseBranch);
+      apiUrl = GitHubAppDefaults.apiUrl(apiUrl);
     }
 
     @Override
     public String toString() {
       // The private key is never printed.
-      return "GitHub[appId="
-          + appId
-          + ", installationId="
-          + installationId
-          + ", repository="
-          + owner
-          + "/"
-          + repository
-          + "@"
-          + baseBranch
-          + "]";
+      return GitHubAppDefaults.describe(
+          "GitHub", null, appId, installationId, owner + "/" + repository + "@" + baseBranch);
     }
   }
 }

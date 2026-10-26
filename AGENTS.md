@@ -34,6 +34,9 @@ The org code rules (addendum 2026-10-15) are checked by tools, not by review.
   commit it. Never add a violation to a store by hand to get a build green.
 - A rule never passes over nothing (no `allowEmptyShould`, Orazaka GOV-006): a module applies the rules whose subject it has (a library without controllers does not apply the controller naming rule).
 - A rule is never weakened, skipped or deleted to get a PR green (AGENTS §5.3 of the org); fix the code or freeze the existing debt.
+- **A short-lived credential is never static configuration** (#77): a GitHub integration takes the App's id, installation
+  and private key and mints its hour-long installation token at run time (`GitHubAppInstallationTokens`); no properties
+  record holds a `token` (`GitHubCredentialsRuleTest`, which lists every GitHub properties record).
 
 ## Definition of done
 

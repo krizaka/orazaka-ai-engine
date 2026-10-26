@@ -188,8 +188,9 @@ connection pool (ADR-083). Nothing here runs while the setting `law.corpus.enabl
 - **Settings are the `law.*` rows of `orazaka_runtime_config`**, read at each call: `law.corpus.enabled`,
   `law.import.instruments` (`QC:CCQ-1991,CA:E-15,...`; whole instruments, nothing else is stored) and
   `law.import.max-article-chars` (a longer article fails the whole import before anything is written).
-  Static wiring only: `orazaka.law.watcher.enabled|cron|quebec.dataset-url|github.token|github.owner|repository|base-branch`
-  (the krizaka-agents App token comes from the deployment's secrets, never from code) and `orazaka.law.lookup.enabled`.
+  Static wiring only: `orazaka.law.watcher.enabled|cron|quebec.dataset-url|github.app-id|github.installation-id|github.private-key|github.owner|repository|base-branch|api-url`
+  (the krizaka-agents App's key comes from the deployment's secrets, never from code; the App mints its hour-long
+  installation tokens at run time, so a static token is never configured) and `orazaka.law.lookup.enabled`.
 - **`official_url_template`**: an instrument's citation address, with the placeholders `{ref}`, `{lang}`, `{lang3}`,
   `{acts}` and `{section}` (Justice Canada's paths differ by language). The importer writes it when it creates the
   instrument; the administrator can edit it.

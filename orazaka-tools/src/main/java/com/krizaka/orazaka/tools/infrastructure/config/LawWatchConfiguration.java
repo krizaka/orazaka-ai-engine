@@ -5,16 +5,14 @@ import com.krizaka.orazaka.tools.application.port.law.LawSettings;
 import com.krizaka.orazaka.tools.application.port.law.LawSource;
 import com.krizaka.orazaka.tools.application.service.LawImportService;
 import com.krizaka.orazaka.tools.application.service.LawWatchService;
+import com.krizaka.orazaka.tools.infrastructure.adapter.law.GitHubAppInstallationTokens;
 import com.krizaka.orazaka.tools.infrastructure.adapter.law.GitHubLawChangeRequests;
 import java.util.List;
-import java.util.Objects;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpHeaders;
 import org.springframework.scheduling.annotation.EnableScheduling;
-import org.springframework.web.client.RestClient;
 
 /**
  * Wires the law watcher on top of {@link LawCorpusConfiguration}. Off by default; {@code
@@ -32,18 +30,17 @@ public class LawWatchConfiguration {
   @Bean
   LawChangeRequests lawChangeRequests(LawWatchProperties properties) {
     LawWatchProperties.GitHub github = properties.github();
-    String token =
-        Objects.requireNonNull(
-            github.token(), "orazaka.law.watcher.github.token is required when the watcher is on");
-    RestClient api =
-        RestClient.builder()
-            .baseUrl("https://api.github.com")
-            .defaultHeader(HttpHeaders.USER_AGENT, LawCorpusConfiguration.USER_AGENT)
-            .defaultHeader(HttpHeaders.ACCEPT, "application/vnd.github+json")
-            .defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + token)
-            .build();
+    // The App's installation tokens, minted at run time and renewed before their hour ends: never
+    // a static token, which would stop the watcher an hour after it starts (orazaka-ai-engine#77).
+    GitHubAppInstallationTokens tokens =
+        GitHubAppInstallationTokens.forApp(
+            github.apiUrl(),
+            LawCorpusConfiguration.USER_AGENT,
+            github.appId(),
+            github.installationId(),
+            github.privateKey());
     return new GitHubLawChangeRequests(
-        api, github.owner(), github.repository(), github.baseBranch());
+        tokens.client(), github.owner(), github.repository(), github.baseBranch());
   }
 
   @Bean

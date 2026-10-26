@@ -1,4 +1,4 @@
-package com.krizaka.orazaka.tools.sandbox;
+package com.krizaka.orazaka.tools.infrastructure.sandbox;
 
 /** Thrown when a sandbox's byte allocation exceeds the configured cap. */
 public class SandboxCapExceededException extends RuntimeException {

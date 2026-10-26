@@ -39,8 +39,7 @@ final class PolicyConfigCache {
         return policies;
       }
     } catch (Exception e) {
-      log.warn(
-          "PolicyConfig cache miss — falling back to last healthy snapshot: {}", e.getMessage());
+      log.warn("PolicyConfig cache miss — falling back to last healthy snapshot", e);
     }
     return lastHealthySnapshot.get();
   }

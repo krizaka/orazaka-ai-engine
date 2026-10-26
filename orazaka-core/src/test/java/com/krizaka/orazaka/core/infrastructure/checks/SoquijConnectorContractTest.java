@@ -15,12 +15,13 @@ class SoquijConnectorContractTest extends ExternalCheckConnectorContract {
 
   @Override
   protected ExternalCheckConnector connector() {
-    return new SoquijConnector(RecordedProviderHttp.recorded(), Duration.ofSeconds(1));
+    return HttpCheckConnector.soquij(RecordedProviderHttp.recorded(), Duration.ofSeconds(1));
   }
 
   @Override
   protected Set<CheckPurpose> purposes() {
-    return new SoquijConnector(RecordedProviderHttp.recorded(), Duration.ofSeconds(1)).supports();
+    return HttpCheckConnector.soquij(RecordedProviderHttp.recorded(), Duration.ofSeconds(1))
+        .supports();
   }
 
   @Override

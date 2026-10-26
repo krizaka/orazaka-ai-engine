@@ -1,12 +1,6 @@
 package com.krizaka.orazaka.core.infrastructure.checks;
 
-import com.krizaka.orazaka.core.domain.model.checks.CheckCategory;
-import com.krizaka.orazaka.core.domain.model.checks.CheckOutcome;
-import com.krizaka.orazaka.core.domain.model.checks.CheckPurpose;
-import com.krizaka.orazaka.core.domain.model.checks.CheckRequest;
-import com.krizaka.orazaka.core.domain.model.checks.CheckResult;
-import com.krizaka.orazaka.core.domain.model.checks.CheckSubject;
-import com.krizaka.orazaka.core.domain.model.checks.ProviderNotConfiguredException;
+import com.krizaka.orazaka.core.domain.model.checks.*;
 import com.krizaka.orazaka.core.domain.ports.outbound.CheckHttp;
 import com.krizaka.orazaka.core.domain.ports.outbound.ExternalCheckConnector;
 import java.time.Duration;
@@ -33,26 +27,94 @@ import tools.jackson.databind.json.JsonMapper;
  * or {@code pending}); anything else, an unreadable body or an unknown status is a {@code
  * PROVIDER_ERROR}; a slow provider is a {@code TIMEOUT}.
  */
-abstract class HttpCheckConnector implements ExternalCheckConnector {
+public final class HttpCheckConnector implements ExternalCheckConnector {
 
   private static final JsonMapper JSON = new JsonMapper();
 
+  private final String provider;
+  private final Map<CheckPurpose, String> paths;
+  private final String authScheme;
   private final CheckHttp http;
   private final Duration timeout;
 
-  HttpCheckConnector(CheckHttp http, Duration timeout) {
+  private HttpCheckConnector(
+      String provider,
+      Map<CheckPurpose, String> paths,
+      String authScheme,
+      CheckHttp http,
+      Duration timeout) {
+    this.provider = provider;
+    this.paths = Map.copyOf(paths);
+    this.authScheme = authScheme;
     this.http = Objects.requireNonNull(http, "http must not be null");
     this.timeout = Objects.requireNonNull(timeout, "timeout must not be null");
   }
 
+  /**
+   * SOQUIJ, Service Web Plumitifs: court records of Québec, the TAL and the civil and penal
+   * plumitifs. Its web service is not public: endpoint, key and wire mapping are confirmed when the
+   * account is opened.
+   *
+   * @param http the HTTP door
+   * @param timeout how long a search may take
+   * @return the connector, handler key {@code soquij}
+   */
+  public static HttpCheckConnector soquij(CheckHttp http, Duration timeout) {
+    return new HttpCheckConnector(
+        "soquij", Map.of(CheckPurpose.COURT_RECORDS, "/plumitifs"), "Bearer", http, timeout);
+  }
+
+  /**
+   * Trustii: credit (a bureau behind it) and identity. Its API, bureau and consent wording are
+   * confirmed when the account is opened.
+   *
+   * @param http the HTTP door
+   * @param timeout how long a search may take
+   * @return the connector, handler key {@code trustii}
+   */
+  public static HttpCheckConnector trustii(CheckHttp http, Duration timeout) {
+    return new HttpCheckConnector(
+        "trustii",
+        Map.of(CheckPurpose.CREDIT, "/credit", CheckPurpose.IDENTITY, "/identity"),
+        "Bearer",
+        http,
+        timeout);
+  }
+
+  /**
+   * Certn: the fallback outside Québec, court records and identity. CertnCentric's authentication
+   * and webhook signing are confirmed in writing when the account is opened.
+   *
+   * @param http the HTTP door
+   * @param timeout how long a search may take
+   * @return the connector, handler key {@code certn}
+   */
+  public static HttpCheckConnector certn(CheckHttp http, Duration timeout) {
+    return new HttpCheckConnector(
+        "certn",
+        Map.of(CheckPurpose.COURT_RECORDS, "/court-records", CheckPurpose.IDENTITY, "/identity"),
+        "Api-Key",
+        http,
+        timeout);
+  }
+
+  @Override
+  public String provider() {
+    return provider;
+  }
+
   /** The purposes this provider serves. */
-  abstract Set<CheckPurpose> supports();
+  Set<CheckPurpose> supports() {
+    return paths.keySet();
+  }
 
-  /** The header that carries the key. */
-  abstract Map<String, String> authHeaders(String key);
+  private Map<String, String> authHeaders(String key) {
+    return Map.of("Authorization", authScheme + " " + key, "Content-Type", "application/json");
+  }
 
-  /** The path of the search for a purpose, appended to the row's endpoint. */
-  abstract String path(CheckPurpose purpose);
+  private String path(CheckPurpose purpose) {
+    return paths.get(purpose);
+  }
 
   @Override
   public CheckResult verifyCourtRecords(CheckRequest request) {

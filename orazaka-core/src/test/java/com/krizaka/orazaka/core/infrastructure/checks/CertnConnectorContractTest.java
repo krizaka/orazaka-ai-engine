@@ -15,12 +15,13 @@ class CertnConnectorContractTest extends ExternalCheckConnectorContract {
 
   @Override
   protected ExternalCheckConnector connector() {
-    return new CertnConnector(RecordedProviderHttp.recorded(), Duration.ofSeconds(1));
+    return HttpCheckConnector.certn(RecordedProviderHttp.recorded(), Duration.ofSeconds(1));
   }
 
   @Override
   protected Set<CheckPurpose> purposes() {
-    return new CertnConnector(RecordedProviderHttp.recorded(), Duration.ofSeconds(1)).supports();
+    return HttpCheckConnector.certn(RecordedProviderHttp.recorded(), Duration.ofSeconds(1))
+        .supports();
   }
 
   @Override

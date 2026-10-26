@@ -57,35 +57,6 @@ public class ExternalCheckService implements ExternalCheckCapability {
   private final Clock clock;
 
   /**
-   * A service over one connector serving every purpose and region.
-   *
-   * @param connector the provider
-   * @param consents the consent register
-   * @param keys the provider keys
-   * @param audit where the audit lines go
-   * @param meter the {@code CALL} metering against the run budget
-   * @param pepper the sealed pepper of the subject reference
-   * @param clock the clock (injected, never ambient)
-   */
-  public ExternalCheckService(
-      ExternalCheckConnector connector,
-      ConsentRegistry consents,
-      CheckKeyStore keys,
-      CheckAuditLog audit,
-      CheckMeter meter,
-      CheckSubjectPepper pepper,
-      Clock clock) {
-    this(
-        CheckRouter.fixed(Objects.requireNonNull(connector, "connector must not be null")),
-        consents,
-        keys,
-        audit,
-        meter,
-        pepper,
-        clock);
-  }
-
-  /**
    * A service whose provider is chosen per call from the admin rows.
    *
    * @param router the provider routing (rows by {@code handler_key})
@@ -179,12 +150,9 @@ public class ExternalCheckService implements ExternalCheckCapability {
     if (route.isEmpty()) {
       return refused(purpose, call, subjectRef, provider, CheckRefusal.NOT_CONFIGURED);
     }
-    if (!consents.isGranted(subjectId, purpose)) {
-      return refused(purpose, call, subjectRef, provider, CheckRefusal.NO_CONSENT);
-    }
-    Optional<CheckKey> key = resolveKey(call.userId(), provider);
-    if (key.isEmpty()) {
-      return refused(purpose, call, subjectRef, provider, CheckRefusal.NO_KEY);
+    Gate gate = admit(purpose, call, provider);
+    if (gate.refusal() != null) {
+      return refused(purpose, call, subjectRef, provider, gate.refusal());
     }
     CheckRouter.Route chosen = route.get();
     Instant start = clock.instant();
@@ -194,11 +162,11 @@ public class ExternalCheckService implements ExternalCheckCapability {
           answer(
               (connector, request) -> connector.poll(request, purpose, providerRef),
               chosen.connector(),
-              new CheckRequest(call.subject(), key.get(), chosen.row().endpoint()));
+              new CheckRequest(call.subject(), gate.key(), chosen.row().endpoint()));
     } catch (ProviderNotConfiguredException unconfigured) {
       return refused(purpose, call, subjectRef, provider, CheckRefusal.NOT_CONFIGURED);
     }
-    record(purpose, call, chosen, key.get(), result, subjectRef, start, false);
+    record(purpose, call, chosen, gate.key(), result, subjectRef, start, false);
     return result;
   }
 
@@ -216,12 +184,9 @@ public class ExternalCheckService implements ExternalCheckCapability {
     CheckRouter.Route chosen = route.get();
     String provider = chosen.row().provider();
 
-    if (!consents.isGranted(subjectId, purpose)) {
-      return refused(purpose, call, subjectRef, provider, CheckRefusal.NO_CONSENT);
-    }
-    Optional<CheckKey> key = resolveKey(call.userId(), provider);
-    if (key.isEmpty()) {
-      return refused(purpose, call, subjectRef, provider, CheckRefusal.NO_KEY);
+    Gate gate = admit(purpose, call, provider);
+    if (gate.refusal() != null) {
+      return refused(purpose, call, subjectRef, provider, gate.refusal());
     }
     CheckMeter.Hold hold;
     try {
@@ -237,12 +202,12 @@ public class ExternalCheckService implements ExternalCheckCapability {
           answer(
               operation,
               chosen.connector(),
-              new CheckRequest(call.subject(), key.get(), chosen.row().endpoint()));
+              new CheckRequest(call.subject(), gate.key(), chosen.row().endpoint()));
     } catch (ProviderNotConfiguredException unconfigured) {
       hold.release("the provider is not configured");
       return refused(purpose, call, subjectRef, provider, CheckRefusal.NOT_CONFIGURED);
     }
-    record(purpose, call, chosen, key.get(), result, subjectRef, start, true);
+    record(purpose, call, chosen, gate.key(), result, subjectRef, start, true);
     if (result.isCharged()) {
       hold.settle();
     } else {
@@ -320,6 +285,19 @@ public class ExternalCheckService implements ExternalCheckCapability {
             null,
             null));
     return CheckResult.refused(refusal);
+  }
+
+  /** What stands before the provider: the key to call with, or why the call is refused. */
+  private record Gate(CheckKey key, CheckRefusal refusal) {}
+
+  /** Consent for the purpose, then a key: the order of every call, a poll included. */
+  private Gate admit(CheckPurpose purpose, CheckCall call, String provider) {
+    if (!consents.isGranted(call.subject().subjectId(), purpose)) {
+      return new Gate(null, CheckRefusal.NO_CONSENT);
+    }
+    return resolveKey(call.userId(), provider)
+        .map(key -> new Gate(key, null))
+        .orElse(new Gate(null, CheckRefusal.NO_KEY));
   }
 
   /** The actor's own key when there is one, else the platform's; empty when neither. */

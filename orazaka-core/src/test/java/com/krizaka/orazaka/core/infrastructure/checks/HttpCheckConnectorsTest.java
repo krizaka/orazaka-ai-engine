@@ -3,15 +3,7 @@ package com.krizaka.orazaka.core.infrastructure.checks;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.krizaka.orazaka.core.domain.model.checks.CheckCategory;
-import com.krizaka.orazaka.core.domain.model.checks.CheckKey;
-import com.krizaka.orazaka.core.domain.model.checks.CheckOutcome;
-import com.krizaka.orazaka.core.domain.model.checks.CheckPurpose;
-import com.krizaka.orazaka.core.domain.model.checks.CheckRequest;
-import com.krizaka.orazaka.core.domain.model.checks.CheckResult;
-import com.krizaka.orazaka.core.domain.model.checks.CheckSubject;
-import com.krizaka.orazaka.core.domain.model.checks.KeySource;
-import com.krizaka.orazaka.core.domain.model.checks.ProviderNotConfiguredException;
+import com.krizaka.orazaka.core.domain.model.checks.*;
 import java.time.Duration;
 import java.time.LocalDate;
 import org.junit.jupiter.api.DisplayName;
@@ -21,7 +13,7 @@ class HttpCheckConnectorsTest {
 
   private static final String ENDPOINT = "https://provider.test/v1/";
   private final RecordedProviderHttp http = RecordedProviderHttp.recorded();
-  private final SoquijConnector soquij = new SoquijConnector(http, Duration.ofSeconds(1));
+  private final HttpCheckConnector soquij = HttpCheckConnector.soquij(http, Duration.ofSeconds(1));
 
   private static CheckRequest request(String lastName, String endpoint, String key) {
     return new CheckRequest(
@@ -92,8 +84,8 @@ class HttpCheckConnectorsTest {
   @Test
   @DisplayName("each adapter serves only its purposes: Trustii credit and ID, Certn court and ID")
   void purposes() {
-    TrustiiConnector trustii = new TrustiiConnector(http, Duration.ofSeconds(1));
-    CertnConnector certn = new CertnConnector(http, Duration.ofSeconds(1));
+    HttpCheckConnector trustii = HttpCheckConnector.trustii(http, Duration.ofSeconds(1));
+    HttpCheckConnector certn = HttpCheckConnector.certn(http, Duration.ofSeconds(1));
 
     assertThat(trustii.verifyCredit(request("Gagnon", ENDPOINT, "k")).outcome())
         .isEqualTo(CheckOutcome.NO_MATCH);

@@ -5,21 +5,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.krizaka.orazaka.core.domain.model.checks.*;
 import com.krizaka.orazaka.core.domain.ports.outbound.CheckKeyStore;
 import com.krizaka.orazaka.core.domain.ports.outbound.CheckMeter;
-import com.krizaka.orazaka.core.infrastructure.checks.CertnConnector;
+import com.krizaka.orazaka.core.infrastructure.checks.HttpCheckConnector;
 import com.krizaka.orazaka.core.infrastructure.checks.RecordedProviderHttp;
-import com.krizaka.orazaka.core.infrastructure.checks.SoquijConnector;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
-import java.util.ArrayList;
-import java.util.EnumSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -32,7 +25,7 @@ class ExternalCheckRoutingTest {
   private final List<String> meter = new ArrayList<>();
   private final RecordedProviderHttp soquijHttp = RecordedProviderHttp.recorded();
   private final RecordedProviderHttp certnHttp = RecordedProviderHttp.recorded();
-  private Map<String, String> platformKeys = Map.of("soquij", "ks", "certn", "kc");
+  private final Map<String, String> platformKeys = Map.of("soquij", "ks", "certn", "kc");
   private Map<String, String> userKeys = Map.of();
   private List<CheckProviderRow> rows =
       List.of(
@@ -60,8 +53,8 @@ class ExternalCheckRoutingTest {
         new CheckRouter(
             () -> rows,
             Map.of(
-                "soquij", new SoquijConnector(soquijHttp, Duration.ofSeconds(1)),
-                "certn", new CertnConnector(certnHttp, Duration.ofSeconds(1))));
+                "soquij", HttpCheckConnector.soquij(soquijHttp, Duration.ofSeconds(1)),
+                "certn", HttpCheckConnector.certn(certnHttp, Duration.ofSeconds(1))));
     CheckKeyStore keys =
         new CheckKeyStore() {
           @Override
@@ -185,7 +178,7 @@ class ExternalCheckRoutingTest {
     assertThat(slow.outcome()).isEqualTo(CheckOutcome.TIMEOUT);
     assertThat(broken.outcome()).isEqualTo(CheckOutcome.PROVIDER_ERROR);
     assertThat(meter).containsExactly("hold soquij", "release", "hold soquij", "release");
-    assertThat(audit).extracting(a -> a.providerRef()).containsOnlyNulls();
+    assertThat(audit).extracting(CheckAudit::providerRef).containsOnlyNulls();
     assertThat(audit.toString()).doesNotContain("Roy", "Marie", "1984");
   }
 

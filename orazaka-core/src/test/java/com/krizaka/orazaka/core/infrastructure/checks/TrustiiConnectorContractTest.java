@@ -15,12 +15,13 @@ class TrustiiConnectorContractTest extends ExternalCheckConnectorContract {
 
   @Override
   protected ExternalCheckConnector connector() {
-    return new TrustiiConnector(RecordedProviderHttp.recorded(), Duration.ofSeconds(1));
+    return HttpCheckConnector.trustii(RecordedProviderHttp.recorded(), Duration.ofSeconds(1));
   }
 
   @Override
   protected Set<CheckPurpose> purposes() {
-    return new TrustiiConnector(RecordedProviderHttp.recorded(), Duration.ofSeconds(1)).supports();
+    return HttpCheckConnector.trustii(RecordedProviderHttp.recorded(), Duration.ofSeconds(1))
+        .supports();
   }
 
   @Override

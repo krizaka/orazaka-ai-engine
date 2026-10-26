@@ -47,7 +47,7 @@ class PackageDeclarationTest {
   private static void collect(Path root, List<String> mismatches) throws IOException {
     try (Stream<Path> files = Files.walk(root)) {
       for (Path file : files.filter(p -> p.toString().endsWith(".java")).toList()) {
-        if (file.getFileName().toString().equals("module-info.java")) {
+        if ("module-info.java".equals(file.getFileName().toString())) {
           continue;
         }
         Matcher declared = PACKAGE.matcher(Files.readString(file));

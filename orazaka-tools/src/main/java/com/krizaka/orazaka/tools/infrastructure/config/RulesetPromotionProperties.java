@@ -29,27 +29,20 @@ public record RulesetPromotionProperties(
 
   /** Fills the defaults. */
   public RulesetPromotionProperties {
-    owner = owner == null || owner.isBlank() ? "krizaka" : owner;
-    repository = repository == null || repository.isBlank() ? "orazaka-packs" : repository;
-    baseBranch = baseBranch == null || baseBranch.isBlank() ? "main" : baseBranch;
-    apiUrl = apiUrl == null || apiUrl.isBlank() ? "https://api.github.com" : apiUrl;
+    owner = GitHubAppDefaults.owner(owner);
+    repository = GitHubAppDefaults.repository(repository);
+    baseBranch = GitHubAppDefaults.baseBranch(baseBranch);
+    apiUrl = GitHubAppDefaults.apiUrl(apiUrl);
   }
 
   @Override
   public String toString() {
     // The private key is never printed.
-    return "RulesetPromotionProperties[enabled="
-        + enabled
-        + ", appId="
-        + appId
-        + ", installationId="
-        + installationId
-        + ", repository="
-        + owner
-        + "/"
-        + repository
-        + "@"
-        + baseBranch
-        + "]";
+    return GitHubAppDefaults.describe(
+        "RulesetPromotionProperties",
+        enabled,
+        appId,
+        installationId,
+        owner + "/" + repository + "@" + baseBranch);
   }
 }

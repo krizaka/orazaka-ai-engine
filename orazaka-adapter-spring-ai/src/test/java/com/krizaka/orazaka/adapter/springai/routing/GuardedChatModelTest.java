@@ -1,10 +1,11 @@
-package com.krizaka.orazaka.core.infrastructure.spend;
+package com.krizaka.orazaka.adapter.springai.routing;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.krizaka.orazaka.core.domain.model.ModelEndpoint;
-import java.time.Clock;
+import com.krizaka.orazaka.core.infrastructure.spend.SpendBudgetExceededException;
+import com.krizaka.orazaka.core.infrastructure.spend.SpendGuard;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.messages.AssistantMessage;
@@ -32,7 +33,7 @@ class GuardedChatModelTest {
         }
       };
 
-  private final SpendGuard tripped = new SpendGuard(0.0, 0.01, 0.0002, 0.60, Clock.systemUTC());
+  private final SpendGuard tripped = new SpendGuard(0.0, 0.01, 0.0002, 0.60);
 
   @Test
   void aTrippedBudgetRefusesAPaidCallBeforeTheProviderIsReached() {

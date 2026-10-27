@@ -1,11 +1,11 @@
-package com.krizaka.orazaka.core.infrastructure.provider.model;
+package com.krizaka.orazaka.adapter.springai.routing;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 import com.krizaka.orazaka.core.domain.model.StepModelUnavailableException;
-import com.krizaka.orazaka.core.infrastructure.provider.DynamicModelRouter;
+import com.krizaka.orazaka.core.infrastructure.provider.model.ModelUnavailableException;
 import com.openai.core.http.Headers;
 import com.openai.errors.InternalServerException;
 import java.util.List;

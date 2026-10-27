@@ -1,7 +1,7 @@
 {
   "rules": {
     "spring-ai-outside-adapter": {
-      "count": 26,
+      "count": 21,
       "classes": [
         "com.krizaka.orazaka.core.application.engine.AbstractEngine",
         "com.krizaka.orazaka.core.application.engine.Engine",
@@ -22,13 +22,8 @@
         "com.krizaka.orazaka.core.infrastructure.config.SafeImageModel",
         "com.krizaka.orazaka.core.infrastructure.provider.AnthropicDynamicProvider",
         "com.krizaka.orazaka.core.infrastructure.provider.DynamicChatModelProvider",
-        "com.krizaka.orazaka.core.infrastructure.provider.DynamicModelRouter",
         "com.krizaka.orazaka.core.infrastructure.provider.GeminiDynamicProvider",
-        "com.krizaka.orazaka.core.infrastructure.provider.OpenAiDynamicProvider",
-        "com.krizaka.orazaka.core.infrastructure.provider.UniversalProxyChatProvider",
-        "com.krizaka.orazaka.core.infrastructure.provider.model.RoutedChatModel",
-        "com.krizaka.orazaka.core.infrastructure.provider.model.RoutedTextToSpeechModel",
-        "com.krizaka.orazaka.core.infrastructure.spend.GuardedChatModel"
+        "com.krizaka.orazaka.core.infrastructure.provider.OpenAiDynamicProvider"
       ]
     },
     "spring-in-business": {
@@ -39,7 +34,7 @@
       ]
     },
     "spring-in-core": {
-      "count": 54,
+      "count": 49,
       "classes": [
         "com.krizaka.orazaka.core.application.engine.AbstractEngine",
         "com.krizaka.orazaka.core.application.engine.Engine",
@@ -85,14 +80,9 @@
         "com.krizaka.orazaka.core.infrastructure.host.InfrastructureProber",
         "com.krizaka.orazaka.core.infrastructure.provider.AnthropicDynamicProvider",
         "com.krizaka.orazaka.core.infrastructure.provider.DynamicChatModelProvider",
-        "com.krizaka.orazaka.core.infrastructure.provider.DynamicModelRouter",
         "com.krizaka.orazaka.core.infrastructure.provider.GeminiDynamicProvider",
         "com.krizaka.orazaka.core.infrastructure.provider.OpenAiDynamicProvider",
-        "com.krizaka.orazaka.core.infrastructure.provider.UniversalProxyChatProvider",
         "com.krizaka.orazaka.core.infrastructure.provider.model.CatalogModelEndpointResolver",
-        "com.krizaka.orazaka.core.infrastructure.provider.model.RoutedChatModel",
-        "com.krizaka.orazaka.core.infrastructure.provider.model.RoutedTextToSpeechModel",
-        "com.krizaka.orazaka.core.infrastructure.spend.GuardedChatModel",
         "com.krizaka.orazaka.core.infrastructure.spend.SpendBudgetExceededException",
         "com.krizaka.orazaka.core.infrastructure.spend.SpendGuard"
       ]

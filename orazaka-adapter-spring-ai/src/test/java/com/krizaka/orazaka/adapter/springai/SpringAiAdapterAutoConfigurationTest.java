@@ -5,6 +5,10 @@ import static org.mockito.Mockito.mock;
 
 import com.krizaka.orazaka.adapter.springai.client.ChatGeneratorClientImpl;
 import com.krizaka.orazaka.adapter.springai.client.EmbeddingClientImpl;
+import com.krizaka.orazaka.adapter.springai.routing.DynamicModelRouter;
+import com.krizaka.orazaka.adapter.springai.routing.RoutedChatModel;
+import com.krizaka.orazaka.adapter.springai.routing.RoutedTextToSpeechModel;
+import com.krizaka.orazaka.adapter.springai.routing.UniversalProxyChatProvider;
 import com.krizaka.orazaka.core.application.engine.Engine;
 import com.krizaka.orazaka.core.application.pipeline.PipelineOptionsRegistry;
 import com.krizaka.orazaka.core.domain.ports.outbound.ChatGeneratorClient;
@@ -12,10 +16,15 @@ import com.krizaka.orazaka.core.domain.ports.outbound.EmbeddingClient;
 import com.krizaka.orazaka.core.domain.ports.outbound.ModelEndpointResolver;
 import com.krizaka.orazaka.core.infrastructure.spend.SpendGuard;
 import org.junit.jupiter.api.Test;
+import org.springframework.ai.audio.tts.TextToSpeechModel;
+import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
-/** The inference clients that left the core are wired here, unless the host brings its own. */
+/**
+ * What the adapter wires: the inference clients and the routing cluster, unless the host brings its
+ * own.
+ */
 class SpringAiAdapterAutoConfigurationTest {
 
   private final ApplicationContextRunner runner =
@@ -47,5 +56,25 @@ class SpringAiAdapterAutoConfigurationTest {
     runner
         .withBean(ChatGeneratorClient.class, () -> own)
         .run(context -> assertThat(context).getBean(ChatGeneratorClient.class).isSameAs(own));
+  }
+
+  @Test
+  void theRoutingClusterIsRegisteredAsThePrimaryModels() {
+    runner.run(
+        context -> {
+          assertThat(context).hasSingleBean(UniversalProxyChatProvider.class);
+          assertThat(context).hasSingleBean(DynamicModelRouter.class);
+          assertThat(context.getBean(ChatModel.class)).isInstanceOf(RoutedChatModel.class);
+          assertThat(context.getBean(TextToSpeechModel.class))
+              .isInstanceOf(RoutedTextToSpeechModel.class);
+        });
+  }
+
+  @Test
+  void theRoutingClusterBacksOffForTheRouterTheHostBrings() {
+    var own = mock(DynamicModelRouter.class);
+    runner
+        .withBean(DynamicModelRouter.class, () -> own)
+        .run(context -> assertThat(context.getBean(DynamicModelRouter.class)).isSameAs(own));
   }
 }

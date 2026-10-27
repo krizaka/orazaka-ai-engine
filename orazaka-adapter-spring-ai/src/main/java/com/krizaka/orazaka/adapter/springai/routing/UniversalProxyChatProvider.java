@@ -1,9 +1,8 @@
-package com.krizaka.orazaka.core.infrastructure.provider;
+package com.krizaka.orazaka.adapter.springai.routing;
 
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
-import org.springframework.stereotype.Component;
 
 /**
  * Universal Proxy Client (ADR-030).
@@ -22,7 +21,6 @@ import org.springframework.stereotype.Component;
  *
  * @see DynamicModelRouter
  */
-@Component
 public class UniversalProxyChatProvider {
 
   /**

@@ -3,6 +3,10 @@ package com.krizaka.orazaka.adapter.springai;
 import com.krizaka.orazaka.adapter.springai.chat.SpringAiProviderChatClient;
 import com.krizaka.orazaka.adapter.springai.client.ChatGeneratorClientImpl;
 import com.krizaka.orazaka.adapter.springai.client.EmbeddingClientImpl;
+import com.krizaka.orazaka.adapter.springai.routing.DynamicModelRouter;
+import com.krizaka.orazaka.adapter.springai.routing.RoutedChatModel;
+import com.krizaka.orazaka.adapter.springai.routing.RoutedTextToSpeechModel;
+import com.krizaka.orazaka.adapter.springai.routing.UniversalProxyChatProvider;
 import com.krizaka.orazaka.adapter.springai.structured.SpringAiStructuredOutputClient;
 import com.krizaka.orazaka.adapter.springai.tool.SpringAiToolOptions;
 import com.krizaka.orazaka.adapter.springai.tool.SpringAiToolRegistry;
@@ -18,6 +22,7 @@ import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnSingleCandidate;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
 
 /**
  * Spring wiring of the Spring AI adapter (ADR-092 §4): the engine's ports on Spring AI, registered
@@ -95,6 +100,59 @@ public class SpringAiAdapterAutoConfiguration {
   public SpringAiProviderChatClient providerChatClient(
       ObjectProvider<Map<String, ChatModel>> chatModels, PipelineOptionsRegistry optionsRegistry) {
     return new SpringAiProviderChatClient(chatModels.getIfAvailable(Map::of), optionsRegistry);
+  }
+
+  /**
+   * Builds the OpenAI-compatible client of any endpoint (ADR-030).
+   *
+   * @return the provider
+   */
+  @Bean
+  @ConditionalOnMissingBean
+  public UniversalProxyChatProvider universalProxyChatProvider() {
+    return new UniversalProxyChatProvider();
+  }
+
+  /**
+   * Resolves a {@link ChatModel} on demand from the catalogue (ADR-030), guarded by the spend
+   * ceiling.
+   *
+   * @param resolver where a model name becomes an endpoint
+   * @param proxy builds the client of an endpoint
+   * @param spendGuard the daily budget
+   * @return the router
+   */
+  @Bean
+  @ConditionalOnMissingBean
+  public DynamicModelRouter dynamicModelRouter(
+      ModelEndpointResolver resolver, UniversalProxyChatProvider proxy, SpendGuard spendGuard) {
+    return new DynamicModelRouter(resolver, proxy, spendGuard);
+  }
+
+  /**
+   * The primary chat model: every call goes to the provider the catalogue binds its model to.
+   *
+   * @param router the router
+   * @return the model
+   */
+  @Bean
+  @Primary
+  @ConditionalOnMissingBean
+  public RoutedChatModel routedChatModel(DynamicModelRouter router) {
+    return new RoutedChatModel(router);
+  }
+
+  /**
+   * The primary text-to-speech model, routed by the catalogue like the chat model.
+   *
+   * @param resolver where a model name becomes an endpoint
+   * @return the model
+   */
+  @Bean
+  @Primary
+  @ConditionalOnMissingBean
+  public RoutedTextToSpeechModel routedTextToSpeechModel(ModelEndpointResolver resolver) {
+    return new RoutedTextToSpeechModel(resolver);
   }
 
   /**

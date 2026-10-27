@@ -2,7 +2,6 @@ package com.krizaka.orazaka.core.infrastructure.provider.model;
 
 import com.krizaka.orazaka.core.domain.model.ModelEndpoint;
 import com.krizaka.orazaka.core.domain.ports.outbound.ModelEndpointResolver;
-import com.krizaka.orazaka.core.infrastructure.provider.DynamicModelRouter;
 import com.krizaka.orazaka.persistence.domain.model.CatalogModelDto;
 import com.krizaka.orazaka.persistence.domain.ports.inbound.CatalogModelManager;
 import java.util.Objects;
@@ -14,10 +13,11 @@ import org.springframework.stereotype.Component;
  *
  * <p>Reads {@code orazaka_models} (model → {@code provider_name}, {@code is_default} per category)
  * and {@code ai_providers} (provider → base-url) through the {@link CatalogModelManager} inbound
- * port, so {@code orazaka-core}'s {@link DynamicModelRouter} stays free of any persistence import.
- * The endpoint carries the provider's own key ({@code ai_providers.api_key}): none for a local
- * provider (Ollama/LocalAI), the deployment's key for a hosted OpenAI-compatible one (serverless
- * inference). Commercial per-user keys still flow through the engine's {@code ModelFactory} path.
+ * port, so {@code orazaka-core}'s {@code DynamicModelRouter} (in the Spring AI adapter) stays free
+ * of any persistence import. The endpoint carries the provider's own key ({@code
+ * ai_providers.api_key}): none for a local provider (Ollama/LocalAI), the deployment's key for a
+ * hosted OpenAI-compatible one (serverless inference). Commercial per-user keys still flow through
+ * the engine's {@code ModelFactory} path.
  */
 @Component
 class CatalogModelEndpointResolver implements ModelEndpointResolver {

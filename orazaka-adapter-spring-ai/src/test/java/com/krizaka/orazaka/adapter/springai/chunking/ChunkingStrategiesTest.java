@@ -1,4 +1,4 @@
-package com.krizaka.orazaka.core.application.processing;
+package com.krizaka.orazaka.adapter.springai.chunking;
 
 import static com.krizaka.orazaka.test.TestConstants.*;
 import static org.junit.jupiter.api.Assertions.*;

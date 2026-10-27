@@ -1,4 +1,4 @@
-package com.krizaka.orazaka.core.infrastructure.adapter.ai;
+package com.krizaka.orazaka.adapter.springai.client;
 
 import com.krizaka.orazaka.core.domain.model.MediaCategory;
 import com.krizaka.orazaka.core.domain.model.ModelEndpoint;
@@ -15,9 +15,7 @@ import java.util.Map;
 import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
-import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
 /**
@@ -26,8 +24,7 @@ import org.springframework.web.client.RestClient;
  * orazaka_models} (category {@code embedding}) and {@code ai_providers}, resolved through {@link
  * ModelEndpointResolver} (ADR-030) — nothing here names a provider.
  */
-@Component
-class EmbeddingClientImpl implements EmbeddingClient {
+public class EmbeddingClientImpl implements EmbeddingClient {
 
   private static final Logger logger = LoggerFactory.getLogger(EmbeddingClientImpl.class);
   private static final int MAX_BATCH = 128;
@@ -38,8 +35,7 @@ class EmbeddingClientImpl implements EmbeddingClient {
 
   private final SpendGuard spendGuard;
 
-  @Autowired
-  EmbeddingClientImpl(ModelEndpointResolver endpoints, SpendGuard spendGuard) {
+  public EmbeddingClientImpl(ModelEndpointResolver endpoints, SpendGuard spendGuard) {
     this(
         endpoints,
         RestClient.builder()

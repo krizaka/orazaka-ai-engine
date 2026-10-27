@@ -52,11 +52,16 @@ class ClosedLoopFailClosedGuardTest {
 
   private Flux<InternalChatResponse> streamOf(
       PromptContextInterceptor interceptor, String... chunks) {
+    return streamOf(interceptor, CONTEXT, chunks);
+  }
+
+  Flux<InternalChatResponse> streamOf(
+      PromptContextInterceptor interceptor, PromptContext turn, String... chunks) {
     var request = InternalChatRequest.simple("Give me JSON");
     var prompt = new Prompt("Give me JSON");
     var context =
         new EnginePipelineContext(
-            "ollama", "run-1", "Give me JSON", prompt, List.of(), null, null, CONTEXT);
+            "ollama", "run-1", "Give me JSON", prompt, List.of(), null, null, turn);
     var interceptors = List.of(interceptor);
     when(pipelineBridge.compileContext(request, pipeline, "ollama", interceptors))
         .thenReturn(context);

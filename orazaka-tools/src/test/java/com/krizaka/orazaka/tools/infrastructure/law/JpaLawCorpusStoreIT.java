@@ -4,12 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.krizaka.orazaka.test.AbstractContainerIntegrationTest;
-import com.krizaka.orazaka.tools.domain.model.law.LawArticle;
-import com.krizaka.orazaka.tools.domain.model.law.LawArticleVersion;
-import com.krizaka.orazaka.tools.domain.model.law.LawImportMode;
-import com.krizaka.orazaka.tools.domain.model.law.LawImportResult;
-import com.krizaka.orazaka.tools.domain.model.law.LawImportStart;
-import com.krizaka.orazaka.tools.domain.model.law.LawImportStatus;
+import com.krizaka.orazaka.tools.domain.model.law.*;
 import com.krizaka.orazaka.tools.infrastructure.adapter.persistence.entity.LawArticleVersionEntity;
 import com.krizaka.orazaka.tools.infrastructure.adapter.persistence.entity.LawImportEntity;
 import com.krizaka.orazaka.tools.infrastructure.adapter.persistence.repository.LawArticleVersionRepository;

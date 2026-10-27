@@ -5,12 +5,7 @@ import com.krizaka.orazaka.tools.domain.model.law.GoldenCase;
 import com.krizaka.orazaka.tools.domain.model.law.LawTargetRef;
 import com.krizaka.orazaka.tools.domain.model.law.PackKind;
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.OptionalInt;
+import java.util.*;
 import org.springframework.web.client.RestClient;
 import tools.jackson.databind.JsonNode;
 

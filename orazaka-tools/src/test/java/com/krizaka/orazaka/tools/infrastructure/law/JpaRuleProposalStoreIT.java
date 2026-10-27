@@ -3,13 +3,8 @@ package com.krizaka.orazaka.tools.infrastructure.law;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.krizaka.orazaka.test.AbstractContainerIntegrationTest;
-import com.krizaka.orazaka.tools.domain.model.law.DerivationFixtures;
+import com.krizaka.orazaka.tools.domain.model.law.*;
 import com.krizaka.orazaka.tools.domain.model.law.DerivationFixtures.Planted;
-import com.krizaka.orazaka.tools.domain.model.law.ProposalStatus;
-import com.krizaka.orazaka.tools.domain.model.law.RuleProposal;
-import com.krizaka.orazaka.tools.domain.model.law.RuleProposalVet;
-import com.krizaka.orazaka.tools.domain.model.law.VetReason;
-import com.krizaka.orazaka.tools.domain.model.law.VettedProposal;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;

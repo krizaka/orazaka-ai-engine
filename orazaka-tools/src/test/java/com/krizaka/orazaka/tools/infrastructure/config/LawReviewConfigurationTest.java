@@ -5,12 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 
 import com.krizaka.orazaka.persistence.domain.ports.inbound.RuntimeConfigProvider;
-import com.krizaka.orazaka.tools.application.port.law.KindDemandStore;
-import com.krizaka.orazaka.tools.application.port.law.LawCorpusCatalogue;
-import com.krizaka.orazaka.tools.application.port.law.LawCorpusStore;
-import com.krizaka.orazaka.tools.application.port.law.RuleProposalStore;
-import com.krizaka.orazaka.tools.application.port.law.RulesetPack;
-import com.krizaka.orazaka.tools.application.port.law.RulesetPromotionPublisher;
+import com.krizaka.orazaka.tools.application.port.law.*;
 import com.krizaka.orazaka.tools.application.service.KindDemandService;
 import com.krizaka.orazaka.tools.application.service.LawCorpusCatalogueService;
 import com.krizaka.orazaka.tools.application.service.RuleProposalReviewService;

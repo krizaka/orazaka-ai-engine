@@ -68,6 +68,24 @@ class SpringAiAdapterAutoConfigurationTest {
   }
 
   @Test
+  void theToolResolutionIsRegisteredAndAHostOneWins() {
+    runner.run(
+        context ->
+            assertThat(context)
+                .getBean(com.krizaka.orazaka.core.domain.ports.outbound.ToolResolution.class)
+                .isInstanceOf(
+                    com.krizaka.orazaka.adapter.springai.tool.SpringAiToolResolution.class));
+    var own = mock(com.krizaka.orazaka.core.domain.ports.outbound.ToolResolution.class);
+    runner
+        .withBean(com.krizaka.orazaka.core.domain.ports.outbound.ToolResolution.class, () -> own)
+        .run(
+            context ->
+                assertThat(context)
+                    .getBean(com.krizaka.orazaka.core.domain.ports.outbound.ToolResolution.class)
+                    .isSameAs(own));
+  }
+
+  @Test
   void aHostPortWins() {
     ChatGeneratorClient own = mock(ChatGeneratorClient.class);
     runner

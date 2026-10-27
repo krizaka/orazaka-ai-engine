@@ -2,6 +2,7 @@ package com.krizaka.orazaka.interceptor.validation;
 
 import com.krizaka.orazaka.core.application.interceptor.PromptContextInterceptor;
 import com.krizaka.orazaka.core.application.pipeline.PipelineShortCircuitException;
+import com.krizaka.orazaka.core.application.pipeline.ScreenedResponse;
 import com.krizaka.orazaka.core.domain.model.PromptContext;
 import com.krizaka.orazaka.jobs.domain.model.JobCommand;
 import java.text.Normalizer;
@@ -104,6 +105,22 @@ public class SafetyInterceptor implements PromptContextInterceptor {
           null);
     }
     return responseText;
+  }
+
+  /**
+   * The same guard on a streamed answer, deterministic and cheap: read on everything streamed so
+   * far, before the chunk leaves, so a crisis term split across two chunks is still caught and the
+   * stream stops (orazaka-ai-engine#127).
+   */
+  @Override
+  public void screenChunk(PromptContext context, String textSoFar) {
+    screenResponse(context, textSoFar);
+  }
+
+  /** The assembled streamed answer, once more before the final event. */
+  @Override
+  public ScreenedResponse screenStreamed(PromptContext context, String assembled) {
+    return ScreenedResponse.plain(screenResponse(context, assembled));
   }
 
   /**

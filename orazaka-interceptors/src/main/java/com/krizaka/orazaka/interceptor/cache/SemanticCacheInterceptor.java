@@ -3,6 +3,7 @@ package com.krizaka.orazaka.interceptor.cache;
 import com.krizaka.orazaka.core.application.interceptor.PromptContextInterceptor;
 import com.krizaka.orazaka.core.domain.model.CachedResponse;
 import com.krizaka.orazaka.core.domain.model.PromptContext;
+import com.krizaka.orazaka.core.domain.model.security.Actor;
 import com.krizaka.orazaka.jobs.domain.model.JobCommand;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -178,12 +179,18 @@ public final class SemanticCacheInterceptor implements PromptContextInterceptor 
         break;
       }
     }
-    if (tenant == null) {
+    // An answer was written from what its actor could read, so it is served to that actor only: the
+    // actor's scope (tenant, user, roles, groups) is part of the partition. No verified actor, no
+    // cache — and a removed role is a new scope, never a stale hit (ADR-091).
+    Actor actor = Actor.from(meta).orElse(null);
+    if (tenant == null || actor == null) {
       return null;
     }
     String scope =
         sha256(
-            String.valueOf(meta.get(JobCommand.SCOPE_REFUSED_TERMS_KEY))
+            actor.scope()
+                + "\u0000"
+                + String.valueOf(meta.get(JobCommand.SCOPE_REFUSED_TERMS_KEY))
                 + "\u0000"
                 + meta.get(JobCommand.SCOPE_REFUSAL_KEY)
                 + "\u0000"

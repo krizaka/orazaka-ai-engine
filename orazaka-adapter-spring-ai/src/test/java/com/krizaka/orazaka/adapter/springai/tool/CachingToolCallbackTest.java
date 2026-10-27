@@ -29,13 +29,13 @@ class CachingToolCallbackTest {
 
   @Test
   void getToolDefinition_delegatesToWrapped() {
-    var callback = new CachingToolCallback(delegate, cacheService, true, 300);
+    var callback = new CachingToolCallback(delegate, cacheService, true, 300, "scope-a");
     assertSame(toolDefinition, callback.getToolDefinition());
   }
 
   @Test
   void call_cacheDisabled_delegatesDirectly() {
-    var callback = new CachingToolCallback(delegate, cacheService, false, 300);
+    var callback = new CachingToolCallback(delegate, cacheService, false, 300, "scope-a");
     when(delegate.call("{\"key\":\"value\"}")).thenReturn("result");
 
     String result = callback.call("{\"key\":\"value\"}");
@@ -47,8 +47,8 @@ class CachingToolCallbackTest {
 
   @Test
   void call_cacheEnabled_hitReturnsFromCache() {
-    var callback = new CachingToolCallback(delegate, cacheService, true, 300);
-    when(cacheService.get("testTool", "{\"key\":\"value\"}")).thenReturn("cached-result");
+    var callback = new CachingToolCallback(delegate, cacheService, true, 300, "scope-a");
+    when(cacheService.get("testTool", "scope-a\n{\"key\":\"value\"}")).thenReturn("cached-result");
 
     String result = callback.call("{\"key\":\"value\"}");
 
@@ -58,13 +58,23 @@ class CachingToolCallbackTest {
 
   @Test
   void call_cacheEnabled_missExecutesAndCaches() {
-    var callback = new CachingToolCallback(delegate, cacheService, true, 300);
-    when(cacheService.get("testTool", "{\"key\":\"value\"}")).thenReturn(null);
+    var callback = new CachingToolCallback(delegate, cacheService, true, 300, "scope-a");
+    when(cacheService.get("testTool", "scope-a\n{\"key\":\"value\"}")).thenReturn(null);
     when(delegate.call("{\"key\":\"value\"}")).thenReturn("fresh-result");
 
     String result = callback.call("{\"key\":\"value\"}");
 
     assertEquals("fresh-result", result);
-    verify(cacheService).put("testTool", "{\"key\":\"value\"}", "fresh-result", 300);
+    verify(cacheService).put("testTool", "scope-a\n{\"key\":\"value\"}", "fresh-result", 300);
+  }
+
+  @Test
+  void call_anotherScopeNeverReadsTheEntryOfThisOne() {
+    var other = new CachingToolCallback(delegate, cacheService, true, 300, "scope-b");
+    when(cacheService.get("testTool", "scope-b\n{\"key\":\"value\"}")).thenReturn(null);
+    when(delegate.call("{\"key\":\"value\"}")).thenReturn("fresh-for-b");
+
+    assertEquals("fresh-for-b", other.call("{\"key\":\"value\"}"));
+    verify(cacheService, never()).get("testTool", "scope-a\n{\"key\":\"value\"}");
   }
 }

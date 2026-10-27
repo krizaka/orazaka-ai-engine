@@ -3,17 +3,26 @@ package com.krizaka.orazaka.interceptor.enrichment;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 
+import com.krizaka.orazaka.core.domain.model.Authority;
+import com.krizaka.orazaka.core.domain.model.Context;
 import com.krizaka.orazaka.core.domain.model.chat.EngineChatOptions;
 import com.krizaka.orazaka.core.domain.model.chat.EngineMessage;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
+import com.krizaka.orazaka.core.domain.model.security.Actor;
 import com.krizaka.orazaka.core.domain.ports.outbound.KnowledgeService;
 import com.krizaka.orazaka.core.infrastructure.config.CoreProperties;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 class RagInterceptorTest {
+
+  private static final Context EMPLOYEE_CONTEXT =
+      new Context("emp-1", "c-1", Map.of(), Set.of(new Authority("ROLE_USER")));
+  private static final Actor EMPLOYEE = Actor.from(EMPLOYEE_CONTEXT).orElseThrow();
 
   @Test
   @DisplayName("preProcess injects RAG context if enabled and context is not empty")
@@ -25,10 +34,12 @@ class RagInterceptorTest {
     when(ragConfig.topK()).thenReturn(5);
 
     KnowledgeService knowledgeService = mock(KnowledgeService.class);
-    when(knowledgeService.retrieveContext("test query", 5)).thenReturn("Relevant knowledge chunks");
+    when(knowledgeService.retrieveContext(EMPLOYEE, "test query", 5))
+        .thenReturn("Relevant knowledge chunks");
 
     RagInterceptor interceptor = new RagInterceptor(props, knowledgeService);
     InternalChatRequest request = mock(InternalChatRequest.class);
+    when(request.context()).thenReturn(EMPLOYEE_CONTEXT);
     List<EngineMessage> messages = new ArrayList<>();
     EngineChatOptions options = new EngineChatOptions(null, null, null);
 
@@ -64,6 +75,30 @@ class RagInterceptorTest {
     interceptor.preProcess(request, "test query", messages, options);
 
     assertThat(messages).isEmpty();
+    verifyNoInteractions(knowledgeService);
+  }
+
+  @Test
+  @DisplayName("a turn with no verified actor retrieves nothing — never everything (ADR-091)")
+  void preProcessWithoutAnActorRetrievesNothing() {
+    CoreProperties props = mock(CoreProperties.class);
+    CoreProperties.RagConfig ragConfig = mock(CoreProperties.RagConfig.class);
+    when(props.rag()).thenReturn(ragConfig);
+    when(ragConfig.enabled()).thenReturn(true);
+
+    KnowledgeService knowledgeService = mock(KnowledgeService.class);
+    RagInterceptor interceptor = new RagInterceptor(props, knowledgeService);
+
+    for (Context anonymous : java.util.Arrays.asList(Context.anonymous(), null)) {
+      InternalChatRequest request = mock(InternalChatRequest.class);
+      when(request.context()).thenReturn(anonymous);
+      List<EngineMessage> messages = new ArrayList<>();
+
+      interceptor.preProcess(
+          request, "le salaire du CEO", messages, new EngineChatOptions(null, null, null));
+
+      assertThat(messages).isEmpty();
+    }
     verifyNoInteractions(knowledgeService);
   }
 }

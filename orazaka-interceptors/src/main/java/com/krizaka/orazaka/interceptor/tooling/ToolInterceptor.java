@@ -5,6 +5,7 @@ import com.krizaka.orazaka.core.domain.model.chat.EngineChatOptions;
 import com.krizaka.orazaka.core.domain.model.chat.EngineMessage;
 import com.krizaka.orazaka.core.domain.model.chat.EngineTool;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
+import com.krizaka.orazaka.core.domain.model.security.Actor;
 import com.krizaka.orazaka.core.domain.ports.outbound.ToolOptions;
 import com.krizaka.orazaka.core.domain.ports.outbound.ToolRegistry;
 import java.util.ArrayList;
@@ -45,11 +46,17 @@ class ToolInterceptor implements PromptContextInterceptor {
         return options;
       }
     }
-    if (toolRegistry == null || toolRegistry.getRegisteredTools().isEmpty()) {
+    if (toolRegistry == null) {
+      return options;
+    }
+    // The tools of this turn are the ones its actor may use; no actor, no tools (ADR-091).
+    Actor actor = Actor.from(request.context()).orElse(null);
+    List<EngineTool> permitted = toolRegistry.getRegisteredTools(actor);
+    if (permitted.isEmpty()) {
       return options;
     }
 
-    List<EngineTool> demandedTools = collectDemandedTools(request, promptText);
+    List<EngineTool> demandedTools = collectDemandedTools(permitted, request, promptText);
     if (demandedTools.isEmpty()) {
       return options;
     }
@@ -57,11 +64,12 @@ class ToolInterceptor implements PromptContextInterceptor {
     return toolOptions.withTools(options, demandedTools);
   }
 
-  private List<EngineTool> collectDemandedTools(InternalChatRequest request, String promptText) {
+  private List<EngineTool> collectDemandedTools(
+      List<EngineTool> permitted, InternalChatRequest request, String promptText) {
     String lowerContext = extractFullText(request, promptText).toLowerCase();
     List<EngineTool> demanded = new ArrayList<>();
 
-    for (EngineTool tool : toolRegistry.getRegisteredTools()) {
+    for (EngineTool tool : permitted) {
       String name = tool.name();
       boolean isSpecialized = isSpecializedTool(name);
       if (!isSpecialized || matchesDemand(name, lowerContext)) {

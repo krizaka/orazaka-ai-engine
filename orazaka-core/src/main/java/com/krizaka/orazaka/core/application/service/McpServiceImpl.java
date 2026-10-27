@@ -2,40 +2,53 @@ package com.krizaka.orazaka.core.application.service;
 
 import com.krizaka.orazaka.core.domain.model.chat.EngineTool;
 import com.krizaka.orazaka.core.domain.model.mcp.McpToolInfo;
+import com.krizaka.orazaka.core.domain.model.security.AccessDeniedException;
+import com.krizaka.orazaka.core.domain.model.security.Actor;
 import com.krizaka.orazaka.core.domain.ports.inbound.McpService;
+import com.krizaka.orazaka.core.domain.ports.outbound.AccessAudit;
 import com.krizaka.orazaka.core.domain.ports.outbound.ToolRegistry;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import org.springframework.stereotype.Service;
 
 /**
  * Concrete, package-private implementation of {@link McpService}. Reads the tools through the
  * {@link ToolRegistry} port.
+ *
+ * <p>The permission check is the registry's ({@link ToolRegistry#authorize}); this service is the
+ * one place that turns a refusal into an audit line, then lets it propagate. A tool is never run
+ * without having been authorized for the actor first.
  */
 @Service
 class McpServiceImpl implements McpService {
 
-  private final ToolRegistry toolRegistry;
+  private static final String EXECUTE = "tool.execute";
 
-  public McpServiceImpl(ToolRegistry toolRegistry) {
+  private final ToolRegistry toolRegistry;
+  private final AccessAudit audit;
+
+  public McpServiceImpl(ToolRegistry toolRegistry, AccessAudit audit) {
     this.toolRegistry = Objects.requireNonNull(toolRegistry, "ToolRegistry must not be null");
+    this.audit = Objects.requireNonNull(audit, "AccessAudit must not be null");
   }
 
   @Override
-  public List<McpToolInfo> getAvailableTools() {
-    return toolRegistry.getRegisteredTools().stream()
+  public List<McpToolInfo> getAvailableTools(Actor actor) {
+    return toolRegistry.getRegisteredTools(actor).stream()
         .map(tool -> new McpToolInfo(tool.name(), tool.description(), tool.inputSchema()))
         .toList();
   }
 
   @Override
-  public String executeTool(String name, String argumentsJson) {
-    EngineTool tool =
-        toolRegistry.getRegisteredTools().stream()
-            .filter(t -> t.name().equals(name))
-            .findFirst()
-            .orElseThrow(() -> new IllegalArgumentException("Tool not found: " + name));
-
+  public String executeTool(Actor actor, String name, String argumentsJson) {
+    EngineTool tool;
+    try {
+      tool = toolRegistry.authorize(actor, name);
+    } catch (AccessDeniedException refused) {
+      audit.denied(Optional.ofNullable(actor), EXECUTE, name, refused.reason());
+      throw refused;
+    }
     return tool.call(argumentsJson);
   }
 }

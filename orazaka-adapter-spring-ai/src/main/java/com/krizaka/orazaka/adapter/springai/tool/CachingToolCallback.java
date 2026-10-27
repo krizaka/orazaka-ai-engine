@@ -20,6 +20,7 @@ public class CachingToolCallback implements ToolCallback {
   private final ToolResultCache cacheService;
   private final boolean cacheEnabled;
   private final long ttlSeconds;
+  private final String scope;
 
   /**
    * Creates a new CachingToolCallback.
@@ -28,13 +29,20 @@ public class CachingToolCallback implements ToolCallback {
    * @param cacheService The cache service to store/retrieve results.
    * @param cacheEnabled Whether caching is enabled for this tool.
    * @param ttlSeconds The TTL in seconds for cache entries.
+   * @param scope What the actor may see ({@code Actor#scope()}): part of every cache key, so a
+   *     result is only ever served to the actor it was computed for (ADR-091).
    */
   public CachingToolCallback(
-      ToolCallback delegate, ToolResultCache cacheService, boolean cacheEnabled, long ttlSeconds) {
+      ToolCallback delegate,
+      ToolResultCache cacheService,
+      boolean cacheEnabled,
+      long ttlSeconds,
+      String scope) {
     this.delegate = delegate;
     this.cacheService = cacheService;
     this.cacheEnabled = cacheEnabled;
     this.ttlSeconds = ttlSeconds;
+    this.scope = java.util.Objects.requireNonNull(scope, "scope");
   }
 
   /**
@@ -69,8 +77,10 @@ public class CachingToolCallback implements ToolCallback {
       return delegate.call(input);
     }
 
-    log.debug("Intercepting call to tool '{}' with input: {}", getName(), input);
-    String cached = cacheService.get(getName(), input);
+    // The tool's name and the scope, never the input: a query is the user's content (ADR-064).
+    log.debug("Intercepting call to tool '{}'", getName());
+    String key = scope + "\n" + input;
+    String cached = cacheService.get(getName(), key);
     if (cached != null) {
       log.info("Cache hit for tool '{}'", getName());
       return cached;
@@ -80,7 +90,7 @@ public class CachingToolCallback implements ToolCallback {
     String result = delegate.call(input);
 
     log.info("Caching result for tool '{}' with TTL {}s", getName(), ttlSeconds);
-    cacheService.put(getName(), input, result, ttlSeconds);
+    cacheService.put(getName(), key, result, ttlSeconds);
 
     return result;
   }

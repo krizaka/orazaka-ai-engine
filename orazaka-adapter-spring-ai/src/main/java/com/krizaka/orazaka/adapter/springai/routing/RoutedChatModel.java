@@ -1,8 +1,7 @@
-package com.krizaka.orazaka.core.infrastructure.provider.model;
+package com.krizaka.orazaka.adapter.springai.routing;
 
 import com.krizaka.orazaka.core.domain.model.MediaCategory;
-import com.krizaka.orazaka.core.infrastructure.provider.DynamicModelRouter;
-import com.krizaka.orazaka.core.infrastructure.provider.UniversalProxyChatProvider;
+import com.krizaka.orazaka.core.infrastructure.provider.model.ModelUnavailableException;
 import com.openai.errors.OpenAIServiceException;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
@@ -10,8 +9,6 @@ import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.model.tool.ToolCallingChatOptions;
 import org.springframework.ai.openai.OpenAiChatOptions;
-import org.springframework.context.annotation.Primary;
-import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClientResponseException;
 import reactor.core.publisher.Flux;
 
@@ -25,10 +22,8 @@ import reactor.core.publisher.Flux;
  * takes effect with no redeploy and no Spring AI starter / autoconfiguration.
  *
  * @see DynamicModelRouter
- * @see CatalogModelEndpointResolver
+ * @see com.krizaka.orazaka.core.infrastructure.provider.model.CatalogModelEndpointResolver
  */
-@Component
-@Primary
 public class RoutedChatModel implements ChatModel {
 
   private final DynamicModelRouter router;

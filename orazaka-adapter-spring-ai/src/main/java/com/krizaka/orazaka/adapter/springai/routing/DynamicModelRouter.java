@@ -1,16 +1,13 @@
-package com.krizaka.orazaka.core.infrastructure.provider;
+package com.krizaka.orazaka.adapter.springai.routing;
 
 import com.krizaka.orazaka.core.domain.model.ModelEndpoint;
 import com.krizaka.orazaka.core.domain.model.StepModelUnavailableException;
 import com.krizaka.orazaka.core.domain.ports.outbound.ModelEndpointResolver;
-import com.krizaka.orazaka.core.infrastructure.spend.GuardedChatModel;
 import com.krizaka.orazaka.core.infrastructure.spend.SpendGuard;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.ai.chat.model.ChatModel;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
 
 /**
  * Dynamic Model Router (ADR-030).
@@ -28,7 +25,6 @@ import org.springframework.stereotype.Component;
  * @see UniversalProxyChatProvider
  * @see ModelEndpointResolver
  */
-@Component
 public class DynamicModelRouter {
 
   private final ModelEndpointResolver resolver;
@@ -41,7 +37,6 @@ public class DynamicModelRouter {
     this(resolver, proxy, SpendGuard.unlimited());
   }
 
-  @Autowired
   public DynamicModelRouter(
       ModelEndpointResolver resolver, UniversalProxyChatProvider proxy, SpendGuard spendGuard) {
     this.resolver = Objects.requireNonNull(resolver, "ModelEndpointResolver cannot be null");

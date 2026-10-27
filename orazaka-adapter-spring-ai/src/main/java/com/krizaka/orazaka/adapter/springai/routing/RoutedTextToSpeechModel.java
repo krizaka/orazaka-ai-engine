@@ -1,4 +1,4 @@
-package com.krizaka.orazaka.core.infrastructure.provider.model;
+package com.krizaka.orazaka.adapter.springai.routing;
 
 import com.krizaka.orazaka.core.domain.model.MediaCategory;
 import com.krizaka.orazaka.core.domain.model.ModelEndpoint;
@@ -17,9 +17,6 @@ import org.springframework.ai.audio.tts.TextToSpeechPrompt;
 import org.springframework.ai.audio.tts.TextToSpeechResponse;
 import org.springframework.ai.openai.OpenAiAudioSpeechModel;
 import org.springframework.ai.openai.OpenAiAudioSpeechOptions;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Primary;
-import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
 /**
@@ -32,10 +29,8 @@ import reactor.core.publisher.Flux;
  * a speech model of the catalogue goes to that model's provider while it answers, and to the
  * default otherwise.
  *
- * @see CatalogModelEndpointResolver
+ * @see com.krizaka.orazaka.core.infrastructure.provider.model.CatalogModelEndpointResolver
  */
-@Component
-@Primary
 public class RoutedTextToSpeechModel implements TextToSpeechModel {
 
   private static final Logger logger = LoggerFactory.getLogger(RoutedTextToSpeechModel.class);
@@ -43,7 +38,6 @@ public class RoutedTextToSpeechModel implements TextToSpeechModel {
   private final ModelEndpointResolver resolver;
   private final Function<ModelEndpoint, TextToSpeechModel> providers;
 
-  @Autowired
   public RoutedTextToSpeechModel(ModelEndpointResolver resolver) {
     this(resolver, RoutedTextToSpeechModel::openAiCompatible);
   }

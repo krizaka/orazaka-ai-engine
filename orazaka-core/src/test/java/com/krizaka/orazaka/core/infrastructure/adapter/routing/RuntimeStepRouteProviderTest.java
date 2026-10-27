@@ -8,15 +8,16 @@ import com.krizaka.orazaka.core.application.routing.PolicyStepRouter;
 import com.krizaka.orazaka.core.domain.model.RoutingPolicy;
 import com.krizaka.orazaka.core.domain.model.StepModelCandidate;
 import com.krizaka.orazaka.core.domain.model.StepRoutingRequest;
-import com.krizaka.orazaka.core.infrastructure.provider.DynamicModelRouter;
-import com.krizaka.orazaka.core.infrastructure.provider.model.RoutedChatModel;
+import com.krizaka.orazaka.core.infrastructure.provider.model.ModelUnavailableException;
 import com.krizaka.orazaka.persistence.domain.model.CatalogModelDto;
 import com.krizaka.orazaka.persistence.domain.ports.inbound.CatalogModelManager;
 import com.krizaka.orazaka.persistence.domain.ports.inbound.RuntimeConfigProvider;
 import com.openai.core.http.Headers;
 import com.openai.errors.InternalServerException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -70,12 +71,11 @@ class RuntimeStepRouteProviderTest {
                 model("primary", "local", "available"),
                 model("secondary", "local", "available"),
                 model("hosted", "provider", "available")));
-    var models = mock(DynamicModelRouter.class);
     var primary = mock(ChatModel.class);
     var secondary = mock(ChatModel.class);
     var response = mock(ChatResponse.class);
-    when(models.chatModel("primary")).thenReturn(primary);
-    when(models.chatModel("secondary")).thenReturn(secondary);
+    var models = Map.of("primary", primary, "secondary", secondary);
+    var asked = new ArrayList<String>();
     when(primary.call(any(Prompt.class)))
         .thenThrow(
             InternalServerException.builder()
@@ -83,7 +83,6 @@ class RuntimeStepRouteProviderTest {
                 .headers(Headers.builder().build())
                 .build());
     when(secondary.call(any(Prompt.class))).thenReturn(response);
-    var routed = new RoutedChatModel(models);
     var selectedModels = new HashMap<String, String>();
 
     var result =
@@ -91,11 +90,21 @@ class RuntimeStepRouteProviderTest {
             .execute(
                 new StepRoutingRequest("step-42", "text.generate", policy),
                 selectedModels::put,
-                name -> routed.call(new Prompt("hi", ChatOptions.builder().model(name).build())));
+                name -> {
+                  asked.add(name);
+                  try {
+                    return models
+                        .get(name)
+                        .call(new Prompt("hi", ChatOptions.builder().model(name).build()));
+                  } catch (RuntimeException e) {
+                    // what the adapter's RoutedChatModel does with an unreachable provider
+                    throw new ModelUnavailableException(name, "provider", e);
+                  }
+                });
 
     assertEquals(response, result);
     assertEquals("secondary", selectedModels.get("step-42"));
-    verify(models, never()).chatModel("hosted");
+    assertEquals(List.of("primary", "secondary"), asked);
   }
 
   @Test

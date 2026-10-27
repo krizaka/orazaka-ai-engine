@@ -1,0 +1,30 @@
+package com.krizaka.orazaka.core.domain.model.chat;
+
+/**
+ * A turn's prompt, compiled and ready to be sent to a model: what the engines hold in place of the
+ * provider library's own prompt type (#121). Only the {@link
+ * com.krizaka.orazaka.core.domain.ports.outbound.ChatInvocation} adapter reads its content.
+ */
+public interface PreparedPrompt {
+
+  /**
+   * How many messages the prompt carries (a count for logs, never their content).
+   *
+   * @return the count
+   */
+  int messageCount();
+
+  /**
+   * The model the prompt asks for.
+   *
+   * @return the model name, or {@code null} when the options name none
+   */
+  String modelName();
+
+  /**
+   * The same prompt without its tool definitions, for the fallback when tool activation fails.
+   *
+   * @return the prompt without tools
+   */
+  PreparedPrompt withoutTools();
+}

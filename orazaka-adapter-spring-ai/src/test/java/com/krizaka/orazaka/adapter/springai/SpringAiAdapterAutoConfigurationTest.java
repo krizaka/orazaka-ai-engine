@@ -3,6 +3,7 @@ package com.krizaka.orazaka.adapter.springai;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
+import com.krizaka.orazaka.adapter.springai.chat.SpringAiChatInvocation;
 import com.krizaka.orazaka.adapter.springai.client.ChatGeneratorClientImpl;
 import com.krizaka.orazaka.adapter.springai.client.EmbeddingClientImpl;
 import com.krizaka.orazaka.adapter.springai.provider.SpringAiDynamicChatModelFactory;
@@ -14,6 +15,7 @@ import com.krizaka.orazaka.core.application.engine.Engine;
 import com.krizaka.orazaka.core.application.pipeline.PipelineOptionsRegistry;
 import com.krizaka.orazaka.core.application.routing.DynamicChatModelFactory;
 import com.krizaka.orazaka.core.domain.ports.outbound.ChatGeneratorClient;
+import com.krizaka.orazaka.core.domain.ports.outbound.ChatInvocation;
 import com.krizaka.orazaka.core.domain.ports.outbound.EmbeddingClient;
 import com.krizaka.orazaka.core.domain.ports.outbound.ModelEndpointResolver;
 import com.krizaka.orazaka.core.infrastructure.spend.SpendGuard;
@@ -92,6 +94,24 @@ class SpringAiAdapterAutoConfigurationTest {
           assertThat(model.createChatModel("gemini", "gemini-x", "k")).isNotNull();
           assertThat(model.createChatModel("openai", "gpt-x", "k")).isNotNull();
         });
+  }
+
+  @Test
+  void theChatInvocationPortIsWiredOverThePrimaryModel() {
+    runner.run(
+        context -> {
+          assertThat(context).hasSingleBean(ChatInvocation.class);
+          assertThat(context.getBean(ChatInvocation.class))
+              .isInstanceOf(SpringAiChatInvocation.class);
+        });
+  }
+
+  @Test
+  void aHostChatInvocationWins() {
+    var own = mock(ChatInvocation.class);
+    runner
+        .withBean(ChatInvocation.class, () -> own)
+        .run(context -> assertThat(context.getBean(ChatInvocation.class)).isSameAs(own));
   }
 
   @Test

@@ -1,5 +1,6 @@
 package com.krizaka.orazaka.adapter.springai;
 
+import com.krizaka.orazaka.adapter.springai.chat.SpringAiChatInvocation;
 import com.krizaka.orazaka.adapter.springai.chat.SpringAiProviderChatClient;
 import com.krizaka.orazaka.adapter.springai.client.ChatGeneratorClientImpl;
 import com.krizaka.orazaka.adapter.springai.client.EmbeddingClientImpl;
@@ -160,6 +161,21 @@ public class SpringAiAdapterAutoConfiguration {
   @ConditionalOnMissingBean
   public RoutedTextToSpeechModel routedTextToSpeechModel(ModelEndpointResolver resolver) {
     return new RoutedTextToSpeechModel(resolver);
+  }
+
+  /**
+   * The port that sends a prepared prompt to a model: the primary {@link ChatModel}, or one built
+   * for a user's own key.
+   *
+   * @param chatModel the primary model
+   * @param modelFactory builds a model for a user's key
+   * @return the invocation
+   */
+  @Bean
+  @ConditionalOnMissingBean(ChatInvocation.class)
+  public SpringAiChatInvocation chatInvocation(
+      ChatModel chatModel, DynamicChatModelFactory<ChatModel> modelFactory) {
+    return new SpringAiChatInvocation(chatModel, modelFactory);
   }
 
   /**

@@ -5,7 +5,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
+import com.krizaka.orazaka.core.application.ChatModelInvocation;
 import com.krizaka.orazaka.core.application.interceptor.PromptContextInterceptor;
+import com.krizaka.orazaka.core.application.pipeline.EnginePipelineBridge.SpringPreparedPrompt;
 import com.krizaka.orazaka.core.domain.event.ChatCompletedEvent;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatResponse;
@@ -50,7 +52,8 @@ class EngineStreamBridgeTest {
   @BeforeEach
   void setUp() {
     streamBridge =
-        new EngineStreamBridge(chatModel, pipelineBridge, credentialsProvider, modelFactory);
+        new EngineStreamBridge(
+            ChatModelInvocation.of(chatModel, modelFactory), pipelineBridge, credentialsProvider);
   }
 
   @Test
@@ -58,7 +61,9 @@ class EngineStreamBridgeTest {
     // Arrange
     var request = InternalChatRequest.simple(PROMPT_HELLO);
     var prompt = new Prompt(PROMPT_HELLO, OllamaChatOptions.builder().build());
-    var context = new EnginePipelineContext(PROVIDER_OLLAMA, CONV_1, PROMPT_HELLO, prompt);
+    var context =
+        new EnginePipelineContext(
+            PROVIDER_OLLAMA, CONV_1, PROMPT_HELLO, new SpringPreparedPrompt(prompt));
 
     when(pipelineBridge.compileContext(
             request, orchestrationPipeline, PROVIDER_OLLAMA, List.of(interceptor)))
@@ -102,7 +107,9 @@ class EngineStreamBridgeTest {
     // Arrange
     var request = InternalChatRequest.simple(PROMPT_HELLO);
     var prompt = new Prompt(PROMPT_HELLO, OllamaChatOptions.builder().build());
-    var context = new EnginePipelineContext(PROVIDER_OLLAMA, CONV_1, PROMPT_HELLO, prompt);
+    var context =
+        new EnginePipelineContext(
+            PROVIDER_OLLAMA, CONV_1, PROMPT_HELLO, new SpringPreparedPrompt(prompt));
 
     when(pipelineBridge.compileContext(
             request, orchestrationPipeline, PROVIDER_OLLAMA, List.of(interceptor)))
@@ -139,7 +146,9 @@ class EngineStreamBridgeTest {
     // Arrange
     var request = InternalChatRequest.simple(PROMPT_HELLO);
     var prompt = new Prompt(PROMPT_HELLO, OllamaChatOptions.builder().build());
-    var context = new EnginePipelineContext(PROVIDER_OLLAMA, CONV_1, PROMPT_HELLO, prompt);
+    var context =
+        new EnginePipelineContext(
+            PROVIDER_OLLAMA, CONV_1, PROMPT_HELLO, new SpringPreparedPrompt(prompt));
 
     when(pipelineBridge.compileContext(
             request, orchestrationPipeline, PROVIDER_OLLAMA, List.of(interceptor)))
@@ -178,7 +187,8 @@ class EngineStreamBridgeTest {
     // Use OpenAiChatOptions to cover OpenAi path in option extraction
     var options = OpenAiChatOptions.builder().model("gpt-4o").build();
     var prompt = new Prompt(PROMPT_HELLO, options);
-    var context = new EnginePipelineContext("openai", CONV_1, PROMPT_HELLO, prompt);
+    var context =
+        new EnginePipelineContext("openai", CONV_1, PROMPT_HELLO, new SpringPreparedPrompt(prompt));
 
     when(pipelineBridge.compileContext(
             request, orchestrationPipeline, "openai", List.of(interceptor)))
@@ -218,7 +228,8 @@ class EngineStreamBridgeTest {
   void shouldFallbackToLocalModelWhenCommercialApiKeyIsMissing() {
     var request = InternalChatRequest.simple(PROMPT_HELLO);
     var prompt = new Prompt(PROMPT_HELLO, OllamaChatOptions.builder().build());
-    var context = new EnginePipelineContext("openai", CONV_1, PROMPT_HELLO, prompt);
+    var context =
+        new EnginePipelineContext("openai", CONV_1, PROMPT_HELLO, new SpringPreparedPrompt(prompt));
 
     when(pipelineBridge.compileContext(
             request, orchestrationPipeline, "openai", List.of(interceptor)))
@@ -252,12 +263,15 @@ class EngineStreamBridgeTest {
     var anthropicOptions = AnthropicChatOptions.builder().model("claude-3").build();
     var anthropicPrompt = new Prompt(PROMPT_HELLO, anthropicOptions);
     var anthropicContext =
-        new EnginePipelineContext("anthropic", CONV_1, PROMPT_HELLO, anthropicPrompt);
+        new EnginePipelineContext(
+            "anthropic", CONV_1, PROMPT_HELLO, new SpringPreparedPrompt(anthropicPrompt));
 
     // 2. Google Options
     var googleOptions = GoogleGenAiChatOptions.builder().model("gemini-pro").build();
     var googlePrompt = new Prompt(PROMPT_HELLO, googleOptions);
-    var googleContext = new EnginePipelineContext("google", CONV_1, PROMPT_HELLO, googlePrompt);
+    var googleContext =
+        new EnginePipelineContext(
+            "google", CONV_1, PROMPT_HELLO, new SpringPreparedPrompt(googlePrompt));
 
     // Let's verify we hit createChatModel with correct resolved model names
     var request = InternalChatRequest.simple(PROMPT_HELLO);

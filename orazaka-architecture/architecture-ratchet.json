@@ -1,13 +1,11 @@
 {
   "rules": {
     "spring-ai-outside-adapter": {
-      "count": 16,
+      "count": 14,
       "classes": [
         "com.krizaka.orazaka.core.application.engine.AbstractEngine",
         "com.krizaka.orazaka.core.application.engine.Engine",
         "com.krizaka.orazaka.core.application.pipeline.EnginePipelineBridge",
-        "com.krizaka.orazaka.core.application.pipeline.EnginePipelineContext",
-        "com.krizaka.orazaka.core.application.pipeline.EngineStreamBridge",
         "com.krizaka.orazaka.core.application.pipeline.McpClientFactory",
         "com.krizaka.orazaka.core.application.pipeline.MessageCompiler",
         "com.krizaka.orazaka.core.application.pipeline.PipelineOptionsRegistry",
@@ -29,13 +27,12 @@
       ]
     },
     "spring-in-core": {
-      "count": 44,
+      "count": 43,
       "classes": [
         "com.krizaka.orazaka.core.application.engine.AbstractEngine",
         "com.krizaka.orazaka.core.application.engine.Engine",
         "com.krizaka.orazaka.core.application.pipeline.DynamicPipelineExecutor",
         "com.krizaka.orazaka.core.application.pipeline.EnginePipelineBridge",
-        "com.krizaka.orazaka.core.application.pipeline.EnginePipelineContext",
         "com.krizaka.orazaka.core.application.pipeline.EngineStreamBridge",
         "com.krizaka.orazaka.core.application.pipeline.McpClientFactory",
         "com.krizaka.orazaka.core.application.pipeline.MessageCompiler",

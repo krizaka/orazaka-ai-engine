@@ -9,6 +9,7 @@ import com.krizaka.orazaka.core.domain.model.PromptContext;
 import com.krizaka.orazaka.core.domain.model.chat.EngineChatOptions;
 import com.krizaka.orazaka.core.domain.model.chat.EngineMessage;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
+import com.krizaka.orazaka.core.domain.model.chat.PreparedPrompt;
 import com.krizaka.orazaka.core.domain.ports.outbound.ModelCatalogProvider;
 import com.krizaka.orazaka.core.domain.ports.outbound.PlatformMcpServerProvider;
 import com.krizaka.orazaka.core.domain.ports.outbound.ToolRegistry;
@@ -173,7 +174,7 @@ public final class EnginePipelineBridge {
         provider,
         conversationId,
         promptText,
-        prompt,
+        new SpringPreparedPrompt(prompt),
         closeables,
         resolveHoldId(pipelineContext),
         null,
@@ -267,5 +268,29 @@ public final class EnginePipelineBridge {
           default -> options;
         };
     return new Prompt(prompt.getInstructions(), cleanOptions);
+  }
+
+  /**
+   * The prompt the compiler assembles, in Spring AI's type. The one seam left between compilation
+   * and the engines: they hold a {@link PreparedPrompt}, only the Spring AI adapter opens this.
+   *
+   * @param prompt the assembled prompt
+   */
+  public record SpringPreparedPrompt(Prompt prompt) implements PreparedPrompt {
+
+    @Override
+    public int messageCount() {
+      return prompt.getInstructions().size();
+    }
+
+    @Override
+    public String modelName() {
+      return ProviderClassifier.resolveModelName(prompt.getOptions());
+    }
+
+    @Override
+    public PreparedPrompt withoutTools() {
+      return new SpringPreparedPrompt(removeTools(prompt));
+    }
   }
 }

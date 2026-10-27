@@ -6,7 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.krizaka.orazaka.core.application.pipeline.PipelineOptionsRegistry;
+import com.krizaka.orazaka.adapter.springai.prompt.PipelineOptionsRegistry;
 import com.krizaka.orazaka.core.domain.model.chat.EngineMessage;
 import java.util.LinkedHashMap;
 import java.util.List;

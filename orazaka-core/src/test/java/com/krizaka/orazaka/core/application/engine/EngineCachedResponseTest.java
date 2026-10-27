@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.*;
 
+import com.krizaka.orazaka.core.application.ChatModelInvocation;
 import com.krizaka.orazaka.core.application.interceptor.PromptContextInterceptor;
 import com.krizaka.orazaka.core.application.pipeline.DynamicPipelineExecutor;
 import com.krizaka.orazaka.core.application.pipeline.EnginePipelineBridge;
@@ -111,10 +112,16 @@ class EngineCachedResponseTest {
             null);
     var bridge =
         new EnginePipelineBridge(
-            modelCatalogProvider, platformMcpServerProvider, userMcpServerProvider, toolRegistry);
-    var streamBridge = new EngineStreamBridge(chatModel, bridge, credentialsProvider, modelFactory);
+            modelCatalogProvider,
+            platformMcpServerProvider,
+            userMcpServerProvider,
+            toolRegistry,
+            new com.krizaka.orazaka.core.application.TestPromptAssembly());
+    var streamBridge =
+        new EngineStreamBridge(
+            ChatModelInvocation.of(chatModel, modelFactory), bridge, credentialsProvider);
     return new Engine(
-        chatModel,
+        ChatModelInvocation.of(chatModel, modelFactory),
         null,
         properties,
         List.of(interceptors),
@@ -123,8 +130,7 @@ class EngineCachedResponseTest {
         modelCatalogProvider,
         bridge,
         streamBridge,
-        credentialsProvider,
-        modelFactory);
+        credentialsProvider);
   }
 
   @BeforeEach

@@ -2,15 +2,14 @@ package com.krizaka.orazaka.core.application.pipeline;
 
 import com.krizaka.orazaka.core.application.engine.AbstractEngine;
 import com.krizaka.orazaka.core.application.interceptor.PromptContextInterceptor;
-import com.krizaka.orazaka.core.application.routing.ChatOptionsResolver;
 import com.krizaka.orazaka.core.application.routing.ProviderClassifier;
 import com.krizaka.orazaka.core.domain.model.CachedResponse;
 import com.krizaka.orazaka.core.domain.model.PromptContext;
-import com.krizaka.orazaka.core.domain.model.chat.EngineChatOptions;
-import com.krizaka.orazaka.core.domain.model.chat.EngineMessage;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
+import com.krizaka.orazaka.core.domain.model.chat.PromptDraft;
 import com.krizaka.orazaka.core.domain.ports.outbound.ModelCatalogProvider;
 import com.krizaka.orazaka.core.domain.ports.outbound.PlatformMcpServerProvider;
+import com.krizaka.orazaka.core.domain.ports.outbound.PromptAssembly;
 import com.krizaka.orazaka.core.domain.ports.outbound.ToolRegistry;
 import com.krizaka.orazaka.core.domain.ports.outbound.UserMcpServerProvider;
 import com.krizaka.orazaka.core.infrastructure.support.CoreException;
@@ -18,13 +17,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import org.springframework.ai.chat.messages.Message;
-import org.springframework.ai.chat.prompt.ChatOptions;
-import org.springframework.ai.chat.prompt.Prompt;
-import org.springframework.ai.model.tool.ToolCallingChatOptions;
-import org.springframework.ai.ollama.api.OllamaChatOptions;
-import org.springframework.ai.openai.OpenAiChatOptions;
-import org.springframework.ai.tool.ToolCallback;
 import org.springframework.stereotype.Component;
 
 /**
@@ -49,6 +41,7 @@ public final class EnginePipelineBridge {
   private final PlatformMcpServerProvider platformMcpServerProvider;
   private final UserMcpServerProvider userMcpServerProvider;
   private final ToolRegistry toolRegistry;
+  private final PromptAssembly promptAssembly;
 
   /**
    * Constructs the bridge.
@@ -57,17 +50,20 @@ public final class EnginePipelineBridge {
    * @param platformMcpServerProvider The platform-wide MCP provider.
    * @param userMcpServerProvider The user private MCP provider.
    * @param toolRegistry The local tools registry.
+   * @param promptAssembly The port that compiles the prompt in the provider library's types.
    */
   public EnginePipelineBridge(
       ModelCatalogProvider modelCatalogProvider,
       PlatformMcpServerProvider platformMcpServerProvider,
       UserMcpServerProvider userMcpServerProvider,
-      ToolRegistry toolRegistry) {
+      ToolRegistry toolRegistry,
+      PromptAssembly promptAssembly) {
     this.modelCatalogProvider =
         Objects.requireNonNull(modelCatalogProvider, "ModelCatalogProvider must not be null");
     this.platformMcpServerProvider = platformMcpServerProvider;
     this.userMcpServerProvider = userMcpServerProvider;
     this.toolRegistry = toolRegistry;
+    this.promptAssembly = Objects.requireNonNull(promptAssembly, "PromptAssembly must not be null");
   }
 
   /**
@@ -127,46 +123,29 @@ public final class EnginePipelineBridge {
 
     String provider =
         resolveProvider(
-            pipelineContext, MessageCompiler.toSpring(request.options()), defaultProvider);
+            pipelineContext, promptAssembly.providerOf(request.options()), defaultProvider);
     String ollamaChatModel = resolveOllamaChatModel(provider);
 
-    // Compile message history + current prompt via MessageCompiler
-    List<Message> messages = MessageCompiler.compile(request, promptText, mediaResult, hasMedia);
+    PromptDraft draft =
+        promptAssembly.draft(
+            request, promptText, mediaResult.imageBytes(), provider, ollamaChatModel);
 
-    // Resolve Spring AI ChatOptions via ChatOptionsResolver
-    ChatOptions springOptions = MessageCompiler.toSpring(request.options());
-    if (ProviderClassifier.ollama().equalsIgnoreCase(provider)) {
-      springOptions = ChatOptionsResolver.resolveOllamaOptions(springOptions, ollamaChatModel);
-    } else if (springOptions == null) {
-      springOptions = ChatOptionsResolver.resolveDefaultOptions(provider);
-    }
-
-    // Interceptors speak the engine's own types; the library's stay on this side of the call.
-    List<EngineMessage> engineMessages = MessageCompiler.toEngine(messages);
-    EngineChatOptions engineOptions =
+    // Interceptors speak the engine's own types; the library's stay behind the port.
+    var engineMessages = draft.messages();
+    var engineOptions =
         interceptors.stream()
             .reduce(
-                MessageCompiler.toEngine(springOptions),
+                draft.options(),
                 (opts, interceptor) ->
                     interceptor.preProcess(request, promptText, engineMessages, opts),
                 (o1, o2) -> o1);
-    messages = MessageCompiler.toSpring(engineMessages);
-    ChatOptions finalOptions = MessageCompiler.toSpring(engineOptions);
 
     // Assemble MCP tool callbacks via McpClientFactory
     List<AutoCloseable> closeables = new ArrayList<>();
-    List<ToolCallback> allToolCallbacks =
+    var tools =
         McpClientFactory.resolveToolCallbacks(
             request, platformMcpServerProvider, userMcpServerProvider, toolRegistry, closeables);
-
-    if (!allToolCallbacks.isEmpty()
-        && finalOptions instanceof ToolCallingChatOptions toolCallingOptions
-        && !ProviderClassifier.ollama().equalsIgnoreCase(provider)) {
-      // Spring AI 2.0 options are immutable: rebuild via mutate() rather than a setter.
-      finalOptions = toolCallingOptions.mutate().toolCallbacks(allToolCallbacks).build();
-    }
-
-    Prompt prompt = new Prompt(messages, finalOptions);
+    var prompt = promptAssembly.assemble(engineMessages, engineOptions, provider, tools);
     String conversationId = request.context().conversationId();
 
     return new EnginePipelineContext(
@@ -193,18 +172,18 @@ public final class EnginePipelineBridge {
    * Resolves the target AI provider from pipeline routing, request options, or default.
    *
    * @param pipelineContext The result from the orchestration pipeline (nullable).
-   * @param requestOptions The request-level chat options (nullable).
+   * @param requestProvider The provider the request-level options name (nullable).
    * @param defaultProvider The fallback provider name.
    * @return The resolved provider string.
    * @throws CoreException If no provider can be resolved.
    */
   private String resolveProvider(
-      PromptContext pipelineContext, ChatOptions requestOptions, String defaultProvider) {
+      PromptContext pipelineContext, String requestProvider, String defaultProvider) {
     String provider =
         Optional.ofNullable(pipelineContext).map(PromptContext::routedProvider).orElse(null);
 
     if (provider == null || provider.isBlank()) {
-      provider = ProviderClassifier.resolveFromOptions(requestOptions);
+      provider = requestProvider;
     }
     if (provider == null || provider.isBlank()) {
       provider = defaultProvider;
@@ -232,40 +211,5 @@ public final class EnginePipelineBridge {
             () ->
                 new CoreException(
                     "Capability missing: No active Ollama chat model found in the model registry."));
-  }
-
-  /**
-   * Strips tool/function-calling definitions from a {@link Prompt}, preserving only the core model,
-   * temperature, and token limit settings.
-   *
-   * <p>This is used as a fallback when tool execution activation fails with {@link
-   * IllegalStateException}, allowing inference to proceed without tools.
-   *
-   * @param prompt The original prompt potentially containing tool definitions.
-   * @return A new prompt with clean options (no tool definitions).
-   */
-  public static Prompt removeTools(Prompt prompt) {
-    ChatOptions options = prompt.getOptions();
-    if (options == null) {
-      return prompt;
-    }
-    ChatOptions cleanOptions =
-        switch (options) {
-          case OllamaChatOptions ollama ->
-              OllamaChatOptions.builder()
-                  .model(ollama.getModel())
-                  .temperature(ollama.getTemperature())
-                  .numPredict(ollama.getNumPredict())
-                  .numCtx(8192)
-                  .build();
-          case OpenAiChatOptions openai ->
-              OpenAiChatOptions.builder()
-                  .model(openai.getModel())
-                  .temperature(openai.getTemperature())
-                  .maxTokens(openai.getMaxTokens())
-                  .build();
-          default -> options;
-        };
-    return new Prompt(prompt.getInstructions(), cleanOptions);
   }
 }

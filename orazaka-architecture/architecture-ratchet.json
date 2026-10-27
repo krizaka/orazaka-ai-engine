@@ -1,23 +1,14 @@
 {
   "rules": {
     "spring-ai-outside-adapter": {
-      "count": 16,
+      "count": 7,
       "classes": [
         "com.krizaka.orazaka.core.application.engine.AbstractEngine",
         "com.krizaka.orazaka.core.application.engine.Engine",
-        "com.krizaka.orazaka.core.application.pipeline.EnginePipelineBridge",
-        "com.krizaka.orazaka.core.application.pipeline.EnginePipelineContext",
-        "com.krizaka.orazaka.core.application.pipeline.EngineStreamBridge",
         "com.krizaka.orazaka.core.application.pipeline.McpClientFactory",
-        "com.krizaka.orazaka.core.application.pipeline.MessageCompiler",
-        "com.krizaka.orazaka.core.application.pipeline.PipelineOptionsRegistry",
-        "com.krizaka.orazaka.core.application.pipeline.PipelineOptionsStrategy",
-        "com.krizaka.orazaka.core.application.routing.ChatOptionsResolver",
         "com.krizaka.orazaka.core.application.routing.ProviderClassifier",
         "com.krizaka.orazaka.core.application.service.ChatMemoryStoreImpl",
         "com.krizaka.orazaka.core.infrastructure.adapter.ai.ImageGeneratorClientImpl",
-        "com.krizaka.orazaka.core.infrastructure.config.OllamaOptionsStrategy",
-        "com.krizaka.orazaka.core.infrastructure.config.OpenAiOptionsStrategy",
         "com.krizaka.orazaka.core.infrastructure.config.SafeImageModel"
       ]
     },
@@ -29,20 +20,15 @@
       ]
     },
     "spring-in-core": {
-      "count": 44,
+      "count": 37,
       "classes": [
         "com.krizaka.orazaka.core.application.engine.AbstractEngine",
         "com.krizaka.orazaka.core.application.engine.Engine",
         "com.krizaka.orazaka.core.application.pipeline.DynamicPipelineExecutor",
         "com.krizaka.orazaka.core.application.pipeline.EnginePipelineBridge",
-        "com.krizaka.orazaka.core.application.pipeline.EnginePipelineContext",
         "com.krizaka.orazaka.core.application.pipeline.EngineStreamBridge",
         "com.krizaka.orazaka.core.application.pipeline.McpClientFactory",
-        "com.krizaka.orazaka.core.application.pipeline.MessageCompiler",
-        "com.krizaka.orazaka.core.application.pipeline.PipelineOptionsRegistry",
-        "com.krizaka.orazaka.core.application.pipeline.PipelineOptionsStrategy",
         "com.krizaka.orazaka.core.application.pipeline.PipelineRegistry",
-        "com.krizaka.orazaka.core.application.routing.ChatOptionsResolver",
         "com.krizaka.orazaka.core.application.routing.PolicyStepRouter",
         "com.krizaka.orazaka.core.application.routing.ProviderClassifier",
         "com.krizaka.orazaka.core.application.routing.SemanticRoutingEngine",
@@ -64,9 +50,7 @@
         "com.krizaka.orazaka.core.infrastructure.adapter.routing.RuntimeStepRouteProvider",
         "com.krizaka.orazaka.core.infrastructure.config.CoreConfiguration",
         "com.krizaka.orazaka.core.infrastructure.config.CoreProperties",
-        "com.krizaka.orazaka.core.infrastructure.config.OllamaOptionsStrategy",
         "com.krizaka.orazaka.core.infrastructure.config.OnMissingObjectMapperCondition",
-        "com.krizaka.orazaka.core.infrastructure.config.OpenAiOptionsStrategy",
         "com.krizaka.orazaka.core.infrastructure.config.RuntimePoolConfig",
         "com.krizaka.orazaka.core.infrastructure.config.SafeImageModel",
         "com.krizaka.orazaka.core.infrastructure.config.SecurityProperties",

@@ -2,19 +2,19 @@ package com.krizaka.orazaka.core.application.pipeline;
 
 import com.krizaka.orazaka.core.domain.model.CachedResponse;
 import com.krizaka.orazaka.core.domain.model.PromptContext;
+import com.krizaka.orazaka.core.domain.model.chat.PreparedPrompt;
 import java.util.List;
-import org.springframework.ai.chat.prompt.Prompt;
 
 /**
  * Immutable compiled context snapshot produced by the {@link EnginePipelineBridge}.
  *
  * <p>Captures the results of prompt refinement, provider routing, conversation tracking, and the
- * final assembled {@link Prompt} ready for model invocation.
+ * final assembled {@link PreparedPrompt} ready for model invocation.
  *
  * @param provider The resolved AI provider name (e.g., {@code "ollama"}).
  * @param conversationId The conversation thread ID extracted from the request context.
  * @param promptText The refined or original prompt text string.
- * @param toPrompt The fully assembled Spring AI {@link Prompt} with messages and options.
+ * @param toPrompt The fully assembled {@link PreparedPrompt} with messages and options.
  * @param closeables The list of closeable client connections that must be cleaned up after
  *     execution.
  * @param holdId The credit reservation the entitlement gate took for this turn, or {@code null}
@@ -29,7 +29,7 @@ public record EnginePipelineContext(
     String provider,
     String conversationId,
     String promptText,
-    Prompt toPrompt,
+    PreparedPrompt toPrompt,
     List<AutoCloseable> closeables,
     String holdId,
     CachedResponse cachedResponse,
@@ -39,14 +39,14 @@ public record EnginePipelineContext(
       String provider,
       String conversationId,
       String promptText,
-      Prompt toPrompt,
+      PreparedPrompt toPrompt,
       List<AutoCloseable> closeables,
       String holdId) {
     this(provider, conversationId, promptText, toPrompt, closeables, holdId, null, null);
   }
 
   public EnginePipelineContext(
-      String provider, String conversationId, String promptText, Prompt toPrompt) {
+      String provider, String conversationId, String promptText, PreparedPrompt toPrompt) {
     this(provider, conversationId, promptText, toPrompt, List.of(), null);
   }
 
@@ -54,7 +54,7 @@ public record EnginePipelineContext(
       String provider,
       String conversationId,
       String promptText,
-      Prompt toPrompt,
+      PreparedPrompt toPrompt,
       List<AutoCloseable> closeables) {
     this(provider, conversationId, promptText, toPrompt, closeables, null);
   }

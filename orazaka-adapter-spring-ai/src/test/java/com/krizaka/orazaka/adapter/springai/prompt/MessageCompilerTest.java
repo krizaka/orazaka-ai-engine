@@ -1,4 +1,4 @@
-package com.krizaka.orazaka.core.application.pipeline;
+package com.krizaka.orazaka.adapter.springai.prompt;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -6,7 +6,6 @@ import com.krizaka.orazaka.core.domain.model.Context;
 import com.krizaka.orazaka.core.domain.model.chat.EngineChatOptions;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
 import java.util.List;
-import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
@@ -55,9 +54,8 @@ class MessageCompilerTest {
   @Test
   void compile_emptyMessages_withTextPrompt_appendsUserMessage() {
     var request = new InternalChatRequest("hello", List.of(), null, Context.anonymous());
-    var mediaResult = new Base64MediaExtractor.ExtractionResult("hello", Optional.empty());
 
-    List<Message> result = MessageCompiler.compile(request, "hello", mediaResult, false);
+    List<Message> result = MessageCompiler.compile(request, "hello", java.util.Optional.empty());
 
     assertEquals(1, result.size());
     assertInstanceOf(UserMessage.class, result.getFirst());
@@ -68,10 +66,10 @@ class MessageCompilerTest {
     // ADR-063: the resolved prompt is the pipeline's output. A marker in it is text — the pipeline
     // was told this turn carried no media, so an image lifted out here would bypass every guard.
     var request = new InternalChatRequest("fuzzy", List.of(), null, Context.anonymous());
-    var mediaResult = new Base64MediaExtractor.ExtractionResult("fuzzy", Optional.empty());
 
     List<Message> result =
-        MessageCompiler.compile(request, "refined [posterBase64: dGVzdA==]", mediaResult, false);
+        MessageCompiler.compile(
+            request, "refined [posterBase64: dGVzdA==]", java.util.Optional.empty());
 
     assertEquals(1, result.size());
     assertTrue(((UserMessage) result.getFirst()).getMedia().isEmpty());
@@ -82,9 +80,8 @@ class MessageCompilerTest {
   void compile_blankPrompt_returnsOnlyHistory() {
     var msg = new InternalChatRequest.ChatMessage("user", "old msg");
     var request = new InternalChatRequest("", List.of(msg), null, Context.anonymous());
-    var mediaResult = new Base64MediaExtractor.ExtractionResult("", Optional.empty());
 
-    List<Message> result = MessageCompiler.compile(request, "", mediaResult, false);
+    List<Message> result = MessageCompiler.compile(request, "", java.util.Optional.empty());
 
     assertEquals(1, result.size());
   }
@@ -97,9 +94,9 @@ class MessageCompilerTest {
     var request =
         new InternalChatRequest(
             "new prompt", List.of(sys, user, assistant), null, Context.anonymous());
-    var mediaResult = new Base64MediaExtractor.ExtractionResult("new prompt", Optional.empty());
 
-    List<Message> result = MessageCompiler.compile(request, "new prompt", mediaResult, false);
+    List<Message> result =
+        MessageCompiler.compile(request, "new prompt", java.util.Optional.empty());
 
     assertEquals(4, result.size());
     assertInstanceOf(SystemMessage.class, result.getFirst());

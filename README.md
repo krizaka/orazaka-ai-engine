@@ -32,6 +32,8 @@ part of the [Orazaka platform](https://github.com/krizaka/orazaka) by [Krizaka](
 | Module | Tier | Role |
 |:---|:---|:---|
 | `orazaka-core` | SDK | Cognitive engine: `AiClient`, provider mesh (DB-driven routing), agent loop, interceptor contract. Web/DB-agnostic. |
+| `orazaka-adapter-spring-ai` | SDK | The only module meant to depend on Spring AI (ADR-092 §4): the tool registry and structured-output client on top of it; the other ports follow slice by slice. |
+| `orazaka-architecture` | — | No main code: the boundary rules (no Spring AI outside the adapter, no Spring in `core`/`business`) behind a ratchet, `architecture-ratchet.json`. |
 | `orazaka-interceptors` | SDK | Ordered, short-circuitable pipeline: security, token, context, translation, enrichment, validation, governance. |
 | `orazaka-tools` | SDK | MCP client, RAG, sandbox, law retrieval, the `CALL` meters (research, external checks). |
 | `orazaka-business` | Owned | App factory: `Intention` → `UseCase`, deterministic DAG or saga. |
@@ -52,6 +54,16 @@ Hosts: [orazaka-conversation-service](https://github.com/krizaka/orazaka-convers
     <version>1.0.0-SNAPSHOT</version>
 </dependency>
 ```
+
+### Module boundaries (ADR-092 §4, #112)
+
+The engine's domain is pure Java 21. Spring AI is confined to `orazaka-adapter-spring-ai`, which
+implements the ports: inference (`ChatGeneratorClient`), embedding (`EmbeddingClient`), structured
+output (`StructuredOutputClient`) and tools (`ToolRegistry`, results cached through `ToolResultCache`).
+`orazaka-architecture` counts the classes that still break the rules and records them in
+`architecture-ratchet.json`: a new violation fails `mvn verify`, a fixed one never does. Fixed some?
+`./mvnw -pl orazaka-architecture -am test -Darchitecture.ratchet.update=true` lowers the baseline
+(it never raises it). Every PR of the migration lowers at least one count.
 
 ### Control loop: a failed answer is never served
 

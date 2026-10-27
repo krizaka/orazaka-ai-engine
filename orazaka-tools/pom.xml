@@ -16,9 +16,12 @@
     <description>Orazaka Tools and MCP Implementations</description>
 
     <dependencies>
+        <!-- The Spring AI adapter carries the tool registry (ToolRegistry on Spring AI); the tools
+             themselves no longer depend on Spring AI (ADR-092 §4, #112). -->
         <dependency>
-            <groupId>org.springframework.ai</groupId>
-            <artifactId>spring-ai-model</artifactId>
+            <groupId>com.krizaka.orazaka</groupId>
+            <artifactId>orazaka-adapter-spring-ai</artifactId>
+            <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>com.krizaka.orazaka</groupId>

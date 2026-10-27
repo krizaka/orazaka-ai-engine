@@ -44,9 +44,11 @@
         <module>orazaka-assets</module>
         <module>orazaka-persistence-app</module>
         <module>orazaka-core</module>
+        <module>orazaka-adapter-spring-ai</module>
         <module>orazaka-interceptors</module>
         <module>orazaka-tools</module>
         <module>orazaka-persistence-bridge</module>
         <module>orazaka-business</module>
+        <module>orazaka-architecture</module>
     </modules>
 </project>

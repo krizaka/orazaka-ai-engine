@@ -2,6 +2,7 @@ package com.krizaka.orazaka.tools.infrastructure.cache;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.krizaka.orazaka.core.domain.ports.outbound.ToolResultCache;
 import com.krizaka.orazaka.tools.infrastructure.adapter.persistence.entity.ToolCacheEntity;
 import com.krizaka.orazaka.tools.infrastructure.adapter.persistence.entity.ToolCacheId;
 import com.krizaka.orazaka.tools.infrastructure.adapter.persistence.repository.ToolCacheRepository;
@@ -20,7 +21,7 @@ import org.springframework.stereotype.Service;
  * promote repository-driven patterns (AGENTS.md §2.A).
  */
 @Service
-public class ToolCacheStore {
+public class ToolCacheStore implements ToolResultCache {
 
   private static final Logger log = LoggerFactory.getLogger(ToolCacheStore.class);
 
@@ -83,6 +84,7 @@ public class ToolCacheStore {
    * @param cacheKey The cache key string.
    * @return The cached value, or null if expired or not found.
    */
+  @Override
   public String get(String toolId, String cacheKey) {
     String fullKey = toolId + ":" + cacheKey;
     Instant now = Instant.now(clock);
@@ -131,6 +133,7 @@ public class ToolCacheStore {
    * @param value The value to cache.
    * @param ttlSeconds The TTL duration in seconds.
    */
+  @Override
   public void put(String toolId, String cacheKey, String value, long ttlSeconds) {
     String fullKey = toolId + ":" + cacheKey;
     Instant now = Instant.now(clock);

@@ -1,9 +1,9 @@
-package com.krizaka.orazaka.tools.infrastructure.adapter.mcp;
+package com.krizaka.orazaka.adapter.springai.tool;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-import com.krizaka.orazaka.tools.infrastructure.cache.ToolCacheStore;
+import com.krizaka.orazaka.core.domain.ports.outbound.ToolResultCache;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -17,7 +17,7 @@ class CachingToolCallbackTest {
 
   @Mock private ToolCallback delegate;
 
-  @Mock private ToolCacheStore cacheService;
+  @Mock private ToolResultCache cacheService;
 
   @Mock private ToolDefinition toolDefinition;
 

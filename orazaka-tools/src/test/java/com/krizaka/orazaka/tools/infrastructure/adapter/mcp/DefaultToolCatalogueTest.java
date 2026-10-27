@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+import com.krizaka.orazaka.adapter.springai.tool.CachingToolCallback;
+import com.krizaka.orazaka.adapter.springai.tool.SpringAiToolRegistry;
 import com.krizaka.orazaka.core.domain.ports.outbound.KnowledgeService;
 import com.krizaka.orazaka.core.domain.ports.outbound.PlatformToolConfigProvider;
 import com.krizaka.orazaka.core.infrastructure.support.SecurityContextUtil;
@@ -23,7 +25,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.ai.tool.ToolCallback;
 
 @ExtendWith(MockitoExtension.class)
-class DefaultToolRegistryTest {
+class DefaultToolCatalogueTest {
 
   @Mock private PlatformToolConfigProvider platformToolConfigProvider;
 
@@ -31,12 +33,12 @@ class DefaultToolRegistryTest {
 
   @Mock private KnowledgeService knowledgeService;
 
-  private DefaultToolRegistry registry;
+  private SpringAiToolRegistry registry;
 
   @BeforeEach
   void setUp() {
-    registry = new DefaultToolRegistry(platformToolConfigProvider, cacheService, knowledgeService);
-    registry.registerDefaultTools();
+    registry = new SpringAiToolRegistry(platformToolConfigProvider, cacheService);
+    new DefaultToolCatalogue(registry, knowledgeService).registerDefaultTools();
   }
 
   @Test
@@ -97,8 +99,8 @@ class DefaultToolRegistryTest {
 
   @Test
   void searchKnowledge_knowledgeServiceNull_returnsErrorResponse() {
-    DefaultToolRegistry registryNoKnowledge = new DefaultToolRegistry(null, null, null);
-    registryNoKnowledge.registerDefaultTools();
+    SpringAiToolRegistry registryNoKnowledge = new SpringAiToolRegistry(null, null);
+    new DefaultToolCatalogue(registryNoKnowledge, null).registerDefaultTools();
     ToolCallback tool =
         registryNoKnowledge.getRegisteredTools().stream()
             .filter(t -> "searchKnowledge".equals(t.getToolDefinition().name()))

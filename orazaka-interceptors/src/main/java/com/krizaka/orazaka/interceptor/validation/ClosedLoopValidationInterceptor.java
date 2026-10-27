@@ -598,41 +598,8 @@ public class ClosedLoopValidationInterceptor implements PromptContextInterceptor
     return tail.isBlank() ? null : tail;
   }
 
-  /**
-   * Extracts a JSON code block from a markdown-fenced response.
-   *
-   * @param text The response text potentially containing ```json blocks.
-   * @return The extracted JSON string, or null if none found.
-   */
   private String extractJsonBlock(String text) {
-    if (text == null) {
-      return null;
-    }
-    String stripped = text.strip();
-    // Direct JSON
-    if (stripped.startsWith("{") || stripped.startsWith("[")) {
-      return stripped;
-    }
-    // Markdown-fenced JSON
-    int start = stripped.indexOf("```json");
-    if (start == -1) {
-      start = stripped.indexOf("```");
-    }
-    if (start == -1) {
-      return null;
-    }
-
-    int contentStart = stripped.indexOf('\n', start);
-    if (contentStart == -1) {
-      return null;
-    }
-
-    int end = stripped.indexOf("```", contentStart);
-    if (end == -1) {
-      return null;
-    }
-
-    return stripped.substring(contentStart + 1, end).strip();
+    return JsonBlocks.extract(text, true);
   }
 
   /**

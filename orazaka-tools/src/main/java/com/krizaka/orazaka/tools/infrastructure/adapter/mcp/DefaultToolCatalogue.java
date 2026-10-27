@@ -1,7 +1,6 @@
 package com.krizaka.orazaka.tools.infrastructure.adapter.mcp;
 
 import com.krizaka.orazaka.core.domain.ports.outbound.KnowledgeService;
-import com.krizaka.orazaka.core.domain.ports.outbound.PlatformToolConfigProvider;
 import com.krizaka.orazaka.core.domain.ports.outbound.ToolRegistry;
 import com.krizaka.orazaka.core.infrastructure.support.SecurityContextUtil;
 import com.krizaka.orazaka.tools.domain.model.audio.AnalyzeAudioExtractRequest;
@@ -10,26 +9,21 @@ import com.krizaka.orazaka.tools.domain.model.poster.AnalyzePosterRequest;
 import com.krizaka.orazaka.tools.domain.model.poster.AnalyzePosterResponse;
 import com.krizaka.orazaka.tools.domain.model.search.SearchWebRequest;
 import com.krizaka.orazaka.tools.domain.model.search.SearchWebResponse;
-import com.krizaka.orazaka.tools.infrastructure.cache.ToolCacheStore;
 import jakarta.annotation.PostConstruct;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.function.Function;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.tool.ToolCallback;
-import org.springframework.ai.tool.function.FunctionToolCallback;
 import org.springframework.stereotype.Component;
 
 /**
- * Default implementation of ToolRegistry. Registry for local Java methods to be used as tools by
- * the AI models. RAG source lookup goes through the {@link KnowledgeService} port — the knowledge
- * service owns the sources and their ingestion since Phase 4.
+ * The default tools of the engine, registered in the {@link ToolRegistry} port. Pure Java: how a
+ * registry turns them into a model library's tool type is the registry's concern (ADR-092 §4). RAG
+ * source lookup goes through the {@link KnowledgeService} port — the knowledge service owns the
+ * sources and their ingestion since Phase 4.
  */
 @Component
-public class DefaultToolRegistry implements ToolRegistry {
+public class DefaultToolCatalogue {
 
-  private static final Logger log = LoggerFactory.getLogger(DefaultToolRegistry.class);
+  private static final Logger log = LoggerFactory.getLogger(DefaultToolCatalogue.class);
 
   /**
    * Searches the knowledge corpus the knowledge service holds — not the web. It was called {@code
@@ -38,40 +32,33 @@ public class DefaultToolRegistry implements ToolRegistry {
    */
   static final String TOOL_SEARCH_KNOWLEDGE = "searchKnowledge";
 
-  private final PlatformToolConfigProvider platformToolConfigProvider;
-  private final ToolCacheStore cacheService;
+  private final ToolRegistry toolRegistry;
   private final KnowledgeService knowledgeService;
-  private final List<ToolCallback> registeredTools = new ArrayList<>();
 
   /**
-   * Initializes the registry with tools, caching, and knowledge dependencies.
+   * Creates the catalogue.
    *
-   * @param platformToolConfigProvider Dynamic tool configuration provider.
-   * @param cacheService Multi-tier cache service.
+   * @param toolRegistry The registry the tools are registered in.
    * @param knowledgeService Knowledge context port (RAG retrieval + tool source lookup).
    */
-  public DefaultToolRegistry(
-      PlatformToolConfigProvider platformToolConfigProvider,
-      ToolCacheStore cacheService,
-      KnowledgeService knowledgeService) {
-    this.platformToolConfigProvider = platformToolConfigProvider;
-    this.cacheService = cacheService;
+  public DefaultToolCatalogue(ToolRegistry toolRegistry, KnowledgeService knowledgeService) {
+    this.toolRegistry = toolRegistry;
     this.knowledgeService = knowledgeService;
   }
 
   @PostConstruct
   void registerDefaultTools() {
-    registerTool(
+    toolRegistry.registerTool(
         "analyzePoster",
         "Analyzes a movie poster provided as a base64 encoded string using vision model.",
         AnalyzePosterRequest.class,
         this::analyzePoster);
-    registerTool(
+    toolRegistry.registerTool(
         "analyzeAudioExtract",
         "Analyzes a film audio extract to check for specific compliance or content criteria.",
         AnalyzeAudioExtractRequest.class,
         this::analyzeAudioExtract);
-    registerTool(
+    toolRegistry.registerTool(
         TOOL_SEARCH_KNOWLEDGE,
         "Searches the documents of the organisation's knowledge base (not the web) and returns"
             + " the passages that match the query.",
@@ -117,53 +104,5 @@ public class DefaultToolRegistry implements ToolRegistry {
         "Audio extract compliance check passed. Track checks clear under type: "
             + request.checkType(),
         true);
-  }
-
-  /**
-   * Registers a new Java function callback tool in the local registry.
-   *
-   * @param <I> The input argument type for the tool.
-   * @param <O> The output result type from the tool.
-   * @param name The name identifier of the tool.
-   * @param description A descriptive string explaining what the tool does.
-   * @param inputType The Class type representing the input.
-   * @param function The functional logic representing the tool execution.
-   */
-  @Override
-  public <I, O> void registerTool(
-      String name, String description, Class<I> inputType, Function<I, O> function) {
-    this.registeredTools.add(
-        FunctionToolCallback.builder(name, function)
-            .description(description)
-            .inputType(inputType)
-            .build());
-  }
-
-  /**
-   * Retrieves all registered tool callbacks, wrapping any that have active caching properties
-   * configured.
-   *
-   * @return An immutable List of wrapped or direct ToolCallback objects.
-   */
-  @Override
-  public List<ToolCallback> getRegisteredTools() {
-    return registeredTools.stream()
-        .map(
-            tool -> {
-              String name = tool.getToolDefinition().name();
-              if (platformToolConfigProvider == null) {
-                return tool;
-              }
-              var configOpt = platformToolConfigProvider.getToolConfig(name);
-              if (configOpt.isPresent()) {
-                var config = configOpt.get();
-                if (Boolean.TRUE.equals(config.cacheEnabled())) {
-                  long ttl = config.cacheTtlSeconds() != null ? config.cacheTtlSeconds() : 3600L;
-                  return new CachingToolCallback(tool, cacheService, true, ttl);
-                }
-              }
-              return tool;
-            })
-        .toList();
   }
 }

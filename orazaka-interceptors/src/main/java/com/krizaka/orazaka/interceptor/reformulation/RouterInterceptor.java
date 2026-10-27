@@ -1,5 +1,6 @@
 package com.krizaka.orazaka.interceptor.reformulation;
 
+import com.krizaka.orazaka.adapter.springai.response.SpringAiResponses;
 import com.krizaka.orazaka.core.application.interceptor.PromptContextInterceptor;
 import com.krizaka.orazaka.core.application.pipeline.PipelineOptionsRegistry;
 import com.krizaka.orazaka.core.domain.model.PromptContext;
@@ -122,7 +123,7 @@ public class RouterInterceptor implements PromptContextInterceptor {
 
   private PromptContext executeRouting(ChatModel model, Prompt prompt, PromptContext context) {
     try {
-      return ReformulationUtils.extractResponseText(model.call(prompt))
+      return SpringAiResponses.extractResponseText(model.call(prompt))
           .filter(chatModels::containsKey)
           .map(
               routedModel -> {

@@ -1,6 +1,6 @@
-package com.krizaka.orazaka.tools.infrastructure.adapter.mcp;
+package com.krizaka.orazaka.adapter.springai.tool;
 
-import com.krizaka.orazaka.tools.infrastructure.cache.ToolCacheStore;
+import com.krizaka.orazaka.core.domain.ports.outbound.ToolResultCache;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.tool.ToolCallback;
@@ -9,17 +9,15 @@ import org.springframework.ai.tool.definition.ToolDefinition;
 /**
  * A caching decorator for the Spring AI {@link ToolCallback} SPI.
  *
- * <p>Lives in {@code infrastructure.adapter.mcp} (not {@code application.service}): it implements a
- * framework SPI and is instantiated by {@link DefaultToolRegistry} — infrastructure plumbing, not
- * an application {@code *Service} ([ERR-130]). The caching policy itself lives in {@link
- * ToolCacheStore}.
+ * <p>Lives in the Spring AI adapter (ADR-092 §4): it implements a framework SPI and is instantiated
+ * by {@link SpringAiToolRegistry}. The caching policy itself lives in {@link ToolCacheStore}.
  */
 public class CachingToolCallback implements ToolCallback {
 
   private static final Logger log = LoggerFactory.getLogger(CachingToolCallback.class);
 
   private final ToolCallback delegate;
-  private final ToolCacheStore cacheService;
+  private final ToolResultCache cacheService;
   private final boolean cacheEnabled;
   private final long ttlSeconds;
 
@@ -32,7 +30,7 @@ public class CachingToolCallback implements ToolCallback {
    * @param ttlSeconds The TTL in seconds for cache entries.
    */
   public CachingToolCallback(
-      ToolCallback delegate, ToolCacheStore cacheService, boolean cacheEnabled, long ttlSeconds) {
+      ToolCallback delegate, ToolResultCache cacheService, boolean cacheEnabled, long ttlSeconds) {
     this.delegate = delegate;
     this.cacheService = cacheService;
     this.cacheEnabled = cacheEnabled;

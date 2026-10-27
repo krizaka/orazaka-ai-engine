@@ -1,4 +1,4 @@
-package com.krizaka.orazaka.interceptor.reformulation;
+package com.krizaka.orazaka.adapter.springai.response;
 
 import java.util.Optional;
 import org.springframework.ai.chat.messages.AssistantMessage;
@@ -6,17 +6,17 @@ import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 
 /**
- * Utility class with shared helper methods for the reformulation interceptor module.
+ * Reads the text of a Spring AI response, so no interceptor handles the response types itself.
  *
  * <p>Provides the {@link #extractResponseText} utility used by both {@link RefinerInterceptor} and
  * {@link RouterInterceptor} to safely parse ChatModel responses.
  *
  * @since 1.0.0
  */
-public final class ReformulationUtils {
+public final class SpringAiResponses {
 
   /** Private constructor — utility class, not instantiable. */
-  private ReformulationUtils() {}
+  private SpringAiResponses() {}
 
   /**
    * Safely extracts the trimmed response text from a {@link ChatResponse}.

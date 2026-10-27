@@ -126,39 +126,7 @@ public class SpringAiTestShaperAdapter implements TestShaperPort {
     }
   }
 
-  /**
-   * Extracts a JSON block from potentially markdown-fenced text.
-   *
-   * @param text The response text.
-   * @return The extracted JSON string, or null if none found.
-   */
   private String extractJsonBlock(String text) {
-    if (text == null) {
-      return null;
-    }
-    String stripped = text.strip();
-    if (stripped.startsWith("{")) {
-      return stripped;
-    }
-
-    int start = stripped.indexOf("```json");
-    if (start == -1) {
-      start = stripped.indexOf("```");
-    }
-    if (start == -1) {
-      return null;
-    }
-
-    int contentStart = stripped.indexOf('\n', start);
-    if (contentStart == -1) {
-      return null;
-    }
-
-    int end = stripped.indexOf("```", contentStart);
-    if (end == -1) {
-      return null;
-    }
-
-    return stripped.substring(contentStart + 1, end).strip();
+    return JsonBlocks.extract(text, false);
   }
 }

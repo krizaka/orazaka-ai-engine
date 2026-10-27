@@ -1,10 +1,13 @@
 package com.krizaka.orazaka.core.domain.ports.outbound;
 
+import com.krizaka.orazaka.core.domain.model.chat.EngineTool;
 import java.util.List;
 import java.util.function.Function;
-import org.springframework.ai.tool.ToolCallback;
 
-/** Registry interface for local Java methods to be used as tools by the AI models. */
+/**
+ * Registry interface for local Java methods to be used as tools by the AI models. Pure Java: the
+ * adapter turns each registration into the model library's tool (ADR-092 §4 rule 1).
+ */
 public interface ToolRegistry {
 
   /**
@@ -21,9 +24,9 @@ public interface ToolRegistry {
       String name, String description, Class<I> inputType, Function<I, O> function);
 
   /**
-   * Retrieves all registered tool callbacks.
+   * Retrieves all registered tools.
    *
-   * @return A list of {@link ToolCallback} objects.
+   * @return The registered {@link EngineTool}s.
    */
-  List<ToolCallback> getRegisteredTools();
+  List<EngineTool> getRegisteredTools();
 }

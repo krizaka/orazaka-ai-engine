@@ -2,6 +2,7 @@ package com.krizaka.orazaka.tools.infrastructure.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.krizaka.orazaka.core.domain.model.chat.EngineTool;
 import com.krizaka.orazaka.core.domain.ports.outbound.ToolRegistry;
 import com.krizaka.orazaka.persistence.domain.ports.inbound.RuntimeConfigProvider;
 import com.krizaka.orazaka.tools.application.port.law.LawCorpusStore;
@@ -22,7 +23,6 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
 import org.junit.jupiter.api.Test;
-import org.springframework.ai.tool.ToolCallback;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
 class LawCorpusConfigurationTest {
@@ -214,7 +214,7 @@ class LawCorpusConfigurationTest {
     }
 
     @Override
-    public List<ToolCallback> getRegisteredTools() {
+    public List<EngineTool> getRegisteredTools() {
       return List.of();
     }
   }

@@ -4,205 +4,127 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 
 import com.krizaka.orazaka.core.domain.model.chat.EngineChatOptions;
+import com.krizaka.orazaka.core.domain.model.chat.EngineTool;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
+import com.krizaka.orazaka.core.domain.ports.outbound.ToolOptions;
 import com.krizaka.orazaka.core.domain.ports.outbound.ToolRegistry;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.ai.chat.prompt.ChatOptions;
-import org.springframework.ai.ollama.api.OllamaChatOptions;
-import org.springframework.ai.openai.OpenAiChatOptions;
-import org.springframework.ai.tool.ToolCallback;
-import org.springframework.ai.tool.definition.ToolDefinition;
 
+/** What the interceptor chooses; how a provider's options carry the tools is the adapter's test. */
 class ToolInterceptorTest {
 
-  /** The engine view of library options, as the pipeline hands them to an interceptor. */
-  private static EngineChatOptions wrap(ChatOptions options) {
-    return new EngineChatOptions(
-        options.getModel(), options.getTemperature(), options.getMaxTokens(), options);
+  private final ToolOptions toolOptions = mock(ToolOptions.class);
+
+  private static EngineTool tool(String name) {
+    return new EngineTool(name, "", "{}", json -> "", null);
+  }
+
+  private static InternalChatRequest request(String prompt, boolean streaming) {
+    InternalChatRequest request = mock(InternalChatRequest.class);
+    when(request.streaming()).thenReturn(streaming);
+    when(request.prompt()).thenReturn(prompt);
+    when(request.messages()).thenReturn(Collections.emptyList());
+    return request;
+  }
+
+  private ToolInterceptor interceptorOver(EngineTool... tools) {
+    ToolRegistry toolRegistry = mock(ToolRegistry.class);
+    when(toolRegistry.getRegisteredTools()).thenReturn(List.of(tools));
+    return new ToolInterceptor(toolRegistry, toolOptions);
   }
 
   @Test
   @DisplayName("preProcess returns original options when streaming is true")
   void preProcessStreaming() {
     ToolRegistry toolRegistry = mock(ToolRegistry.class);
-    ToolInterceptor interceptor = new ToolInterceptor(toolRegistry);
+    ToolInterceptor interceptor = new ToolInterceptor(toolRegistry, toolOptions);
+    EngineChatOptions options = new EngineChatOptions("m", 0.1, 10);
 
-    InternalChatRequest request = mock(InternalChatRequest.class);
-    when(request.streaming()).thenReturn(true);
-    ChatOptions options = mock(ChatOptions.class);
+    EngineChatOptions result =
+        interceptor.preProcess(request("prompt", true), "prompt", new ArrayList<>(), options);
 
-    Object result =
-        interceptor.preProcess(request, "prompt", new ArrayList<>(), wrap(options)).nativeOptions();
     assertThat(result).isSameAs(options);
-    verifyNoInteractions(toolRegistry);
+    verifyNoInteractions(toolRegistry, toolOptions);
   }
 
   @Test
-  @DisplayName("preProcess returns original options when model name contains vision keywords")
+  @DisplayName("preProcess returns original options for a vision model")
   void preProcessVisionModel() {
     ToolRegistry toolRegistry = mock(ToolRegistry.class);
-    ToolInterceptor interceptor = new ToolInterceptor(toolRegistry);
+    ToolInterceptor interceptor = new ToolInterceptor(toolRegistry, toolOptions);
+    EngineChatOptions options = new EngineChatOptions("llama3.2-vision", null, null);
 
-    InternalChatRequest request = mock(InternalChatRequest.class);
-    when(request.streaming()).thenReturn(false);
+    EngineChatOptions result =
+        interceptor.preProcess(request("prompt", false), "prompt", new ArrayList<>(), options);
 
-    ChatOptions options = mock(ChatOptions.class);
-    when(options.getModel()).thenReturn("llama3.2-vision");
-
-    Object result =
-        interceptor.preProcess(request, "prompt", new ArrayList<>(), wrap(options)).nativeOptions();
     assertThat(result).isSameAs(options);
-    verifyNoInteractions(toolRegistry);
+    verifyNoInteractions(toolRegistry, toolOptions);
   }
 
   @Test
-  @DisplayName("preProcess returns original options when toolRegistry is null or empty")
+  @DisplayName("preProcess returns original options when the registry is null or empty")
   void preProcessRegistryNullOrEmpty() {
-    ToolInterceptor interceptorNull = new ToolInterceptor(null);
-    InternalChatRequest request = mock(InternalChatRequest.class);
-    when(request.streaming()).thenReturn(false);
-    ChatOptions options = mock(ChatOptions.class);
+    EngineChatOptions options = new EngineChatOptions("m", null, null);
+    InternalChatRequest request = request("prompt", false);
 
-    Object resultNull =
-        interceptorNull
-            .preProcess(request, "prompt", new ArrayList<>(), wrap(options))
-            .nativeOptions();
-    assertThat(resultNull).isSameAs(options);
-
-    ToolRegistry toolRegistry = mock(ToolRegistry.class);
-    when(toolRegistry.getRegisteredTools()).thenReturn(Collections.emptyList());
-    ToolInterceptor interceptorEmpty = new ToolInterceptor(toolRegistry);
-
-    Object resultEmpty =
-        interceptorEmpty
-            .preProcess(request, "prompt", new ArrayList<>(), wrap(options))
-            .nativeOptions();
-    assertThat(resultEmpty).isSameAs(options);
+    assertThat(
+            new ToolInterceptor(null, toolOptions)
+                .preProcess(request, "prompt", new ArrayList<>(), options))
+        .isSameAs(options);
+    assertThat(interceptorOver().preProcess(request, "prompt", new ArrayList<>(), options))
+        .isSameAs(options);
+    verifyNoInteractions(toolOptions);
   }
 
   @Test
   @DisplayName("preProcess returns original options when no tools are demanded by keywords")
   void preProcessNoDemandedTools() {
-    ToolRegistry toolRegistry = mock(ToolRegistry.class);
+    ToolInterceptor interceptor = interceptorOver(tool("analyzePoster"));
+    EngineChatOptions options = new EngineChatOptions("m", null, null);
 
-    ToolCallback posterTool = mock(ToolCallback.class);
-    ToolDefinition posterDef = mock(ToolDefinition.class);
-    when(posterDef.name()).thenReturn("analyzePoster");
-    when(posterTool.getToolDefinition()).thenReturn(posterDef);
+    EngineChatOptions result =
+        interceptor.preProcess(
+            request("hello standard text", false), "just hello", new ArrayList<>(), options);
 
-    when(toolRegistry.getRegisteredTools()).thenReturn(List.of(posterTool));
-    ToolInterceptor interceptor = new ToolInterceptor(toolRegistry);
-
-    InternalChatRequest request = mock(InternalChatRequest.class);
-    when(request.streaming()).thenReturn(false);
-    when(request.prompt()).thenReturn("hello standard text");
-    when(request.messages()).thenReturn(Collections.emptyList());
-
-    ChatOptions options = mock(ChatOptions.class);
-    Object result =
-        interceptor
-            .preProcess(request, "just hello", new ArrayList<>(), wrap(options))
-            .nativeOptions();
     assertThat(result).isSameAs(options);
+    verifyNoInteractions(toolOptions);
   }
 
   @Test
-  @DisplayName("preProcess attaches specialized poster tool to Ollama options when demanded")
-  void preProcessOllamaPosterDemanded() {
-    ToolRegistry toolRegistry = mock(ToolRegistry.class);
+  @DisplayName("preProcess offers the poster tool and the generic ones when the poster is demanded")
+  void preProcessPosterDemanded() {
+    EngineTool poster = tool("analyzePoster");
+    EngineTool generic = tool("genericCalculator");
+    EngineTool audio = tool("analyzeAudioExtract");
+    EngineChatOptions options = new EngineChatOptions("llama3.2", 0.7, 128);
+    EngineChatOptions withTools = options.withNativeOptions("tools attached");
+    when(toolOptions.withTools(options, List.of(poster, generic))).thenReturn(withTools);
 
-    ToolCallback posterTool = mock(ToolCallback.class);
-    ToolDefinition posterDef = mock(ToolDefinition.class);
-    when(posterDef.name()).thenReturn("analyzePoster");
-    when(posterTool.getToolDefinition()).thenReturn(posterDef);
+    EngineChatOptions result =
+        interceptorOver(poster, generic, audio)
+            .preProcess(request("show me the poster info", false), "", new ArrayList<>(), options);
 
-    ToolCallback genericTool = mock(ToolCallback.class);
-    ToolDefinition genericDef = mock(ToolDefinition.class);
-    when(genericDef.name()).thenReturn("genericCalculator");
-    when(genericTool.getToolDefinition()).thenReturn(genericDef);
-
-    when(toolRegistry.getRegisteredTools()).thenReturn(List.of(posterTool, genericTool));
-    ToolInterceptor interceptor = new ToolInterceptor(toolRegistry);
-
-    InternalChatRequest request = mock(InternalChatRequest.class);
-    when(request.streaming()).thenReturn(false);
-    when(request.prompt()).thenReturn("show me the poster info");
-    when(request.messages()).thenReturn(Collections.emptyList());
-
-    OllamaChatOptions options =
-        OllamaChatOptions.builder().model("llama3.2").temperature(0.7).numPredict(128).build();
-
-    Object result =
-        interceptor.preProcess(request, "", new ArrayList<>(), wrap(options)).nativeOptions();
-    assertThat(result).isInstanceOf(OllamaChatOptions.class);
-    OllamaChatOptions ollamaResult = (OllamaChatOptions) result;
-
-    assertThat(ollamaResult.getModel()).isEqualTo("llama3.2");
-    assertThat(ollamaResult.getTemperature()).isEqualTo(0.7);
-    assertThat(ollamaResult.getNumPredict()).isEqualTo(128);
-    assertThat(ollamaResult.getToolCallbacks()).containsExactlyInAnyOrder(posterTool, genericTool);
+    assertThat(result).isSameAs(withTools);
   }
 
   @Test
-  @DisplayName(
-      "preProcess attaches specialized audio tool to OpenAI options when demanded via user message list")
-  void preProcessOpenAiAudioDemanded() {
-    ToolRegistry toolRegistry = mock(ToolRegistry.class);
+  @DisplayName("preProcess offers the audio tool when it is demanded in a user message")
+  void preProcessAudioDemanded() {
+    EngineTool audio = tool("analyzeAudioExtract");
+    InternalChatRequest request = request("standard prompt", false);
+    when(request.messages())
+        .thenReturn(List.of(new InternalChatRequest.ChatMessage("user", "extract the audio?")));
+    EngineChatOptions options = new EngineChatOptions("gpt-4o", 0.5, 100);
+    EngineChatOptions withTools = options.withNativeOptions("tools attached");
+    when(toolOptions.withTools(options, List.of(audio))).thenReturn(withTools);
 
-    ToolCallback audioTool = mock(ToolCallback.class);
-    ToolDefinition audioDef = mock(ToolDefinition.class);
-    when(audioDef.name()).thenReturn("analyzeAudioExtract");
-    when(audioTool.getToolDefinition()).thenReturn(audioDef);
+    EngineChatOptions result =
+        interceptorOver(audio).preProcess(request, null, new ArrayList<>(), options);
 
-    when(toolRegistry.getRegisteredTools()).thenReturn(List.of(audioTool));
-    ToolInterceptor interceptor = new ToolInterceptor(toolRegistry);
-
-    InternalChatRequest request = mock(InternalChatRequest.class);
-    when(request.streaming()).thenReturn(false);
-    when(request.prompt()).thenReturn("standard prompt");
-    List<InternalChatRequest.ChatMessage> userMsgs =
-        List.of(new InternalChatRequest.ChatMessage("user", "can you extract the audio?"));
-    when(request.messages()).thenReturn(userMsgs);
-
-    OpenAiChatOptions options =
-        OpenAiChatOptions.builder().model("gpt-4o").temperature(0.5).maxTokens(100).build();
-
-    Object result =
-        interceptor.preProcess(request, null, new ArrayList<>(), wrap(options)).nativeOptions();
-    assertThat(result).isInstanceOf(OpenAiChatOptions.class);
-    OpenAiChatOptions openAiResult = (OpenAiChatOptions) result;
-
-    assertThat(openAiResult.getModel()).isEqualTo("gpt-4o");
-    assertThat(openAiResult.getTemperature()).isEqualTo(0.5);
-    assertThat(openAiResult.getMaxTokens()).isEqualTo(100);
-    assertThat(openAiResult.getToolCallbacks()).containsExactly(audioTool);
-  }
-
-  @Test
-  @DisplayName("preProcess returns original options if custom options class is used")
-  void preProcessCustomOptions() {
-    ToolRegistry toolRegistry = mock(ToolRegistry.class);
-
-    ToolCallback genericTool = mock(ToolCallback.class);
-    ToolDefinition genericDef = mock(ToolDefinition.class);
-    when(genericDef.name()).thenReturn("genericTool");
-    when(genericTool.getToolDefinition()).thenReturn(genericDef);
-
-    when(toolRegistry.getRegisteredTools()).thenReturn(List.of(genericTool));
-    ToolInterceptor interceptor = new ToolInterceptor(toolRegistry);
-
-    InternalChatRequest request = mock(InternalChatRequest.class);
-    when(request.streaming()).thenReturn(false);
-    when(request.prompt()).thenReturn("text");
-    when(request.messages()).thenReturn(Collections.emptyList());
-
-    ChatOptions options = mock(ChatOptions.class);
-    Object result =
-        interceptor.preProcess(request, "", new ArrayList<>(), wrap(options)).nativeOptions();
-    assertThat(result).isSameAs(options);
+    assertThat(result).isSameAs(withTools);
   }
 }

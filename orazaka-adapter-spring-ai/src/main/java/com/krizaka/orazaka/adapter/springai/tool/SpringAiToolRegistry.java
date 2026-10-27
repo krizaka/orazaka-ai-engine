@@ -1,5 +1,6 @@
 package com.krizaka.orazaka.adapter.springai.tool;
 
+import com.krizaka.orazaka.core.domain.model.chat.EngineTool;
 import com.krizaka.orazaka.core.domain.ports.outbound.PlatformToolConfigProvider;
 import com.krizaka.orazaka.core.domain.ports.outbound.ToolRegistry;
 import com.krizaka.orazaka.core.domain.ports.outbound.ToolResultCache;
@@ -59,10 +60,10 @@ public class SpringAiToolRegistry implements ToolRegistry {
    * Retrieves all registered tool callbacks, wrapping any that have active caching properties
    * configured.
    *
-   * @return An immutable List of wrapped or direct ToolCallback objects.
+   * @return An immutable List of engine tools, each keeping the {@link ToolCallback} it stands for.
    */
   @Override
-  public List<ToolCallback> getRegisteredTools() {
+  public List<EngineTool> getRegisteredTools() {
     return registeredTools.stream()
         .map(
             tool -> {
@@ -83,6 +84,13 @@ public class SpringAiToolRegistry implements ToolRegistry {
               }
               return tool;
             })
+        .map(SpringAiToolRegistry::toEngine)
         .toList();
+  }
+
+  private static EngineTool toEngine(ToolCallback tool) {
+    var definition = tool.getToolDefinition();
+    return new EngineTool(
+        definition.name(), definition.description(), definition.inputSchema(), tool::call, tool);
   }
 }

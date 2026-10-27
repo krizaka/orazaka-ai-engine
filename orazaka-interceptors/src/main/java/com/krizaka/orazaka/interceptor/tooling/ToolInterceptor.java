@@ -3,17 +3,16 @@ package com.krizaka.orazaka.interceptor.tooling;
 import com.krizaka.orazaka.core.application.interceptor.PromptContextInterceptor;
 import com.krizaka.orazaka.core.domain.model.chat.EngineChatOptions;
 import com.krizaka.orazaka.core.domain.model.chat.EngineMessage;
+import com.krizaka.orazaka.core.domain.model.chat.EngineTool;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
+import com.krizaka.orazaka.core.domain.ports.outbound.ToolOptions;
 import com.krizaka.orazaka.core.domain.ports.outbound.ToolRegistry;
 import java.util.ArrayList;
 import java.util.List;
-import org.springframework.ai.ollama.api.OllamaChatOptions;
-import org.springframework.ai.openai.OpenAiChatOptions;
-import org.springframework.ai.tool.ToolCallback;
 
 /**
  * Tool execution interceptor — analyzes prompt content to selectively attach relevant {@link
- * ToolCallback} definitions to the chat options.
+ * EngineTool} definitions to the chat options.
  *
  * <p>Uses keyword-based demand detection to determine which tools are relevant for the current
  * prompt (e.g., image analysis for "poster", audio analysis for "audio").
@@ -22,9 +21,11 @@ import org.springframework.ai.tool.ToolCallback;
  */
 class ToolInterceptor implements PromptContextInterceptor {
   private final ToolRegistry toolRegistry;
+  private final ToolOptions toolOptions;
 
-  ToolInterceptor(ToolRegistry toolRegistry) {
+  ToolInterceptor(ToolRegistry toolRegistry, ToolOptions toolOptions) {
     this.toolRegistry = toolRegistry;
+    this.toolOptions = toolOptions;
   }
 
   @Override
@@ -48,22 +49,20 @@ class ToolInterceptor implements PromptContextInterceptor {
       return options;
     }
 
-    List<ToolCallback> demandedTools = collectDemandedTools(request, promptText);
+    List<EngineTool> demandedTools = collectDemandedTools(request, promptText);
     if (demandedTools.isEmpty()) {
       return options;
     }
 
-    return options == null
-        ? null
-        : options.withNativeOptions(attachTools(options.nativeOptions(), demandedTools));
+    return toolOptions.withTools(options, demandedTools);
   }
 
-  private List<ToolCallback> collectDemandedTools(InternalChatRequest request, String promptText) {
+  private List<EngineTool> collectDemandedTools(InternalChatRequest request, String promptText) {
     String lowerContext = extractFullText(request, promptText).toLowerCase();
-    List<ToolCallback> demanded = new ArrayList<>();
+    List<EngineTool> demanded = new ArrayList<>();
 
-    for (ToolCallback tool : toolRegistry.getRegisteredTools()) {
-      String name = tool.getToolDefinition().name();
+    for (EngineTool tool : toolRegistry.getRegisteredTools()) {
+      String name = tool.name();
       boolean isSpecialized = isSpecializedTool(name);
       if (!isSpecialized || matchesDemand(name, lowerContext)) {
         demanded.add(tool);
@@ -105,29 +104,5 @@ class ToolInterceptor implements PromptContextInterceptor {
         || lowerContext.contains("voice")
         || lowerContext.contains("music")
         || lowerContext.contains("sound");
-  }
-
-  private Object attachTools(Object options, List<ToolCallback> demandedTools) {
-    // Spring AI 2.0 dropped builder .toolNames(Set) — tool registration is via .toolCallbacks()
-    // alone.
-    return switch (options) {
-      case null -> options;
-      case OllamaChatOptions ollama ->
-          OllamaChatOptions.builder()
-              .model(ollama.getModel())
-              .temperature(ollama.getTemperature())
-              .numPredict(ollama.getNumPredict())
-              .numCtx(8192)
-              .toolCallbacks(demandedTools)
-              .build();
-      case OpenAiChatOptions openai ->
-          OpenAiChatOptions.builder()
-              .model(openai.getModel())
-              .temperature(openai.getTemperature())
-              .maxTokens(openai.getMaxTokens())
-              .toolCallbacks(demandedTools)
-              .build();
-      default -> options;
-    };
   }
 }

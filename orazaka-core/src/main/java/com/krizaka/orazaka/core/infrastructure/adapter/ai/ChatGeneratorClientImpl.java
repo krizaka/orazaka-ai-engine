@@ -3,6 +3,7 @@ package com.krizaka.orazaka.core.infrastructure.adapter.ai;
 import com.krizaka.orazaka.core.application.engine.Engine;
 import com.krizaka.orazaka.core.domain.model.chat.ChatRequest;
 import com.krizaka.orazaka.core.domain.model.chat.ChatResponse;
+import com.krizaka.orazaka.core.domain.model.chat.EngineChatOptions;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatResponse;
 import com.krizaka.orazaka.core.domain.ports.outbound.ChatGeneratorClient;
@@ -49,8 +50,16 @@ class ChatGeneratorClientImpl implements ChatGeneratorClient {
     List<InternalChatRequest.ChatMessage> mappedMessages =
         req.messages().stream().map(ChatGeneratorClientImpl::mapChatMessage).toList();
 
-    ChatOptions options = buildChatOptions(req.settings());
+    EngineChatOptions options = engineOptions(buildChatOptions(req.settings()));
     return new InternalChatRequest(req.prompt(), mappedMessages, options, req.context(), streaming);
+  }
+
+  /** The engine's view of the library options, which it keeps for the way back. */
+  private static EngineChatOptions engineOptions(ChatOptions options) {
+    return options == null
+        ? null
+        : new EngineChatOptions(
+            options.getModel(), options.getTemperature(), options.getMaxTokens(), options);
   }
 
   private static ChatOptions buildChatOptions(Map<String, Object> settings) {

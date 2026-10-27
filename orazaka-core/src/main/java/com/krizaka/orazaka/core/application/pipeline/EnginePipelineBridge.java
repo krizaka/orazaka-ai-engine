@@ -125,14 +125,16 @@ public final class EnginePipelineBridge {
           pipelineContext);
     }
 
-    String provider = resolveProvider(pipelineContext, request.options(), defaultProvider);
+    String provider =
+        resolveProvider(
+            pipelineContext, MessageCompiler.toSpring(request.options()), defaultProvider);
     String ollamaChatModel = resolveOllamaChatModel(provider);
 
     // Compile message history + current prompt via MessageCompiler
     List<Message> messages = MessageCompiler.compile(request, promptText, mediaResult, hasMedia);
 
     // Resolve Spring AI ChatOptions via ChatOptionsResolver
-    ChatOptions springOptions = request.options();
+    ChatOptions springOptions = MessageCompiler.toSpring(request.options());
     if (ProviderClassifier.ollama().equalsIgnoreCase(provider)) {
       springOptions = ChatOptionsResolver.resolveOllamaOptions(springOptions, ollamaChatModel);
     } else if (springOptions == null) {

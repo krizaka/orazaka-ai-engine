@@ -6,6 +6,7 @@ import static org.mockito.Mockito.*;
 
 import com.krizaka.orazaka.adapter.springai.tool.CachingToolCallback;
 import com.krizaka.orazaka.adapter.springai.tool.SpringAiToolRegistry;
+import com.krizaka.orazaka.core.domain.model.chat.EngineTool;
 import com.krizaka.orazaka.core.domain.ports.outbound.KnowledgeService;
 import com.krizaka.orazaka.core.domain.ports.outbound.PlatformToolConfigProvider;
 import com.krizaka.orazaka.core.infrastructure.support.SecurityContextUtil;
@@ -22,7 +23,6 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.ai.tool.ToolCallback;
 
 @ExtendWith(MockitoExtension.class)
 class DefaultToolCatalogueTest {
@@ -46,15 +46,14 @@ class DefaultToolCatalogueTest {
     // [#59] the corpus search says what it is: knowledge, not the web (ADR-087).
     var tool =
         registry.getRegisteredTools().stream()
-            .filter(t -> "searchKnowledge".equals(t.getToolDefinition().name()))
+            .filter(t -> "searchKnowledge".equals(t.name()))
             .findFirst()
             .orElseThrow();
-    assertThat(tool.getToolDefinition().description())
+    assertThat(tool.description())
         .containsIgnoringCase("knowledge")
         .containsIgnoringCase("not the web")
         .doesNotContainIgnoringCase("real-time");
-    assertThat(registry.getRegisteredTools())
-        .noneMatch(t -> "searchWeb".equals(t.getToolDefinition().name()));
+    assertThat(registry.getRegisteredTools()).noneMatch(t -> "searchWeb".equals(t.name()));
   }
 
   @Test
@@ -65,16 +64,16 @@ class DefaultToolCatalogueTest {
 
     registry.registerTool(name, description, String.class, function);
 
-    List<ToolCallback> tools = registry.getRegisteredTools();
+    List<EngineTool> tools = registry.getRegisteredTools();
     assertThat(tools).hasSize(4);
-    assertThat(tools.stream().map(t -> t.getToolDefinition().name()))
+    assertThat(tools.stream().map(t -> t.name()))
         .contains(name, "analyzePoster", "analyzeAudioExtract", "searchKnowledge");
   }
 
   @Test
   void shouldReturnImmutableList() {
     registry.registerTool("tool1", "desc1", String.class, (String s) -> s);
-    List<ToolCallback> tools = registry.getRegisteredTools();
+    List<EngineTool> tools = registry.getRegisteredTools();
     assertThrows(UnsupportedOperationException.class, () -> tools.add(null));
   }
 
@@ -86,9 +85,9 @@ class DefaultToolCatalogueTest {
     "analyzeAudioExtract, '{\"clipPath\":\"corrupt-path.mp3\",\"checkType\":\"loudness\"}', 'Audio clip corrupt or missing'"
   })
   void toolCallbacks(String toolName, String inputJson, String expectedSubstring) {
-    ToolCallback tool =
+    EngineTool tool =
         registry.getRegisteredTools().stream()
-            .filter(t -> toolName.equals(t.getToolDefinition().name()))
+            .filter(t -> toolName.equals(t.name()))
             .findFirst()
             .orElseThrow();
 
@@ -101,9 +100,9 @@ class DefaultToolCatalogueTest {
   void searchKnowledge_knowledgeServiceNull_returnsErrorResponse() {
     SpringAiToolRegistry registryNoKnowledge = new SpringAiToolRegistry(null, null);
     new DefaultToolCatalogue(registryNoKnowledge, null).registerDefaultTools();
-    ToolCallback tool =
+    EngineTool tool =
         registryNoKnowledge.getRegisteredTools().stream()
-            .filter(t -> "searchKnowledge".equals(t.getToolDefinition().name()))
+            .filter(t -> "searchKnowledge".equals(t.name()))
             .findFirst()
             .orElseThrow();
 
@@ -113,9 +112,9 @@ class DefaultToolCatalogueTest {
 
   @Test
   void searchKnowledge_withMatches_returnsJoinedContent() {
-    ToolCallback tool =
+    EngineTool tool =
         registry.getRegisteredTools().stream()
-            .filter(t -> "searchKnowledge".equals(t.getToolDefinition().name()))
+            .filter(t -> "searchKnowledge".equals(t.name()))
             .findFirst()
             .orElseThrow();
 
@@ -135,9 +134,9 @@ class DefaultToolCatalogueTest {
 
   @Test
   void searchKnowledge_noMatch_fallsBackToAllVisibleSources() {
-    ToolCallback tool =
+    EngineTool tool =
         registry.getRegisteredTools().stream()
-            .filter(t -> "searchKnowledge".equals(t.getToolDefinition().name()))
+            .filter(t -> "searchKnowledge".equals(t.name()))
             .findFirst()
             .orElseThrow();
 
@@ -162,13 +161,10 @@ class DefaultToolCatalogueTest {
             1, "analyzePoster", true, 600, false, null, null);
     when(platformToolConfigProvider.getToolConfig("analyzePoster")).thenReturn(Optional.of(config));
 
-    List<ToolCallback> tools = registry.getRegisteredTools();
-    ToolCallback posterTool =
-        tools.stream()
-            .filter(t -> "analyzePoster".equals(t.getToolDefinition().name()))
-            .findFirst()
-            .orElseThrow();
+    List<EngineTool> tools = registry.getRegisteredTools();
+    EngineTool posterTool =
+        tools.stream().filter(t -> "analyzePoster".equals(t.name())).findFirst().orElseThrow();
 
-    assertTrue(posterTool instanceof CachingToolCallback);
+    assertTrue(posterTool.nativeTool() instanceof CachingToolCallback);
   }
 }

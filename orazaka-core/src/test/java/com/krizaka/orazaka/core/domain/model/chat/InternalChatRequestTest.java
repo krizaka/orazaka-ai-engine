@@ -5,8 +5,6 @@ import static org.junit.jupiter.api.Assertions.*;
 import com.krizaka.orazaka.core.domain.model.Context;
 import java.util.List;
 import org.junit.jupiter.api.Test;
-import org.springframework.ai.chat.messages.Message;
-import org.springframework.ai.chat.messages.UserMessage;
 
 class InternalChatRequestTest {
 
@@ -62,15 +60,16 @@ class InternalChatRequestTest {
   void compileMessages_addsRefinedPrompt() {
     var msg = new InternalChatRequest.ChatMessage("user", "hello");
     var request = new InternalChatRequest("prompt", List.of(msg), null, Context.anonymous());
-    List<Message> compiled =
-        request.compileMessages("refined prompt", cm -> new UserMessage(cm.content()));
+    List<EngineMessage> compiled =
+        request.compileMessages("refined prompt", cm -> EngineMessage.user(cm.content()));
     assertEquals(2, compiled.size());
   }
 
   @Test
   void compileMessages_blankRefinedPrompt_skipped() {
     var request = new InternalChatRequest("prompt", List.of(), null, Context.anonymous());
-    List<Message> compiled = request.compileMessages("  ", cm -> new UserMessage(cm.content()));
+    List<EngineMessage> compiled =
+        request.compileMessages("  ", cm -> EngineMessage.user(cm.content()));
     assertTrue(compiled.isEmpty());
   }
 }

@@ -1,7 +1,7 @@
 {
   "rules": {
     "spring-ai-outside-adapter": {
-      "count": 29,
+      "count": 26,
       "classes": [
         "com.krizaka.orazaka.core.application.engine.AbstractEngine",
         "com.krizaka.orazaka.core.application.engine.Engine",
@@ -12,9 +12,6 @@
         "com.krizaka.orazaka.core.application.pipeline.MessageCompiler",
         "com.krizaka.orazaka.core.application.pipeline.PipelineOptionsRegistry",
         "com.krizaka.orazaka.core.application.pipeline.PipelineOptionsStrategy",
-        "com.krizaka.orazaka.core.application.processing.Chunker",
-        "com.krizaka.orazaka.core.application.processing.ChunkingStrategies",
-        "com.krizaka.orazaka.core.application.processing.JsonChunkMapper",
         "com.krizaka.orazaka.core.application.routing.ChatOptionsResolver",
         "com.krizaka.orazaka.core.application.routing.DynamicChatModelFactory",
         "com.krizaka.orazaka.core.application.routing.ProviderClassifier",
@@ -42,7 +39,7 @@
       ]
     },
     "spring-in-core": {
-      "count": 57,
+      "count": 54,
       "classes": [
         "com.krizaka.orazaka.core.application.engine.AbstractEngine",
         "com.krizaka.orazaka.core.application.engine.Engine",
@@ -55,9 +52,6 @@
         "com.krizaka.orazaka.core.application.pipeline.PipelineOptionsRegistry",
         "com.krizaka.orazaka.core.application.pipeline.PipelineOptionsStrategy",
         "com.krizaka.orazaka.core.application.pipeline.PipelineRegistry",
-        "com.krizaka.orazaka.core.application.processing.Chunker",
-        "com.krizaka.orazaka.core.application.processing.ChunkingStrategies",
-        "com.krizaka.orazaka.core.application.processing.JsonChunkMapper",
         "com.krizaka.orazaka.core.application.routing.ChatOptionsResolver",
         "com.krizaka.orazaka.core.application.routing.DynamicChatModelFactory",
         "com.krizaka.orazaka.core.application.routing.PolicyStepRouter",

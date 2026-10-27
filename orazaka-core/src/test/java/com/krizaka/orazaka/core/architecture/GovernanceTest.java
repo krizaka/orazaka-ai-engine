@@ -423,6 +423,9 @@ class GovernanceTest {
         .because(
             "Mapper classes must be final static utility classes."
                 + " Field-by-field mapping in controllers/services is banned [ERR-107].")
+        // The core holds no mapper since JsonChunkMapper moved to the Spring AI adapter (#120):
+        // the rule stays for the next one, and the adapter's own test below keeps it non-vacuous.
+        .allowEmptyShould(true)
         .check(coreClasses);
   }
 

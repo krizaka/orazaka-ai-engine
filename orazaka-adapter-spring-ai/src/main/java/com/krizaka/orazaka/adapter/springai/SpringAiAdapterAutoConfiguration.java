@@ -1,10 +1,13 @@
 package com.krizaka.orazaka.adapter.springai;
 
+import com.krizaka.orazaka.adapter.springai.chat.SpringAiProviderChatClient;
 import com.krizaka.orazaka.adapter.springai.structured.SpringAiStructuredOutputClient;
 import com.krizaka.orazaka.adapter.springai.tool.SpringAiToolOptions;
 import com.krizaka.orazaka.adapter.springai.tool.SpringAiToolRegistry;
+import com.krizaka.orazaka.core.application.pipeline.PipelineOptionsRegistry;
 import com.krizaka.orazaka.core.domain.ports.outbound.*;
 import com.krizaka.orazaka.core.infrastructure.adapter.security.LoggingAccessAudit;
+import java.util.Map;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -73,6 +76,21 @@ public class SpringAiAdapterAutoConfiguration {
   @ConditionalOnMissingBean(StructuredOutputClient.class)
   public SpringAiStructuredOutputClient structuredOutputClient(ChatModel chatModel) {
     return new SpringAiStructuredOutputClient(chatModel);
+  }
+
+  /**
+   * The port that asks the model of a provider, over the provider-keyed {@link ChatModel} beans (an
+   * empty set when there are none).
+   *
+   * @param chatModels the models by provider key
+   * @param optionsRegistry builds the provider-specific options
+   * @return the client
+   */
+  @Bean
+  @ConditionalOnMissingBean(ProviderChatClient.class)
+  public SpringAiProviderChatClient providerChatClient(
+      ObjectProvider<Map<String, ChatModel>> chatModels, PipelineOptionsRegistry optionsRegistry) {
+    return new SpringAiProviderChatClient(chatModels.getIfAvailable(Map::of), optionsRegistry);
   }
 
   /** No cache: every call runs the tool. */

@@ -1,21 +1,15 @@
 package com.krizaka.orazaka.interceptor.reformulation;
 
-import com.krizaka.orazaka.adapter.springai.response.SpringAiResponses;
 import com.krizaka.orazaka.core.application.interceptor.PromptContextInterceptor;
-import com.krizaka.orazaka.core.application.pipeline.PipelineOptionsRegistry;
 import com.krizaka.orazaka.core.domain.model.PromptContext;
+import com.krizaka.orazaka.core.domain.model.chat.EngineMessage;
+import com.krizaka.orazaka.core.domain.ports.outbound.ProviderChatClient;
 import com.krizaka.orazaka.core.infrastructure.config.CoreProperties;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.chat.messages.UserMessage;
-import org.springframework.ai.chat.model.ChatModel;
-import org.springframework.ai.chat.prompt.ChatOptions;
-import org.springframework.ai.chat.prompt.Prompt;
-import org.springframework.ai.chat.prompt.SystemPromptTemplate;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 
@@ -31,20 +25,16 @@ import org.springframework.core.io.Resource;
 public class RouterInterceptor implements PromptContextInterceptor {
   private static final Logger logger = LoggerFactory.getLogger(RouterInterceptor.class);
 
-  private final Map<String, ChatModel> chatModels;
+  private final ProviderChatClient chatClient;
   private final CoreProperties properties;
-  private final PipelineOptionsRegistry optionsRegistry;
   private final Resource routerSystemResource;
 
   public RouterInterceptor(
-      Map<String, ChatModel> chatModels,
+      ProviderChatClient chatClient,
       CoreProperties properties,
-      PipelineOptionsRegistry optionsRegistry,
       @Value("classpath:/prompts/system-router.st") Resource routerSystemResource) {
-    this.chatModels = Map.copyOf(Objects.requireNonNullElse(chatModels, Map.of()));
+    this.chatClient = Objects.requireNonNull(chatClient, "ProviderChatClient must not be null");
     this.properties = Objects.requireNonNull(properties, "CoreProperties must not be null");
-    this.optionsRegistry =
-        Objects.requireNonNull(optionsRegistry, "PipelineOptionsRegistry must not be null");
     this.routerSystemResource =
         Objects.requireNonNull(routerSystemResource, "routerSystemResource must not be null");
   }
@@ -69,22 +59,12 @@ public class RouterInterceptor implements PromptContextInterceptor {
     }
 
     String provider = resolveProvider();
-    ChatModel model = chatModels.get(provider);
-    if (model == null) {
-      model =
-          chatModels.entrySet().stream()
-              .filter(entry -> entry.getKey().toLowerCase().contains(provider.toLowerCase()))
-              .map(Map.Entry::getValue)
-              .findFirst()
-              .orElse(null);
-    }
-    if (model == null) {
+    if (chatClient.resolve(provider).isEmpty()) {
       logger.warn("Router provider '{}' is not registered.", provider);
       return context;
     }
 
-    Prompt prompt = buildRouterPrompt(provider, context);
-    return executeRouting(model, prompt, context);
+    return executeRouting(provider, buildRouterPrompt(context), context);
   }
 
   /**
@@ -103,28 +83,30 @@ public class RouterInterceptor implements PromptContextInterceptor {
         .orElse(properties.defaultProvider());
   }
 
-  private Prompt buildRouterPrompt(String provider, PromptContext context) {
-    String availableModels = String.join(", ", chatModels.keySet().stream().sorted().toList());
-    var sysMsg = new SystemPromptTemplate(routerSystemResource).createMessage();
+  private List<EngineMessage> buildRouterPrompt(PromptContext context) {
+    String availableModels = String.join(", ", chatClient.providers().stream().sorted().toList());
     // User message is inlined (no router-user.st core resource — the core prompt
     // allow-list only permits system-router.st / system-refinement.st / context-envelope.st).
-    var userMsg =
-        new UserMessage(
+    return List.of(
+        EngineMessage.system(PromptTemplates.read(routerSystemResource)),
+        EngineMessage.user(
             "Refined query:\n"
                 + context.refinedPrompt()
                 + "\n\nLocally available model keys: "
                 + availableModels
-                + "\n\nReturn only the optimal provider key.");
-
-    var opt = properties.orchestration().router();
-    ChatOptions options = optionsRegistry.build(provider, opt.model(), 0.0);
-    return new Prompt(List.of(sysMsg, userMsg), options);
+                + "\n\nReturn only the optimal provider key."));
   }
 
-  private PromptContext executeRouting(ChatModel model, Prompt prompt, PromptContext context) {
+  private PromptContext executeRouting(
+      String provider, List<EngineMessage> messages, PromptContext context) {
     try {
-      return SpringAiResponses.extractResponseText(model.call(prompt))
-          .filter(chatModels::containsKey)
+      var opt = properties.orchestration().router();
+      String registered = chatClient.resolve(provider).orElseThrow();
+      return Optional.ofNullable(
+              chatClient.complete(registered, provider, messages, opt.model(), 0.0))
+          .map(String::strip)
+          .filter(text -> !text.isBlank())
+          .filter(chatClient.providers()::contains)
           .map(
               routedModel -> {
                 logger.debug("Routed to: {}", routedModel);

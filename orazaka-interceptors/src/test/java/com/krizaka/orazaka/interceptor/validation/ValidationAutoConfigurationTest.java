@@ -2,12 +2,12 @@ package com.krizaka.orazaka.interceptor.validation;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
-import java.util.Collections;
-import java.util.Map;
+import com.krizaka.orazaka.core.domain.ports.outbound.ProviderChatClient;
+import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.ai.chat.model.ChatModel;
 
 class ValidationAutoConfigurationTest {
 
@@ -22,23 +22,24 @@ class ValidationAutoConfigurationTest {
 
     ClosedLoopValidationProperties props =
         new ClosedLoopValidationProperties(true, 3, true, true, true, false);
-    ChatModel chatModel = mock(ChatModel.class);
-    Map<String, ChatModel> chatModels = Map.of("openai", chatModel);
+    ProviderChatClient withModel = mock(ProviderChatClient.class);
+    when(withModel.providers()).thenReturn(Set.of("openai"));
+    ProviderChatClient withoutModel = mock(ProviderChatClient.class);
+    when(withoutModel.providers()).thenReturn(Set.of());
 
     ClosedLoopValidationInterceptor advisorWithModel =
-        config.closedLoopValidationInterceptor(props, chatModels, null, null, null, null);
+        config.closedLoopValidationInterceptor(props, withModel, null, null, null, null);
     assertThat(advisorWithModel).isNotNull();
 
     ClosedLoopValidationInterceptor advisorWithoutModel =
-        config.closedLoopValidationInterceptor(
-            props, Collections.emptyMap(), null, null, null, null);
+        config.closedLoopValidationInterceptor(props, withoutModel, null, null, null, null);
     assertThat(advisorWithoutModel).isNotNull();
 
-    SpringAiTestShaperAdapter shaper = config.springAiTestShaperAdapter(chatModels);
+    ModelTestShaperAdapter shaper = config.modelTestShaperAdapter(withModel);
     assertThat(shaper).isNotNull();
 
     org.assertj.core.api.Assertions.assertThatThrownBy(
-            () -> config.springAiTestShaperAdapter(Collections.emptyMap()))
+            () -> config.modelTestShaperAdapter(withoutModel))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("no ChatModel available");
   }

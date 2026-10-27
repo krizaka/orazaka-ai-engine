@@ -3,12 +3,7 @@ package com.krizaka.orazaka.tools.application.service;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.krizaka.orazaka.persistence.domain.ports.inbound.RuntimeConfigProvider;
-import com.krizaka.orazaka.tools.domain.model.research.FetchAudit;
-import com.krizaka.orazaka.tools.domain.model.research.FetchRefusal;
-import com.krizaka.orazaka.tools.domain.model.research.FetchRequest;
-import com.krizaka.orazaka.tools.domain.model.research.FetchResult;
-import com.krizaka.orazaka.tools.domain.model.research.FetchedDocument;
-import com.krizaka.orazaka.tools.domain.model.research.ResearchSource;
+import com.krizaka.orazaka.tools.domain.model.research.*;
 import com.krizaka.orazaka.tools.domain.port.HostResolver;
 import com.krizaka.orazaka.tools.domain.port.ResearchStore;
 import com.krizaka.orazaka.tools.domain.port.TextExtractor;

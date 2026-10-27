@@ -2,12 +2,7 @@ package com.krizaka.orazaka.core.infrastructure.checks;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.krizaka.orazaka.core.domain.model.checks.CheckCategory;
-import com.krizaka.orazaka.core.domain.model.checks.CheckKey;
-import com.krizaka.orazaka.core.domain.model.checks.CheckOutcome;
-import com.krizaka.orazaka.core.domain.model.checks.CheckRequest;
-import com.krizaka.orazaka.core.domain.model.checks.CheckSubject;
-import com.krizaka.orazaka.core.domain.model.checks.KeySource;
+import com.krizaka.orazaka.core.domain.model.checks.*;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

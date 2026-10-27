@@ -1,9 +1,9 @@
 package com.krizaka.orazaka.interceptor.reformulation;
 
-import com.krizaka.orazaka.adapter.springai.response.SpringAiResponses;
 import com.krizaka.orazaka.core.application.interceptor.PromptContextInterceptor;
-import com.krizaka.orazaka.core.application.pipeline.PipelineOptionsRegistry;
 import com.krizaka.orazaka.core.domain.model.PromptContext;
+import com.krizaka.orazaka.core.domain.model.chat.EngineMessage;
+import com.krizaka.orazaka.core.domain.ports.outbound.ProviderChatClient;
 import com.krizaka.orazaka.core.infrastructure.config.CoreProperties;
 import java.util.List;
 import java.util.Map;
@@ -11,11 +11,6 @@ import java.util.Objects;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.chat.model.ChatModel;
-import org.springframework.ai.chat.prompt.ChatOptions;
-import org.springframework.ai.chat.prompt.Prompt;
-import org.springframework.ai.chat.prompt.PromptTemplate;
-import org.springframework.ai.chat.prompt.SystemPromptTemplate;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 
@@ -31,22 +26,18 @@ import org.springframework.core.io.Resource;
 public class RefinerInterceptor implements PromptContextInterceptor {
   private static final Logger logger = LoggerFactory.getLogger(RefinerInterceptor.class);
 
-  private final Map<String, ChatModel> chatModels;
+  private final ProviderChatClient chatClient;
   private final CoreProperties properties;
-  private final PipelineOptionsRegistry optionsRegistry;
   private final Resource systemRefinementResource;
   private final Resource contextEnvelopeResource;
 
   public RefinerInterceptor(
-      Map<String, ChatModel> chatModels,
+      ProviderChatClient chatClient,
       CoreProperties properties,
-      PipelineOptionsRegistry optionsRegistry,
       @Value("classpath:/prompts/system-refinement.st") Resource systemRefinementResource,
       @Value("classpath:/prompts/context-envelope.st") Resource contextEnvelopeResource) {
-    this.chatModels = Map.copyOf(Objects.requireNonNullElse(chatModels, Map.of()));
+    this.chatClient = Objects.requireNonNull(chatClient, "ProviderChatClient must not be null");
     this.properties = Objects.requireNonNull(properties, "CoreProperties must not be null");
-    this.optionsRegistry =
-        Objects.requireNonNull(optionsRegistry, "PipelineOptionsRegistry must not be null");
     this.systemRefinementResource =
         Objects.requireNonNull(
             systemRefinementResource, "systemRefinementResource must not be null");
@@ -75,22 +66,12 @@ public class RefinerInterceptor implements PromptContextInterceptor {
     }
 
     String provider = resolveProvider();
-    ChatModel model = chatModels.get(provider);
-    if (model == null) {
-      model =
-          chatModels.entrySet().stream()
-              .filter(entry -> entry.getKey().toLowerCase().contains(provider.toLowerCase()))
-              .map(Map.Entry::getValue)
-              .findFirst()
-              .orElse(null);
-    }
-    if (model == null) {
+    if (chatClient.resolve(provider).isEmpty()) {
       logger.warn("Refinement provider '{}' is not registered.", provider);
       return context;
     }
 
-    Prompt prompt = buildRefinementPrompt(provider, context);
-    return executeRefinement(model, prompt, context);
+    return executeRefinement(provider, buildRefinementPrompt(context), context);
   }
 
   /**
@@ -109,24 +90,26 @@ public class RefinerInterceptor implements PromptContextInterceptor {
         .orElse(properties.defaultProvider());
   }
 
-  private Prompt buildRefinementPrompt(String provider, PromptContext context) {
-    var sysMsg = new SystemPromptTemplate(systemRefinementResource).createMessage();
-    var userMsg =
-        new PromptTemplate(contextEnvelopeResource)
-            .createMessage(
+  private List<EngineMessage> buildRefinementPrompt(PromptContext context) {
+    return List.of(
+        EngineMessage.system(PromptTemplates.read(systemRefinementResource)),
+        EngineMessage.user(
+            PromptTemplates.render(
+                contextEnvelopeResource,
                 Map.of(
                     "userMetadata", context.userMetadata().toString(),
                     "systemMetadata", context.systemMetadata().toString(),
-                    "rawQuery", context.rawUserQuery()));
-
-    var opt = properties.orchestration().refiner();
-    ChatOptions options = optionsRegistry.build(provider, opt.model(), opt.temperature());
-    return new Prompt(List.of(sysMsg, userMsg), options);
+                    "rawQuery", context.rawUserQuery()))));
   }
 
-  private PromptContext executeRefinement(ChatModel model, Prompt prompt, PromptContext context) {
+  private PromptContext executeRefinement(
+      String provider, List<EngineMessage> messages, PromptContext context) {
     try {
-      return SpringAiResponses.extractResponseText(model.call(prompt))
+      var opt = properties.orchestration().refiner();
+      String registered = chatClient.resolve(provider).orElseThrow();
+      return Optional.ofNullable(
+              chatClient.complete(registered, provider, messages, opt.model(), opt.temperature()))
+          .map(String::strip)
           .filter(refined -> !refined.isBlank())
           .map(
               refined -> {

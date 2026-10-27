@@ -1,17 +1,7 @@
 package com.krizaka.orazaka.tools.infrastructure.config;
 
-import com.krizaka.orazaka.tools.application.port.law.KindDemandStore;
-import com.krizaka.orazaka.tools.application.port.law.LawCorpusCatalogue;
-import com.krizaka.orazaka.tools.application.port.law.LawSettings;
-import com.krizaka.orazaka.tools.application.port.law.RuleProposalStore;
-import com.krizaka.orazaka.tools.application.port.law.RulesetPack;
-import com.krizaka.orazaka.tools.application.port.law.RulesetPromotionPublisher;
-import com.krizaka.orazaka.tools.application.service.KindDemandService;
-import com.krizaka.orazaka.tools.application.service.LawCorpusCatalogueService;
-import com.krizaka.orazaka.tools.application.service.LawStatuteLookupService;
-import com.krizaka.orazaka.tools.application.service.RuleProposalReviewService;
-import com.krizaka.orazaka.tools.application.service.RuleProposalService;
-import com.krizaka.orazaka.tools.application.service.RulesetPromotionService;
+import com.krizaka.orazaka.tools.application.port.law.*;
+import com.krizaka.orazaka.tools.application.service.*;
 import com.krizaka.orazaka.tools.domain.model.law.GoldenCase;
 import com.krizaka.orazaka.tools.domain.model.law.LawReviewRefusal;
 import com.krizaka.orazaka.tools.domain.model.law.PackKind;

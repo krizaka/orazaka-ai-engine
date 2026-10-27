@@ -2,12 +2,7 @@ package com.krizaka.orazaka.tools.infrastructure.config;
 
 import com.krizaka.orazaka.core.domain.ports.outbound.ToolRegistry;
 import com.krizaka.orazaka.persistence.domain.ports.inbound.RuntimeConfigProvider;
-import com.krizaka.orazaka.tools.application.port.law.LawChangeRequests;
-import com.krizaka.orazaka.tools.application.port.law.LawCorpusStore;
-import com.krizaka.orazaka.tools.application.port.law.LawFileReader;
-import com.krizaka.orazaka.tools.application.port.law.LawSettings;
-import com.krizaka.orazaka.tools.application.port.law.LawSource;
-import com.krizaka.orazaka.tools.application.port.law.ResearchMeter;
+import com.krizaka.orazaka.tools.application.port.law.*;
 import com.krizaka.orazaka.tools.application.service.LawArticleReadService;
 import com.krizaka.orazaka.tools.application.service.LawImportService;
 import com.krizaka.orazaka.tools.application.service.LawManualImportService;

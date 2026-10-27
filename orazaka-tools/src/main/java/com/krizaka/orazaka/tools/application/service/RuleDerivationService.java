@@ -7,12 +7,7 @@ import com.krizaka.orazaka.tools.application.port.law.LawSettings;
 import com.krizaka.orazaka.tools.application.port.law.RuleDerivationModel;
 import com.krizaka.orazaka.tools.domain.model.law.*;
 import com.krizaka.orazaka.tools.domain.model.law.RuleDerivationResult.Outcome;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.*;
 
 /**
  * Stage 3 of ADR-089: the engine proposes the checks of a kind from its law, and nothing it

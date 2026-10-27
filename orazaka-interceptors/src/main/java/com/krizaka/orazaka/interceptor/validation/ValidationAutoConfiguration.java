@@ -2,10 +2,9 @@ package com.krizaka.orazaka.interceptor.validation;
 
 import com.krizaka.orazaka.core.domain.ports.outbound.CodeSandboxPort;
 import com.krizaka.orazaka.core.domain.ports.outbound.ControlVerdictRecorder;
+import com.krizaka.orazaka.core.domain.ports.outbound.ProviderChatClient;
 import com.krizaka.orazaka.core.domain.ports.outbound.TestShaperPort;
 import com.krizaka.orazaka.core.domain.ports.outbound.ValidationPipelineRepository;
-import java.util.Map;
-import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -16,13 +15,14 @@ import org.springframework.context.annotation.Bean;
 /**
  * Spring Boot auto-configuration for the validation interceptor module.
  *
- * <p>Registers the {@link CostShieldInterceptor}, the {@link SpringAiTestShaperAdapter} (Tier D),
- * and the {@link ClosedLoopValidationInterceptor}. The advisor is conditionally activated via
- * {@code orazaka.interceptor.validation.closed-loop.enabled}.
+ * <p>Registers the {@link CostShieldInterceptor}, the {@link ModelTestShaperAdapter} (Tier D), and
+ * the {@link ClosedLoopValidationInterceptor}. The advisor is conditionally activated via {@code
+ * orazaka.interceptor.validation.closed-loop.enabled}.
  *
  * @since 1.0.0
  */
-@AutoConfiguration
+@AutoConfiguration(
+    afterName = "com.krizaka.orazaka.adapter.springai.SpringAiAdapterAutoConfiguration")
 @EnableConfigurationProperties(ClosedLoopValidationProperties.class)
 public class ValidationAutoConfiguration {
 
@@ -72,28 +72,27 @@ public class ValidationAutoConfiguration {
   }
 
   /**
-   * Registers the {@link SpringAiTestShaperAdapter} bean for Tier D (Test-Driven Response).
+   * Registers the {@link ModelTestShaperAdapter} bean for Tier D (Test-Driven Response).
    *
-   * <p>Activated only when at least one ChatModel bean is available in the context. Uses the first
-   * available ChatModel from the provider-keyed map.
+   * <p>Activated only when a {@link ProviderChatClient} is available in the context. Uses its first
+   * registered model.
    *
-   * @param chatModels Provider-keyed ChatModel map.
+   * @param chatClient The port that asks a model.
    * @return The test shaper adapter.
    */
   @Bean
-  @ConditionalOnBean(ChatModel.class)
+  @ConditionalOnBean(ProviderChatClient.class)
   @ConditionalOnProperty(
       prefix = "orazaka.interceptor.validation.closed-loop",
       name = "tdr-enabled",
       havingValue = "true",
       matchIfMissing = false)
-  public SpringAiTestShaperAdapter springAiTestShaperAdapter(Map<String, ChatModel> chatModels) {
-    ChatModel tdrModel = chatModels.values().stream().findFirst().orElse(null);
-    if (tdrModel == null) {
+  public ModelTestShaperAdapter modelTestShaperAdapter(ProviderChatClient chatClient) {
+    if (chatClient.providers().isEmpty()) {
       throw new IllegalStateException(
           "Tier D (TDR) enabled but no ChatModel available in context.");
     }
-    return new SpringAiTestShaperAdapter(tdrModel);
+    return new ModelTestShaperAdapter(chatClient);
   }
 
   /**
@@ -103,7 +102,8 @@ public class ValidationAutoConfiguration {
    * (Semantic Debate) and Tier D (TDR) gracefully degrade when their dependencies are absent.
    *
    * @param properties Closed-loop validation configuration.
-   * @param chatModels Provider-keyed ChatModel map (may be empty).
+   * @param chatClient The port that asks a model (no model registered: Tier C and adjustment
+   *     degrade).
    * @param validationPipelineRepository Dynamic pipeline config repository (nullable).
    * @param testShaperPort Tier D assertion generator (nullable).
    * @param verdictRecorder Persists adjustments and escalations through the outbox (nullable).
@@ -117,12 +117,12 @@ public class ValidationAutoConfiguration {
       havingValue = "true")
   public ClosedLoopValidationInterceptor closedLoopValidationInterceptor(
       ClosedLoopValidationProperties properties,
-      Map<String, ChatModel> chatModels,
+      ProviderChatClient chatClient,
       @Autowired(required = false) ValidationPipelineRepository validationPipelineRepository,
       @Autowired(required = false) TestShaperPort testShaperPort,
       @Autowired(required = false) ControlVerdictRecorder verdictRecorder,
       @Autowired(required = false) CodeSandboxPort sandbox) {
-    ChatModel debateModel = chatModels.values().stream().findFirst().orElse(null);
+    ProviderChatClient debateModel = chatClient.providers().isEmpty() ? null : chatClient;
     return new ClosedLoopValidationInterceptor(
         properties,
         debateModel,

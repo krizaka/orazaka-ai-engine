@@ -32,12 +32,7 @@ import com.krizaka.orazaka.interceptor.validation.SafetyInterceptor;
 import com.krizaka.orazaka.jobs.domain.model.JobCommand;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.messages.AssistantMessage;
@@ -192,9 +187,8 @@ class MediaTurnControlsTest {
             null);
     PromptContextInterceptor refiner =
         new RefinerInterceptor(
-            Map.of(),
+            mock(com.krizaka.orazaka.core.domain.ports.outbound.ProviderChatClient.class),
             properties,
-            mock(PipelineOptionsRegistry.class),
             new ByteArrayResource("system".getBytes()),
             new ByteArrayResource("{rawQuery}".getBytes()));
     List<PromptContextInterceptor> chain =

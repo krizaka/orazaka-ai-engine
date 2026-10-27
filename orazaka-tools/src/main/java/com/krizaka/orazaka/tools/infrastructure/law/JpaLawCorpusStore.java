@@ -1,12 +1,7 @@
 package com.krizaka.orazaka.tools.infrastructure.law;
 
 import com.krizaka.orazaka.tools.application.port.law.LawCorpusStore;
-import com.krizaka.orazaka.tools.domain.model.law.LawArticle;
-import com.krizaka.orazaka.tools.domain.model.law.LawArticleVersion;
-import com.krizaka.orazaka.tools.domain.model.law.LawImportResult;
-import com.krizaka.orazaka.tools.domain.model.law.LawImportStart;
-import com.krizaka.orazaka.tools.domain.model.law.LawImportStatus;
-import com.krizaka.orazaka.tools.domain.model.law.OfficialUrls;
+import com.krizaka.orazaka.tools.domain.model.law.*;
 import com.krizaka.orazaka.tools.infrastructure.adapter.persistence.entity.LawArticleVersionEntity;
 import com.krizaka.orazaka.tools.infrastructure.adapter.persistence.entity.LawArticleVersionId;
 import com.krizaka.orazaka.tools.infrastructure.adapter.persistence.entity.LawImportEntity;

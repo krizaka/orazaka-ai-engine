@@ -40,21 +40,6 @@
             <artifactId>orazaka-jobs-api</artifactId>
         </dependency>
 
-        <!-- Spring AI model abstractions (ChatModel, Prompt, ChatOptions, Message, ToolCallback) -->
-        <dependency>
-            <groupId>org.springframework.ai</groupId>
-            <artifactId>spring-ai-model</artifactId>
-        </dependency>
-        <!-- Provider-specific options used by the tooling concern -->
-        <dependency>
-            <groupId>org.springframework.ai</groupId>
-            <artifactId>spring-ai-ollama</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.ai</groupId>
-            <artifactId>spring-ai-openai</artifactId>
-        </dependency>
-
         <!-- Jackson — Tier A deterministic JSON-schema validation (validation concern) -->
         <!-- External content is cleaned as a browser renders it: no hidden text reaches the model (#57). -->
         <dependency>

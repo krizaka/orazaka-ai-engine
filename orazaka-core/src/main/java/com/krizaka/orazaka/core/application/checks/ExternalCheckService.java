@@ -2,12 +2,7 @@ package com.krizaka.orazaka.core.application.checks;
 
 import com.krizaka.orazaka.core.domain.model.checks.*;
 import com.krizaka.orazaka.core.domain.ports.inbound.ExternalCheckCapability;
-import com.krizaka.orazaka.core.domain.ports.outbound.CheckAuditLog;
-import com.krizaka.orazaka.core.domain.ports.outbound.CheckKeyStore;
-import com.krizaka.orazaka.core.domain.ports.outbound.CheckMeter;
-import com.krizaka.orazaka.core.domain.ports.outbound.CheckSubjectPepper;
-import com.krizaka.orazaka.core.domain.ports.outbound.ConsentRegistry;
-import com.krizaka.orazaka.core.domain.ports.outbound.ExternalCheckConnector;
+import com.krizaka.orazaka.core.domain.ports.outbound.*;
 import com.krizaka.orazaka.core.infrastructure.support.CoreException;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;

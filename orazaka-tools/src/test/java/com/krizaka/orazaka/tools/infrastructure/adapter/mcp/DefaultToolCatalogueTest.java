@@ -212,6 +212,6 @@ class DefaultToolCatalogueTest {
   }
 
   private static List<String> names(List<EngineTool> tools) {
-    return tools.stream().map(t -> t.name()).toList();
+    return tools.stream().map(EngineTool::name).toList();
   }
 }

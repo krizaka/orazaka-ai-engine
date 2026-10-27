@@ -1,6 +1,8 @@
 package com.krizaka.orazaka.interceptor.validation;
 
 import com.krizaka.orazaka.core.application.interceptor.PromptContextInterceptor;
+import com.krizaka.orazaka.core.application.pipeline.PipelineShortCircuitException;
+import com.krizaka.orazaka.core.application.pipeline.ScreenedResponse;
 import com.krizaka.orazaka.core.domain.model.PromptContext;
 import com.krizaka.orazaka.core.domain.model.research.Citation;
 import com.krizaka.orazaka.core.domain.model.research.Claim;
@@ -33,6 +35,9 @@ import tools.jackson.databind.node.ObjectNode;
  * slice 5 turns it on per request.
  */
 public class CitationVerifierInterceptor implements PromptContextInterceptor {
+
+  /** The machine-readable refusal code of a streamed answer with unverified claims. */
+  public static final String REASON_UNVERIFIED = "citations_unverified";
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -81,21 +86,49 @@ public class CitationVerifierInterceptor implements PromptContextInterceptor {
 
   @Override
   public String screenResponse(PromptContext context, String responseText) {
+    GroundedAnswer verified = verify(context, responseText);
+    return verified == null ? responseText : write(verified);
+  }
+
+  /**
+   * A streamed answer has already left in chunks: it cannot be rewritten the way a served one is. A
+   * citation-shaped answer whose claims do not all verify is therefore refused, whatever the mode
+   * (orazaka-ai-engine#127); one that verifies is accepted as it was streamed. The check needs the
+   * whole JSON, so nothing is read per chunk.
+   */
+  @Override
+  public ScreenedResponse screenStreamed(PromptContext context, String assembled) {
+    GroundedAnswer verified = verify(context, assembled);
+    if (verified != null
+        && verified.claims().stream().anyMatch(c -> c.status() != ClaimStatus.VERIFIED)) {
+      throw new PipelineShortCircuitException(
+          getId(),
+          REASON_UNVERIFIED,
+          "The answer cites claims that could not be verified and was not served.",
+          null);
+    }
+    return ScreenedResponse.plain(assembled);
+  }
+
+  /**
+   * The answer checked against this turn's reads, or {@code null} when there is nothing to check.
+   */
+  private GroundedAnswer verify(PromptContext context, String responseText) {
     if (!active()) {
-      return responseText;
+      return null;
     }
     JsonNode root = parse(responseText);
     if (root == null
         || !root.isObject()
         || !root.path("claims").isArray()
         || !root.path("answer").isString()) {
-      return responseText;
+      return null;
     }
     VerifyMode mode =
         "STRICT".equalsIgnoreCase(config.getString("research.verify.mode", "MARK"))
             ? VerifyMode.STRICT
             : VerifyMode.MARK;
-    return write(verifier.verify(read(root), mode, context.researchRead()));
+    return verifier.verify(read(root), mode, context.researchRead());
   }
 
   private static JsonNode parse(String text) {

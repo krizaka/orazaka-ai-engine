@@ -228,7 +228,10 @@ public class ClosedLoopValidationInterceptor implements PromptContextInterceptor
   public void screenChunk(PromptContext context, String textSoFar) {
     if (!properties.enabled()
         || textSoFar == null
-        || !(properties.sandboxEnabled() || properties.schemaStrict())) {
+        || !textSoFar.contains("```")
+        || !resolveActiveSteps().contains(ValidationStepType.SANDBOX_B)) {
+      // The tiers are the ones of the non-streamed path (the DB rows, then the properties): a tier
+      // disabled there is skipped per chunk too (orazaka-ai-engine#127).
       return;
     }
     Optional<String> issue = codeBlockFailure(textSoFar, false);

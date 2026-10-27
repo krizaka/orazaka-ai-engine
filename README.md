@@ -53,6 +53,18 @@ Hosts: [orazaka-conversation-service](https://github.com/krizaka/orazaka-convers
 </dependency>
 ```
 
+### Control loop: a failed answer is never served
+
+`ClosedLoopValidationInterceptor` screens every answer before it leaves (`screenResponse`). Each pass
+ends in a typed `ControlVerdict`: `Validated` serves the text; `DriftAdjustment` re-runs the step with
+the diff of what failed injected; when the retries (`max-retries`) are spent, or nothing can adjust the
+answer, `HumanEscalation` refuses the turn (`PipelineShortCircuitException`, reason `control_escalation`).
+Tier B (`sandbox-enabled`) rejects an unclosed code fence or an invalid `json` block, and a wired
+`CodeSandboxPort` crash-tests each block. Adjustments and escalations are persisted as
+`(runId, driftReason, humanActorId, timestamp, actionTaken)` through the outbox
+(`ControlVerdictRecorder`, routing key `evt.control.verdict`). Streamed answers are not screened yet
+(orazaka-ai-engine#114).
+
 ### Route a step by policy
 
 `StepRouter` takes a `StepRoutingRequest(stepId, capability, policy)`, a mandatory

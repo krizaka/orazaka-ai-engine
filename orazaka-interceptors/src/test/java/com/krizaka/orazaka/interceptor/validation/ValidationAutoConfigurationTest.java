@@ -26,11 +26,12 @@ class ValidationAutoConfigurationTest {
     Map<String, ChatModel> chatModels = Map.of("openai", chatModel);
 
     ClosedLoopValidationInterceptor advisorWithModel =
-        config.closedLoopValidationInterceptor(props, chatModels, null, null);
+        config.closedLoopValidationInterceptor(props, chatModels, null, null, null, null);
     assertThat(advisorWithModel).isNotNull();
 
     ClosedLoopValidationInterceptor advisorWithoutModel =
-        config.closedLoopValidationInterceptor(props, Collections.emptyMap(), null, null);
+        config.closedLoopValidationInterceptor(
+            props, Collections.emptyMap(), null, null, null, null);
     assertThat(advisorWithoutModel).isNotNull();
 
     SpringAiTestShaperAdapter shaper = config.springAiTestShaperAdapter(chatModels);

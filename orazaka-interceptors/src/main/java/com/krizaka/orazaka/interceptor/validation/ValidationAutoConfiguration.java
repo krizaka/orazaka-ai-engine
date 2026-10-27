@@ -1,5 +1,7 @@
 package com.krizaka.orazaka.interceptor.validation;
 
+import com.krizaka.orazaka.core.domain.ports.outbound.CodeSandboxPort;
+import com.krizaka.orazaka.core.domain.ports.outbound.ControlVerdictRecorder;
 import com.krizaka.orazaka.core.domain.ports.outbound.TestShaperPort;
 import com.krizaka.orazaka.core.domain.ports.outbound.ValidationPipelineRepository;
 import java.util.Map;
@@ -104,6 +106,8 @@ public class ValidationAutoConfiguration {
    * @param chatModels Provider-keyed ChatModel map (may be empty).
    * @param validationPipelineRepository Dynamic pipeline config repository (nullable).
    * @param testShaperPort Tier D assertion generator (nullable).
+   * @param verdictRecorder Persists adjustments and escalations through the outbox (nullable).
+   * @param sandbox Tier B code sandbox (nullable — the built-in structural crash-test still runs).
    * @return The quantum validation advisor.
    */
   @Bean
@@ -115,9 +119,17 @@ public class ValidationAutoConfiguration {
       ClosedLoopValidationProperties properties,
       Map<String, ChatModel> chatModels,
       @Autowired(required = false) ValidationPipelineRepository validationPipelineRepository,
-      @Autowired(required = false) TestShaperPort testShaperPort) {
+      @Autowired(required = false) TestShaperPort testShaperPort,
+      @Autowired(required = false) ControlVerdictRecorder verdictRecorder,
+      @Autowired(required = false) CodeSandboxPort sandbox) {
     ChatModel debateModel = chatModels.values().stream().findFirst().orElse(null);
     return new ClosedLoopValidationInterceptor(
-        properties, debateModel, validationPipelineRepository, testShaperPort);
+        properties,
+        debateModel,
+        validationPipelineRepository,
+        testShaperPort,
+        verdictRecorder,
+        sandbox,
+        java.time.Clock.systemUTC());
   }
 }

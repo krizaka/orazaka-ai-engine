@@ -1,4 +1,4 @@
-package com.krizaka.orazaka.core.application.routing;
+package com.krizaka.orazaka.adapter.springai.prompt;
 
 import static org.junit.jupiter.api.Assertions.*;
 

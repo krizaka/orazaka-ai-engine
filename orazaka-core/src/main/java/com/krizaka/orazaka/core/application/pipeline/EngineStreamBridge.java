@@ -2,13 +2,14 @@ package com.krizaka.orazaka.core.application.pipeline;
 
 import com.krizaka.orazaka.core.application.engine.AbstractEngine;
 import com.krizaka.orazaka.core.application.interceptor.PromptContextInterceptor;
-import com.krizaka.orazaka.core.application.routing.DynamicChatModelFactory;
-import com.krizaka.orazaka.core.application.routing.ProviderClassifier;
 import com.krizaka.orazaka.core.domain.event.ChatCompletedEvent;
 import com.krizaka.orazaka.core.domain.model.CachedResponse;
+import com.krizaka.orazaka.core.domain.model.chat.ChatCompletion;
+import com.krizaka.orazaka.core.domain.model.chat.ChatRoute;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatResponse;
 import com.krizaka.orazaka.core.domain.model.chat.TokenUsage;
+import com.krizaka.orazaka.core.domain.ports.outbound.ChatInvocation;
 import com.krizaka.orazaka.core.domain.ports.outbound.UserCredentialsProvider;
 import java.util.HashMap;
 import java.util.List;
@@ -17,11 +18,6 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.anthropic.AnthropicChatOptions;
-import org.springframework.ai.chat.model.ChatModel;
-import org.springframework.ai.chat.model.ChatResponse;
-import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
-import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
@@ -50,24 +46,20 @@ public final class EngineStreamBridge {
 
   private static final Logger logger = LoggerFactory.getLogger(EngineStreamBridge.class);
 
-  private final ChatModel chatModel;
+  private final ChatInvocation chatInvocation;
   private final EnginePipelineBridge pipelineBridge;
   private final UserCredentialsProvider credentialsProvider;
-  private final DynamicChatModelFactory<ChatModel> modelFactory;
 
   /** Constructs the streaming bridge. */
   public EngineStreamBridge(
-      ChatModel chatModel,
+      ChatInvocation chatInvocation,
       EnginePipelineBridge pipelineBridge,
-      UserCredentialsProvider credentialsProvider,
-      DynamicChatModelFactory<ChatModel> modelFactory) {
-    this.chatModel = Objects.requireNonNull(chatModel, "ChatModel must not be null");
+      UserCredentialsProvider credentialsProvider) {
+    this.chatInvocation = Objects.requireNonNull(chatInvocation, "ChatInvocation must not be null");
     this.pipelineBridge =
         Objects.requireNonNull(pipelineBridge, "EnginePipelineBridge must not be null");
     this.credentialsProvider =
         Objects.requireNonNull(credentialsProvider, "UserCredentialsProvider must not be null");
-    this.modelFactory =
-        Objects.requireNonNull(modelFactory, "DynamicChatModelFactory must not be null");
   }
 
   /**
@@ -103,11 +95,12 @@ public final class EngineStreamBridge {
           // handler can settle the turn's hold against real tokens rather than an estimate.
           final AtomicReference<TokenUsage> tokenUsage = new AtomicReference<>(TokenUsage.none());
 
-          ChatModel activeModel = resolveActiveModel(request, context);
+          ChatRoute route =
+              ChatRoutes.resolve(
+                  request.context().userId(), context.provider(), credentialsProvider);
           // Never the prompt, not even at DEBUG: a log keeps no data class (ADR-064).
-          Flux<ChatResponse> streamFlux = initStream(activeModel, context);
+          Flux<ChatCompletion> streamFlux = initStream(route, context);
 
-          final ChatModel finalActiveModel = activeModel;
           return streamFlux
               .onErrorResume(
                   RuntimeException.class,
@@ -115,16 +108,15 @@ public final class EngineStreamBridge {
                     logger.warn(
                         "Asynchronous tool execution activation failure, falling back to non-tool text inference stream.",
                         ex);
-                    return finalActiveModel.stream(
-                        EnginePipelineBridge.removeTools(context.toPrompt()));
+                    return chatInvocation.stream(context.toPrompt().withoutTools(), route);
                   })
               .map(
-                  chatResponse -> {
-                    String chunk = extractChunkText(chatResponse);
+                  completion -> {
+                    String chunk = completion.text();
                     if (chunk != null) {
                       responseBuilder.append(chunk);
                     }
-                    captureTokenUsage(chatResponse, tokenUsage);
+                    captureTokenUsage(completion, tokenUsage);
                     return new InternalChatResponse(
                         chunk, context.conversationId(), Map.of("provider", context.provider()));
                   })
@@ -172,73 +164,24 @@ public final class EngineStreamBridge {
                         context.holdId())));
   }
 
-  private ChatModel resolveActiveModel(InternalChatRequest request, EnginePipelineContext context) {
-    String resolvedProvider = context.provider();
-    if (!ProviderClassifier.isCommercial(resolvedProvider)) {
-      return this.chatModel;
-    }
-    String userId = request.context().userId();
-    var apiKeyOpt = credentialsProvider.getDecryptedApiKey(userId, resolvedProvider);
-    if (apiKeyOpt.isEmpty()) {
-      logger.warn(
-          "No API key found for user {} and provider {}, falling back to local model.",
-          userId,
-          resolvedProvider);
-      return this.chatModel;
-    }
-    String modelName = extractModelName(context);
-    return modelFactory.createChatModel(resolvedProvider, modelName, apiKeyOpt.get());
-  }
-
-  private static String extractModelName(EnginePipelineContext context) {
-    var options = context.toPrompt().getOptions();
-    if (options instanceof OpenAiChatOptions openaiOpts) {
-      return openaiOpts.getModel();
-    }
-    if (options instanceof AnthropicChatOptions anthropicOpts) {
-      return anthropicOpts.getModel();
-    }
-    if (options instanceof GoogleGenAiChatOptions geminiOpts) {
-      return geminiOpts.getModel();
-    }
-    return null;
-  }
-
-  private static Flux<ChatResponse> initStream(ChatModel model, EnginePipelineContext context) {
+  private Flux<ChatCompletion> initStream(ChatRoute route, EnginePipelineContext context) {
     try {
-      return model.stream(context.toPrompt());
+      return chatInvocation.stream(context.toPrompt(), route);
     } catch (RuntimeException e) {
       logger.warn(
           "Model '{}' stream failed tool execution activation, falling back to non-tool text inference stream.",
           context.provider(),
           e);
-      return model.stream(EnginePipelineBridge.removeTools(context.toPrompt()));
+      return chatInvocation.stream(context.toPrompt().withoutTools(), route);
     }
-  }
-
-  private static String extractChunkText(ChatResponse chatResponse) {
-    if (chatResponse == null
-        || chatResponse.getResult() == null
-        || chatResponse.getResult().getOutput() == null) {
-      return "";
-    }
-    String text = chatResponse.getResult().getOutput().getText();
-    return text != null ? text : "";
   }
 
   /** Keeps the last usage a chunk carried; most chunks carry none and must not erase it. */
   private static void captureTokenUsage(
-      ChatResponse chatResponse, AtomicReference<TokenUsage> tokenUsage) {
-    if (chatResponse == null || chatResponse.getMetadata() == null) {
-      return;
+      ChatCompletion completion, AtomicReference<TokenUsage> tokenUsage) {
+    if (completion != null && completion.usage().reported()) {
+      tokenUsage.set(completion.usage());
     }
-    var usage = chatResponse.getMetadata().getUsage();
-    if (usage == null) {
-      return;
-    }
-    tokenUsage.set(
-        TokenUsage.reported(
-            usage.getPromptTokens(), usage.getCompletionTokens(), usage.getTotalTokens()));
   }
 
   private static Map<String, Object> buildCompletionMetadata(

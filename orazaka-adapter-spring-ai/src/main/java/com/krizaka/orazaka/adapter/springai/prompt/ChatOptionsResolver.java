@@ -1,4 +1,4 @@
-package com.krizaka.orazaka.core.application.routing;
+package com.krizaka.orazaka.adapter.springai.prompt;
 
 import org.springframework.ai.anthropic.AnthropicChatOptions;
 import org.springframework.ai.chat.prompt.ChatOptions;
@@ -9,7 +9,7 @@ import org.springframework.ai.openai.OpenAiChatOptions;
 /**
  * Resolves provider-specific {@link ChatOptions} from incoming request options or defaults.
  *
- * <p>Extracted from {@link EnginePipelineBridge} to isolate the options mapping concern. Handles
+ * <p>Extracted from the pipeline bridge to isolate the options mapping concern. Handles
  * cross-provider mapping (e.g., OpenAI options → Ollama options when provider is Ollama) and
  * default fallback creation.
  */

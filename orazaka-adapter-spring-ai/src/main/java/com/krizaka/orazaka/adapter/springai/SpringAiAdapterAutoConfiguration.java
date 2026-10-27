@@ -1,8 +1,14 @@
 package com.krizaka.orazaka.adapter.springai;
 
+import com.krizaka.orazaka.adapter.springai.chat.SpringAiChatInvocation;
 import com.krizaka.orazaka.adapter.springai.chat.SpringAiProviderChatClient;
 import com.krizaka.orazaka.adapter.springai.client.ChatGeneratorClientImpl;
 import com.krizaka.orazaka.adapter.springai.client.EmbeddingClientImpl;
+import com.krizaka.orazaka.adapter.springai.prompt.OllamaOptionsStrategy;
+import com.krizaka.orazaka.adapter.springai.prompt.OpenAiOptionsStrategy;
+import com.krizaka.orazaka.adapter.springai.prompt.PipelineOptionsRegistry;
+import com.krizaka.orazaka.adapter.springai.prompt.PipelineOptionsStrategy;
+import com.krizaka.orazaka.adapter.springai.prompt.SpringAiPromptAssembly;
 import com.krizaka.orazaka.adapter.springai.provider.AnthropicDynamicProvider;
 import com.krizaka.orazaka.adapter.springai.provider.DynamicChatModelProvider;
 import com.krizaka.orazaka.adapter.springai.provider.GeminiDynamicProvider;
@@ -16,7 +22,6 @@ import com.krizaka.orazaka.adapter.springai.structured.SpringAiStructuredOutputC
 import com.krizaka.orazaka.adapter.springai.tool.SpringAiToolOptions;
 import com.krizaka.orazaka.adapter.springai.tool.SpringAiToolRegistry;
 import com.krizaka.orazaka.core.application.engine.Engine;
-import com.krizaka.orazaka.core.application.pipeline.PipelineOptionsRegistry;
 import com.krizaka.orazaka.core.application.routing.DynamicChatModelFactory;
 import com.krizaka.orazaka.core.domain.ports.outbound.*;
 import com.krizaka.orazaka.core.infrastructure.adapter.security.LoggingAccessAudit;
@@ -163,6 +168,21 @@ public class SpringAiAdapterAutoConfiguration {
   }
 
   /**
+   * The port that sends a prepared prompt to a model: the primary {@link ChatModel}, or one built
+   * for a user's own key.
+   *
+   * @param chatModel the primary model
+   * @param modelFactory builds a model for a user's key
+   * @return the invocation
+   */
+  @Bean
+  @ConditionalOnMissingBean(ChatInvocation.class)
+  public SpringAiChatInvocation chatInvocation(
+      ChatModel chatModel, DynamicChatModelFactory<ChatModel> modelFactory) {
+    return new SpringAiChatInvocation(chatModel, modelFactory);
+  }
+
+  /**
    * The chat port: a request runs through the engine.
    *
    * @param engine the engine
@@ -245,5 +265,33 @@ public class SpringAiAdapterAutoConfiguration {
     public void put(String toolId, String cacheKey, String value, long ttlSeconds) {
       // nothing is kept
     }
+  }
+
+  /** The prompt assembly on Spring AI (#121). */
+  @Bean
+  @ConditionalOnMissingBean(PromptAssembly.class)
+  public PromptAssembly promptAssembly() {
+    return new SpringAiPromptAssembly();
+  }
+
+  /** The Ollama options strategy. */
+  @Bean
+  @ConditionalOnMissingBean(OllamaOptionsStrategy.class)
+  public OllamaOptionsStrategy ollamaOptionsStrategy() {
+    return new OllamaOptionsStrategy();
+  }
+
+  /** The OpenAI options strategy. */
+  @Bean
+  @ConditionalOnMissingBean(OpenAiOptionsStrategy.class)
+  public OpenAiOptionsStrategy openAiOptionsStrategy() {
+    return new OpenAiOptionsStrategy();
+  }
+
+  /** The registry that picks the options strategy of a provider. */
+  @Bean
+  @ConditionalOnMissingBean(PipelineOptionsRegistry.class)
+  public PipelineOptionsRegistry pipelineOptionsRegistry(List<PipelineOptionsStrategy> strategies) {
+    return new PipelineOptionsRegistry(strategies);
   }
 }

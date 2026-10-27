@@ -1,5 +1,6 @@
 package com.krizaka.orazaka.core.application.service;
 
+import com.krizaka.orazaka.core.domain.model.chat.EngineMessage;
 import com.krizaka.orazaka.core.domain.ports.outbound.ChatMemoryStore;
 import com.krizaka.orazaka.persistence.domain.model.ChatMessageDto;
 import com.krizaka.orazaka.persistence.domain.ports.inbound.ChatMemoryPersistenceProvider;
@@ -8,11 +9,7 @@ import java.util.Locale;
 import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.chat.messages.AssistantMessage;
-import org.springframework.ai.chat.messages.Message;
-import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.ToolResponseMessage;
-import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.json.JsonMapper;
@@ -41,7 +38,7 @@ class ChatMemoryStoreImpl implements ChatMemoryStore {
   }
 
   @Override
-  public List<Message> findRecent(String conversationId, int limit) {
+  public List<EngineMessage> findRecent(String conversationId, int limit) {
     try {
       return provider.findRecent(conversationId, limit).stream()
           .map(ChatMemoryStoreImpl::toMessage)
@@ -56,7 +53,7 @@ class ChatMemoryStoreImpl implements ChatMemoryStore {
   }
 
   @Override
-  public void append(String conversationId, List<Message> messages) {
+  public void append(String conversationId, List<EngineMessage> messages) {
     try {
       provider.appendAll(
           messages.stream()
@@ -77,28 +74,31 @@ class ChatMemoryStoreImpl implements ChatMemoryStore {
     }
   }
 
-  private static Message toMessage(ChatMessageDto dto) {
+  private static EngineMessage toMessage(ChatMessageDto dto) {
     return switch (dto.role().toLowerCase(Locale.ROOT)) {
-      case "assistant" -> new AssistantMessage(dto.content());
-      case "system" -> new SystemMessage(dto.content());
-      case "tool" -> toolMessage(dto.content());
-      default -> new UserMessage(dto.content());
+      case "assistant" -> EngineMessage.assistant(dto.content());
+      case "system" -> EngineMessage.system(dto.content());
+      case "tool" -> {
+        ToolResponseMessage tool = toolMessage(dto.content());
+        yield new EngineMessage(EngineMessage.Role.TOOL, tool.getText(), tool);
+      }
+      default -> EngineMessage.user(dto.content());
     };
   }
 
-  /** The role as stored: Spring AI's own message type, so a tool answer stays a tool answer. */
-  private static String roleOf(Message message) {
-    return message.getMessageType().getValue();
+  /** The role as stored: the message's own, so a tool answer stays a tool answer. */
+  private static String roleOf(EngineMessage message) {
+    return message.role().name().toLowerCase(Locale.ROOT);
   }
 
-  private static String contentOf(Message message) {
-    if (message instanceof ToolResponseMessage tool) {
+  private static String contentOf(EngineMessage message) {
+    if (message.nativeMessage() instanceof ToolResponseMessage tool) {
       return TOOL_JSON.writeValueAsString(
           tool.getResponses().stream()
               .map(r -> new StoredToolResponse(r.id(), r.name(), r.responseData()))
               .toList());
     }
-    return message.getText();
+    return message.text();
   }
 
   private static ToolResponseMessage toolMessage(String stored) {

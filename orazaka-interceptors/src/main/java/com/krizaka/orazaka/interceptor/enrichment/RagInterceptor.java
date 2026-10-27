@@ -1,14 +1,14 @@
 package com.krizaka.orazaka.interceptor.enrichment;
 
 import com.krizaka.orazaka.core.application.interceptor.PromptContextInterceptor;
+import com.krizaka.orazaka.core.domain.model.chat.EngineChatOptions;
+import com.krizaka.orazaka.core.domain.model.chat.EngineMessage;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
 import com.krizaka.orazaka.core.domain.ports.outbound.KnowledgeService;
 import com.krizaka.orazaka.core.infrastructure.config.CoreProperties;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import org.springframework.ai.chat.messages.Message;
-import org.springframework.ai.chat.prompt.ChatOptions;
 
 /**
  * RAG (Retrieval-Augmented Generation) interceptor — enriches the prompt with relevant knowledge
@@ -29,8 +29,11 @@ class RagInterceptor implements PromptContextInterceptor {
   }
 
   @Override
-  public ChatOptions preProcess(
-      InternalChatRequest request, String promptText, List<Message> messages, ChatOptions options) {
+  public EngineChatOptions preProcess(
+      InternalChatRequest request,
+      String promptText,
+      List<EngineMessage> messages,
+      EngineChatOptions options) {
     Optional.ofNullable(properties.rag())
         .filter(CoreProperties.RagConfig::enabled)
         .ifPresent(

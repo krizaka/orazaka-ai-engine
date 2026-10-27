@@ -3,6 +3,7 @@ package com.krizaka.orazaka.interceptor.tooling;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 
+import com.krizaka.orazaka.core.domain.model.chat.EngineChatOptions;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
 import com.krizaka.orazaka.core.domain.ports.outbound.ToolRegistry;
 import java.util.ArrayList;
@@ -18,6 +19,12 @@ import org.springframework.ai.tool.definition.ToolDefinition;
 
 class ToolInterceptorTest {
 
+  /** The engine view of library options, as the pipeline hands them to an interceptor. */
+  private static EngineChatOptions wrap(ChatOptions options) {
+    return new EngineChatOptions(
+        options.getModel(), options.getTemperature(), options.getMaxTokens(), options);
+  }
+
   @Test
   @DisplayName("preProcess returns original options when streaming is true")
   void preProcessStreaming() {
@@ -28,7 +35,8 @@ class ToolInterceptorTest {
     when(request.streaming()).thenReturn(true);
     ChatOptions options = mock(ChatOptions.class);
 
-    ChatOptions result = interceptor.preProcess(request, "prompt", new ArrayList<>(), options);
+    Object result =
+        interceptor.preProcess(request, "prompt", new ArrayList<>(), wrap(options)).nativeOptions();
     assertThat(result).isSameAs(options);
     verifyNoInteractions(toolRegistry);
   }
@@ -45,7 +53,8 @@ class ToolInterceptorTest {
     ChatOptions options = mock(ChatOptions.class);
     when(options.getModel()).thenReturn("llama3.2-vision");
 
-    ChatOptions result = interceptor.preProcess(request, "prompt", new ArrayList<>(), options);
+    Object result =
+        interceptor.preProcess(request, "prompt", new ArrayList<>(), wrap(options)).nativeOptions();
     assertThat(result).isSameAs(options);
     verifyNoInteractions(toolRegistry);
   }
@@ -58,16 +67,20 @@ class ToolInterceptorTest {
     when(request.streaming()).thenReturn(false);
     ChatOptions options = mock(ChatOptions.class);
 
-    ChatOptions resultNull =
-        interceptorNull.preProcess(request, "prompt", new ArrayList<>(), options);
+    Object resultNull =
+        interceptorNull
+            .preProcess(request, "prompt", new ArrayList<>(), wrap(options))
+            .nativeOptions();
     assertThat(resultNull).isSameAs(options);
 
     ToolRegistry toolRegistry = mock(ToolRegistry.class);
     when(toolRegistry.getRegisteredTools()).thenReturn(Collections.emptyList());
     ToolInterceptor interceptorEmpty = new ToolInterceptor(toolRegistry);
 
-    ChatOptions resultEmpty =
-        interceptorEmpty.preProcess(request, "prompt", new ArrayList<>(), options);
+    Object resultEmpty =
+        interceptorEmpty
+            .preProcess(request, "prompt", new ArrayList<>(), wrap(options))
+            .nativeOptions();
     assertThat(resultEmpty).isSameAs(options);
   }
 
@@ -90,7 +103,10 @@ class ToolInterceptorTest {
     when(request.messages()).thenReturn(Collections.emptyList());
 
     ChatOptions options = mock(ChatOptions.class);
-    ChatOptions result = interceptor.preProcess(request, "just hello", new ArrayList<>(), options);
+    Object result =
+        interceptor
+            .preProcess(request, "just hello", new ArrayList<>(), wrap(options))
+            .nativeOptions();
     assertThat(result).isSameAs(options);
   }
 
@@ -120,7 +136,8 @@ class ToolInterceptorTest {
     OllamaChatOptions options =
         OllamaChatOptions.builder().model("llama3.2").temperature(0.7).numPredict(128).build();
 
-    ChatOptions result = interceptor.preProcess(request, "", new ArrayList<>(), options);
+    Object result =
+        interceptor.preProcess(request, "", new ArrayList<>(), wrap(options)).nativeOptions();
     assertThat(result).isInstanceOf(OllamaChatOptions.class);
     OllamaChatOptions ollamaResult = (OllamaChatOptions) result;
 
@@ -154,7 +171,8 @@ class ToolInterceptorTest {
     OpenAiChatOptions options =
         OpenAiChatOptions.builder().model("gpt-4o").temperature(0.5).maxTokens(100).build();
 
-    ChatOptions result = interceptor.preProcess(request, null, new ArrayList<>(), options);
+    Object result =
+        interceptor.preProcess(request, null, new ArrayList<>(), wrap(options)).nativeOptions();
     assertThat(result).isInstanceOf(OpenAiChatOptions.class);
     OpenAiChatOptions openAiResult = (OpenAiChatOptions) result;
 
@@ -183,7 +201,8 @@ class ToolInterceptorTest {
     when(request.messages()).thenReturn(Collections.emptyList());
 
     ChatOptions options = mock(ChatOptions.class);
-    ChatOptions result = interceptor.preProcess(request, "", new ArrayList<>(), options);
+    Object result =
+        interceptor.preProcess(request, "", new ArrayList<>(), wrap(options)).nativeOptions();
     assertThat(result).isSameAs(options);
   }
 }

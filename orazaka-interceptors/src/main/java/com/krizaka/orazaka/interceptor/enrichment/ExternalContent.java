@@ -1,12 +1,10 @@
 package com.krizaka.orazaka.interceptor.enrichment;
 
+import com.krizaka.orazaka.core.domain.model.chat.EngineMessage;
 import java.util.List;
 import java.util.regex.Pattern;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
-import org.springframework.ai.chat.messages.Message;
-import org.springframework.ai.chat.messages.SystemMessage;
-import org.springframework.ai.chat.messages.UserMessage;
 
 /**
  * Text the engine did not write — an MCP server's answer, later a fetched page — put in front of
@@ -66,16 +64,17 @@ final class ExternalContent {
    * @param origin what produced the content
    * @param content the external text; nothing is added when it is blank
    */
-  static void insert(List<Message> messages, String origin, String content) {
+  static void insert(List<EngineMessage> messages, String origin, String content) {
     if (content == null || content.isBlank()) {
       return;
     }
     // Just before the user's turn, so the turn stays the last word.
-    messages.add(Math.max(messages.size() - 1, 0), new UserMessage(block(origin, content)));
+    messages.add(Math.max(messages.size() - 1, 0), EngineMessage.user(block(origin, content)));
     boolean ruled =
-        messages.stream().anyMatch(m -> m instanceof SystemMessage && RULE.equals(m.getText()));
+        messages.stream()
+            .anyMatch(m -> m.role() == EngineMessage.Role.SYSTEM && RULE.equals(m.text()));
     if (!ruled) {
-      messages.addFirst(new SystemMessage(RULE));
+      messages.addFirst(EngineMessage.system(RULE));
     }
   }
 

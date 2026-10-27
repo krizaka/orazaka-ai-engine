@@ -7,6 +7,7 @@ import static org.mockito.Mockito.*;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
+import com.krizaka.orazaka.core.domain.model.chat.EngineMessage;
 import com.krizaka.orazaka.persistence.domain.model.ChatMessageDto;
 import com.krizaka.orazaka.persistence.domain.ports.inbound.ChatMemoryPersistenceProvider;
 import java.util.ArrayList;
@@ -17,12 +18,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.chat.messages.AssistantMessage;
-import org.springframework.ai.chat.messages.Message;
-import org.springframework.ai.chat.messages.MessageType;
-import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.ToolResponseMessage;
-import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.dao.QueryTimeoutException;
 
 class ChatMemoryStoreImplTest {
@@ -45,7 +41,7 @@ class ChatMemoryStoreImplTest {
 
   /** Writes the messages, then reads back what the store persisted. */
   @SuppressWarnings("unchecked")
-  private List<Message> roundTrip(List<Message> messages) {
+  private List<EngineMessage> roundTrip(List<EngineMessage> messages) {
     store.append("c-1", messages);
     ArgumentCaptor<List<ChatMessageDto>> written = ArgumentCaptor.forClass(List.class);
     verify(provider).appendAll(written.capture());
@@ -62,10 +58,15 @@ class ChatMemoryStoreImplTest {
                 List.of(new ToolResponseMessage.ToolResponse("call-1", "weather", "{\"c\":21}")))
             .build();
 
-    List<Message> back = roundTrip(List.of(tool));
+    List<EngineMessage> back =
+        roundTrip(List.of(new EngineMessage(EngineMessage.Role.TOOL, "", tool)));
 
-    assertThat(back).singleElement().isInstanceOf(ToolResponseMessage.class);
-    ToolResponseMessage read = (ToolResponseMessage) back.getFirst();
+    assertThat(back)
+        .singleElement()
+        .extracting(EngineMessage::role)
+        .isEqualTo(EngineMessage.Role.TOOL);
+    assertThat(back.getFirst().nativeMessage()).isInstanceOf(ToolResponseMessage.class);
+    ToolResponseMessage read = (ToolResponseMessage) back.getFirst().nativeMessage();
     assertThat(read.getResponses()).hasSize(1);
     assertThat(read.getResponses().getFirst().id()).isEqualTo("call-1");
     assertThat(read.getResponses().getFirst().name()).isEqualTo("weather");
@@ -75,13 +76,16 @@ class ChatMemoryStoreImplTest {
   @Test
   @DisplayName("[#27] user, assistant and system messages keep their type")
   void otherTypesRoundTrip() {
-    List<Message> back =
-        roundTrip(List.of(new SystemMessage("s"), new UserMessage("u"), new AssistantMessage("a")));
+    List<EngineMessage> back =
+        roundTrip(
+            List.of(
+                EngineMessage.system("s"), EngineMessage.user("u"), EngineMessage.assistant("a")));
 
     assertThat(back)
-        .extracting(Message::getMessageType)
-        .containsExactly(MessageType.SYSTEM, MessageType.USER, MessageType.ASSISTANT);
-    assertThat(back).extracting(Message::getText).containsExactly("s", "u", "a");
+        .extracting(EngineMessage::role)
+        .containsExactly(
+            EngineMessage.Role.SYSTEM, EngineMessage.Role.USER, EngineMessage.Role.ASSISTANT);
+    assertThat(back).extracting(EngineMessage::text).containsExactly("s", "u", "a");
   }
 
   @Test
@@ -90,10 +94,11 @@ class ChatMemoryStoreImplTest {
     when(provider.findRecent(anyString(), anyInt()))
         .thenReturn(List.of(new ChatMessageDto("c-1", "tool", "sunny", null)));
 
-    Message read = store.findRecent("c-1", 5).getFirst();
+    EngineMessage read = store.findRecent("c-1", 5).getFirst();
 
-    assertThat(read).isInstanceOf(ToolResponseMessage.class);
-    assertThat(((ToolResponseMessage) read).getResponses().getFirst().responseData())
+    assertThat(read.nativeMessage()).isInstanceOf(ToolResponseMessage.class);
+    assertThat(
+            ((ToolResponseMessage) read.nativeMessage()).getResponses().getFirst().responseData())
         .isEqualTo("sunny");
   }
 
@@ -107,7 +112,7 @@ class ChatMemoryStoreImplTest {
     doThrow(failure).when(provider).deleteByConversationId(anyString());
 
     assertThat(store.findRecent("c-1", 5)).isEmpty();
-    store.append("c-1", new ArrayList<>(List.of(new UserMessage("hi"))));
+    store.append("c-1", new ArrayList<>(List.of(EngineMessage.user("hi"))));
     store.clear("c-1");
 
     assertThat(logs.list).hasSize(3);

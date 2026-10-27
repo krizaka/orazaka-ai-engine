@@ -1,5 +1,7 @@
 package com.krizaka.orazaka.core.application.pipeline;
 
+import com.krizaka.orazaka.core.domain.model.chat.EngineChatOptions;
+import com.krizaka.orazaka.core.domain.model.chat.EngineMessage;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
 import com.krizaka.orazaka.core.infrastructure.support.CoreException;
 import java.util.ArrayList;
@@ -8,6 +10,7 @@ import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.content.Media;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.util.MimeTypeUtils;
@@ -74,6 +77,84 @@ final class MessageCompiler {
       case "assistant" -> new AssistantMessage(msg.content());
       default -> new UserMessage(msg.content());
     };
+  }
+
+  /**
+   * The engine view of library messages. Each keeps the message it came from, so converting back
+   * loses nothing (media, tool answers).
+   */
+  static List<EngineMessage> toEngine(List<Message> messages) {
+    List<EngineMessage> engine = new ArrayList<>(messages.size());
+    for (Message message : messages) {
+      String type = message.getMessageType().getValue();
+      EngineMessage.Role role = EngineMessage.Role.USER;
+      if ("system".equals(type)) {
+        role = EngineMessage.Role.SYSTEM;
+      } else if ("assistant".equals(type)) {
+        role = EngineMessage.Role.ASSISTANT;
+      } else if ("tool".equals(type)) {
+        role = EngineMessage.Role.TOOL;
+      }
+      engine.add(new EngineMessage(role, message.getText(), message));
+    }
+    return engine;
+  }
+
+  /** The library messages of the engine view: the original where there is one, else built. */
+  static List<Message> toSpring(List<EngineMessage> messages) {
+    List<Message> spring = new ArrayList<>(messages.size());
+    for (EngineMessage message : messages) {
+      if (message.nativeMessage() instanceof Message original) {
+        spring.add(original);
+      } else {
+        spring.add(build(message));
+      }
+    }
+    return spring;
+  }
+
+  private static Message build(EngineMessage message) {
+    if (message.role() == EngineMessage.Role.SYSTEM) {
+      return new SystemMessage(message.text());
+    }
+    if (message.role() == EngineMessage.Role.ASSISTANT) {
+      return new AssistantMessage(message.text());
+    }
+    if (message.role() == EngineMessage.Role.TOOL) {
+      return org.springframework.ai.chat.messages.ToolResponseMessage.builder()
+          .responses(
+              List.of(
+                  new org.springframework.ai.chat.messages.ToolResponseMessage.ToolResponse(
+                      "", "", message.text())))
+          .build();
+    }
+    return new UserMessage(message.text());
+  }
+
+  /** The engine view of library options, which it keeps for the way back. */
+  static EngineChatOptions toEngine(ChatOptions options) {
+    return options == null
+        ? null
+        : new EngineChatOptions(
+            options.getModel(), options.getTemperature(), options.getMaxTokens(), options);
+  }
+
+  /**
+   * The library options of the engine view: the original where there is one, else built from the
+   * settings.
+   */
+  static ChatOptions toSpring(EngineChatOptions options) {
+    if (options == null) {
+      return null;
+    }
+    if (options.nativeOptions() instanceof ChatOptions original) {
+      return original;
+    }
+    return ChatOptions.builder()
+        .model(options.model())
+        .temperature(options.temperature())
+        .maxTokens(options.maxTokens())
+        .build();
   }
 
   /** Appends a user message with an image media attachment. */

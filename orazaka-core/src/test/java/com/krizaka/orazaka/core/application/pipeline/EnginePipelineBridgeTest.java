@@ -7,6 +7,7 @@ import static org.mockito.Mockito.*;
 import com.krizaka.orazaka.core.application.interceptor.PromptContextInterceptor;
 import com.krizaka.orazaka.core.domain.model.Context;
 import com.krizaka.orazaka.core.domain.model.PromptContext;
+import com.krizaka.orazaka.core.domain.model.chat.EngineChatOptions;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
 import com.krizaka.orazaka.core.domain.ports.outbound.ModelCatalogProvider;
 import com.krizaka.orazaka.core.domain.ports.outbound.PlatformMcpServerProvider;
@@ -361,8 +362,9 @@ class EnginePipelineBridgeTest {
       var request = InternalChatRequest.simple(TEST);
       var mockInterceptor = mock(PromptContextInterceptor.class);
       var mockOptions = mock(ChatOptions.class);
-      when(mockInterceptor.preProcess(eq(request), eq(TEST), anyList(), any(ChatOptions.class)))
-          .thenReturn(mockOptions);
+      when(mockInterceptor.preProcess(
+              eq(request), eq(TEST), anyList(), any(EngineChatOptions.class)))
+          .thenReturn(new EngineChatOptions(null, null, null, mockOptions));
 
       var result =
           enginePipelineBridge.compileContext(

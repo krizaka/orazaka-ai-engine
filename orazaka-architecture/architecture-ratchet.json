@@ -1,11 +1,10 @@
 {
   "rules": {
     "spring-ai-outside-adapter": {
-      "count": 49,
+      "count": 40,
       "classes": [
         "com.krizaka.orazaka.core.application.engine.AbstractEngine",
         "com.krizaka.orazaka.core.application.engine.Engine",
-        "com.krizaka.orazaka.core.application.interceptor.PromptContextInterceptor",
         "com.krizaka.orazaka.core.application.pipeline.EnginePipelineBridge",
         "com.krizaka.orazaka.core.application.pipeline.EnginePipelineContext",
         "com.krizaka.orazaka.core.application.pipeline.EngineStreamBridge",
@@ -22,8 +21,6 @@
         "com.krizaka.orazaka.core.application.service.ChatMemoryStoreImpl",
         "com.krizaka.orazaka.core.application.service.McpServiceImpl",
         "com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest",
-        "com.krizaka.orazaka.core.domain.ports.outbound.ChatMemoryStore",
-        "com.krizaka.orazaka.core.domain.ports.outbound.MemoryResolver",
         "com.krizaka.orazaka.core.domain.ports.outbound.ToolRegistry",
         "com.krizaka.orazaka.core.infrastructure.adapter.ai.ChatGeneratorClientImpl",
         "com.krizaka.orazaka.core.infrastructure.adapter.ai.ImageGeneratorClientImpl",
@@ -39,12 +36,6 @@
         "com.krizaka.orazaka.core.infrastructure.provider.model.RoutedChatModel",
         "com.krizaka.orazaka.core.infrastructure.provider.model.RoutedTextToSpeechModel",
         "com.krizaka.orazaka.core.infrastructure.spend.GuardedChatModel",
-        "com.krizaka.orazaka.interceptor.context.UserContextInterceptor",
-        "com.krizaka.orazaka.interceptor.enrichment.BrandContextInterceptor",
-        "com.krizaka.orazaka.interceptor.enrichment.ExternalContent",
-        "com.krizaka.orazaka.interceptor.enrichment.McpInterceptor",
-        "com.krizaka.orazaka.interceptor.enrichment.MemoryInterceptor",
-        "com.krizaka.orazaka.interceptor.enrichment.RagInterceptor",
         "com.krizaka.orazaka.interceptor.reformulation.RefinerInterceptor",
         "com.krizaka.orazaka.interceptor.reformulation.ReformulationAutoConfiguration",
         "com.krizaka.orazaka.interceptor.reformulation.RouterInterceptor",
@@ -62,11 +53,10 @@
       ]
     },
     "spring-in-core": {
-      "count": 63,
+      "count": 61,
       "classes": [
         "com.krizaka.orazaka.core.application.engine.AbstractEngine",
         "com.krizaka.orazaka.core.application.engine.Engine",
-        "com.krizaka.orazaka.core.application.interceptor.PromptContextInterceptor",
         "com.krizaka.orazaka.core.application.pipeline.DynamicPipelineExecutor",
         "com.krizaka.orazaka.core.application.pipeline.EnginePipelineBridge",
         "com.krizaka.orazaka.core.application.pipeline.EnginePipelineContext",
@@ -92,7 +82,6 @@
         "com.krizaka.orazaka.core.application.service.McpServiceImpl",
         "com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest",
         "com.krizaka.orazaka.core.domain.ports.inbound.JobService",
-        "com.krizaka.orazaka.core.domain.ports.outbound.ChatMemoryStore",
         "com.krizaka.orazaka.core.domain.ports.outbound.MemoryResolver",
         "com.krizaka.orazaka.core.domain.ports.outbound.ToolRegistry",
         "com.krizaka.orazaka.core.infrastructure.adapter.ai.AudioGeneratorClientImpl",

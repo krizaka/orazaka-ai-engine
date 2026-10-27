@@ -1,10 +1,10 @@
 package com.krizaka.orazaka.core.application.interceptor;
 
 import com.krizaka.orazaka.core.domain.model.PromptContext;
+import com.krizaka.orazaka.core.domain.model.chat.EngineChatOptions;
+import com.krizaka.orazaka.core.domain.model.chat.EngineMessage;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
 import java.util.List;
-import org.springframework.ai.chat.messages.Message;
-import org.springframework.ai.chat.prompt.ChatOptions;
 
 /**
  * Core port interface for the prompt and context orchestration pipeline. Unifies PromptInterceptor
@@ -141,17 +141,20 @@ public interface PromptContextInterceptor {
   }
 
   /**
-   * Enriches request messages or ChatOptions before sending to the Spring AI models.
+   * Enriches request messages or options before sending to the model.
    *
    * @param request The original Orazaka chat request.
    * @param promptText The current (possibly refined) prompt text.
    * @param messages The accumulator list of mapped messages.
-   * @param options The current Spring AI chat options.
-   * @return The updated ChatOptions (must not return null; should return the passed options if
+   * @param options The current chat options.
+   * @return The updated options (must not return null; should return the passed options if
    *     unchanged).
    */
-  default ChatOptions preProcess(
-      InternalChatRequest request, String promptText, List<Message> messages, ChatOptions options) {
+  default EngineChatOptions preProcess(
+      InternalChatRequest request,
+      String promptText,
+      List<EngineMessage> messages,
+      EngineChatOptions options) {
     return options;
   }
 

@@ -1,12 +1,12 @@
 package com.krizaka.orazaka.interceptor.tooling;
 
 import com.krizaka.orazaka.core.application.interceptor.PromptContextInterceptor;
+import com.krizaka.orazaka.core.domain.model.chat.EngineChatOptions;
+import com.krizaka.orazaka.core.domain.model.chat.EngineMessage;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
 import com.krizaka.orazaka.core.domain.ports.outbound.ToolRegistry;
 import java.util.ArrayList;
 import java.util.List;
-import org.springframework.ai.chat.messages.Message;
-import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.ollama.api.OllamaChatOptions;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.tool.ToolCallback;
@@ -28,13 +28,16 @@ class ToolInterceptor implements PromptContextInterceptor {
   }
 
   @Override
-  public ChatOptions preProcess(
-      InternalChatRequest request, String promptText, List<Message> messages, ChatOptions options) {
+  public EngineChatOptions preProcess(
+      InternalChatRequest request,
+      String promptText,
+      List<EngineMessage> messages,
+      EngineChatOptions options) {
     if (request.streaming()) {
       return options;
     }
-    if (options != null && options.getModel() != null) {
-      String modelLower = options.getModel().toLowerCase();
+    if (options != null && options.model() != null) {
+      String modelLower = options.model().toLowerCase();
       if (modelLower.contains("vision")
           || modelLower.contains("llava")
           || modelLower.contains("bakllava")) {
@@ -50,7 +53,9 @@ class ToolInterceptor implements PromptContextInterceptor {
       return options;
     }
 
-    return attachTools(options, demandedTools);
+    return options == null
+        ? null
+        : options.withNativeOptions(attachTools(options.nativeOptions(), demandedTools));
   }
 
   private List<ToolCallback> collectDemandedTools(InternalChatRequest request, String promptText) {
@@ -102,7 +107,7 @@ class ToolInterceptor implements PromptContextInterceptor {
         || lowerContext.contains("sound");
   }
 
-  private ChatOptions attachTools(ChatOptions options, List<ToolCallback> demandedTools) {
+  private Object attachTools(Object options, List<ToolCallback> demandedTools) {
     // Spring AI 2.0 dropped builder .toolNames(Set) — tool registration is via .toolCallbacks()
     // alone.
     return switch (options) {

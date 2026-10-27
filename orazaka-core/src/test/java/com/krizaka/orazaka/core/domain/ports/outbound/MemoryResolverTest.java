@@ -3,6 +3,7 @@ package com.krizaka.orazaka.core.domain.ports.outbound;
 import static com.krizaka.orazaka.test.TestConstants.*;
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.krizaka.orazaka.core.domain.model.chat.EngineMessage;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -10,7 +11,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.springframework.ai.chat.messages.UserMessage;
 
 /** Unit tests for {@link MemoryResolver} — session-scoped memory isolation and purge. */
 class MemoryResolverTest {
@@ -62,7 +62,7 @@ class MemoryResolverTest {
     void addAndGet() {
       var resolver = new MemoryResolver();
       var mem = resolver.resolve(TEST);
-      var msg = new UserMessage(PROMPT_HELLO);
+      var msg = EngineMessage.user(PROMPT_HELLO);
 
       mem.add(TEST, List.of(msg));
       var result = mem.get(TEST);
@@ -74,7 +74,7 @@ class MemoryResolverTest {
     void getDefensiveCopy() {
       var resolver = new MemoryResolver();
       var mem = resolver.resolve(TEST);
-      mem.add(TEST, List.of(new UserMessage(PROMPT_HELLO)));
+      mem.add(TEST, List.of(EngineMessage.user(PROMPT_HELLO)));
 
       var result = mem.get(TEST);
       result.clear(); // Modify the returned list
@@ -87,7 +87,7 @@ class MemoryResolverTest {
     void clearMessages() {
       var resolver = new MemoryResolver();
       var mem = resolver.resolve(TEST);
-      mem.add(TEST, List.of(new UserMessage(PROMPT_HELLO)));
+      mem.add(TEST, List.of(EngineMessage.user(PROMPT_HELLO)));
       mem.clear(TEST);
 
       assertTrue(mem.get(TEST).isEmpty());
@@ -103,7 +103,7 @@ class MemoryResolverTest {
     void purgeRemovesMemory() {
       var resolver = new MemoryResolver();
       var mem1 = resolver.resolve(CONV_1);
-      mem1.add(CONV_1, List.of(new UserMessage(PROMPT_HELLO)));
+      mem1.add(CONV_1, List.of(EngineMessage.user(PROMPT_HELLO)));
 
       resolver.purge(CONV_1);
       var mem2 = resolver.resolve(CONV_1);

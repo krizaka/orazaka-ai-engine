@@ -3,6 +3,8 @@ package com.krizaka.orazaka.interceptor.enrichment;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 
+import com.krizaka.orazaka.core.domain.model.chat.EngineChatOptions;
+import com.krizaka.orazaka.core.domain.model.chat.EngineMessage;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
 import com.krizaka.orazaka.core.domain.ports.outbound.KnowledgeService;
 import com.krizaka.orazaka.core.infrastructure.config.CoreProperties;
@@ -10,8 +12,6 @@ import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.ai.chat.messages.Message;
-import org.springframework.ai.chat.prompt.ChatOptions;
 
 class RagInterceptorTest {
 
@@ -29,21 +29,21 @@ class RagInterceptorTest {
 
     RagInterceptor interceptor = new RagInterceptor(props, knowledgeService);
     InternalChatRequest request = mock(InternalChatRequest.class);
-    List<Message> messages = new ArrayList<>();
-    ChatOptions options = mock(ChatOptions.class);
+    List<EngineMessage> messages = new ArrayList<>();
+    EngineChatOptions options = new EngineChatOptions(null, null, null);
 
     interceptor.preProcess(request, "test query", messages, options);
 
     // The chunks are data in a user-role block, never a system instruction (#57).
     assertThat(messages)
-        .filteredOn(org.springframework.ai.chat.messages.SystemMessage.class::isInstance)
-        .noneMatch(m -> m.getText().contains("Relevant knowledge chunks"));
+        .filteredOn(m -> m.role() == EngineMessage.Role.SYSTEM)
+        .noneMatch(m -> m.text().contains("Relevant knowledge chunks"));
     assertThat(messages)
-        .filteredOn(org.springframework.ai.chat.messages.UserMessage.class::isInstance)
+        .filteredOn(m -> m.role() == EngineMessage.Role.USER)
         .anyMatch(
             m ->
-                m.getText().startsWith(ExternalContent.OPEN)
-                    && m.getText().contains("Relevant knowledge chunks"));
+                m.text().startsWith(ExternalContent.OPEN)
+                    && m.text().contains("Relevant knowledge chunks"));
   }
 
   @Test
@@ -58,8 +58,8 @@ class RagInterceptorTest {
 
     RagInterceptor interceptor = new RagInterceptor(props, knowledgeService);
     InternalChatRequest request = mock(InternalChatRequest.class);
-    List<Message> messages = new ArrayList<>();
-    ChatOptions options = mock(ChatOptions.class);
+    List<EngineMessage> messages = new ArrayList<>();
+    EngineChatOptions options = new EngineChatOptions(null, null, null);
 
     interceptor.preProcess(request, "test query", messages, options);
 

@@ -3,6 +3,7 @@ package com.krizaka.orazaka.interceptor.enrichment;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.krizaka.orazaka.core.domain.model.Context;
+import com.krizaka.orazaka.core.domain.model.chat.EngineMessage;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
 import com.krizaka.orazaka.jobs.domain.model.JobCommand;
 import java.util.ArrayList;
@@ -12,8 +13,6 @@ import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.ai.chat.messages.Message;
-import org.springframework.ai.chat.messages.UserMessage;
 
 class BrandContextInterceptorTest {
 
@@ -28,9 +27,9 @@ class BrandContextInterceptorTest {
         false);
   }
 
-  private static List<Message> messages() {
-    List<Message> messages = new ArrayList<>();
-    messages.add(new UserMessage("Décris cette pièce"));
+  private static List<EngineMessage> messages() {
+    List<EngineMessage> messages = new ArrayList<>();
+    messages.add(EngineMessage.user("Décris cette pièce"));
     return messages;
   }
 
@@ -42,12 +41,12 @@ class BrandContextInterceptorTest {
     preferences.put(JobCommand.ENRICHMENT_NAMESPACE_KEY, "orazaka.studio.brand.");
     preferences.put("orazaka.studio.brand.tone", "premium");
     preferences.put("orazaka.studio.brand.brandName", "Dupont & Fils");
-    List<Message> messages = messages();
+    List<EngineMessage> messages = messages();
 
     interceptor.preProcess(requestWith(preferences), "Décris cette pièce", messages, null);
 
     assertThat(messages).hasSize(2);
-    assertThat(messages.getFirst().getText())
+    assertThat(messages.getFirst().text())
         .contains("Brand context")
         .contains("tone: premium")
         .contains("brandName: Dupont & Fils");
@@ -56,7 +55,7 @@ class BrandContextInterceptorTest {
   @Test
   @DisplayName("Ordinary chat is untouched — no namespace, no message")
   void noOpForOrdinaryChat() {
-    List<Message> messages = messages();
+    List<EngineMessage> messages = messages();
 
     interceptor.preProcess(requestWith(Map.of("theme", "dark")), "Bonjour", messages, null);
 
@@ -70,11 +69,11 @@ class BrandContextInterceptorTest {
     preferences.put(JobCommand.ENRICHMENT_NAMESPACE_KEY, "orazaka.studio.brand.");
     preferences.put("orazaka.studio.brand.tone", "premium");
     preferences.put("voiceModel", "alloy");
-    List<Message> messages = messages();
+    List<EngineMessage> messages = messages();
 
     interceptor.preProcess(requestWith(preferences), "x", messages, null);
 
-    assertThat(messages.getFirst().getText()).contains("tone: premium").doesNotContain("alloy");
+    assertThat(messages.getFirst().text()).contains("tone: premium").doesNotContain("alloy");
   }
 
   @Test
@@ -89,12 +88,12 @@ class BrandContextInterceptorTest {
     second.put(JobCommand.ENRICHMENT_NAMESPACE_KEY, "orazaka.studio.brand.");
     second.put("orazaka.studio.brand.tone", "premium");
 
-    List<Message> a = messages();
-    List<Message> b = messages();
+    List<EngineMessage> a = messages();
+    List<EngineMessage> b = messages();
     interceptor.preProcess(requestWith(first), "x", a, null);
     interceptor.preProcess(requestWith(second), "x", b, null);
 
-    assertThat(a.getFirst().getText()).isEqualTo(b.getFirst().getText());
+    assertThat(a.getFirst().text()).isEqualTo(b.getFirst().text());
   }
 
   @Test
@@ -106,13 +105,11 @@ class BrandContextInterceptorTest {
     preferences.put(JobCommand.ENRICHMENT_NAMESPACE_KEY, "orazaka.acme.voice.");
     preferences.put("orazaka.acme.voice.register", "formel");
     preferences.put("orazaka.studio.brand.tone", "premium");
-    List<Message> messages = messages();
+    List<EngineMessage> messages = messages();
 
     interceptor.preProcess(requestWith(preferences), "x", messages, null);
 
-    assertThat(messages.getFirst().getText())
-        .contains("register: formel")
-        .doesNotContain("premium");
+    assertThat(messages.getFirst().text()).contains("register: formel").doesNotContain("premium");
   }
 
   @Test
@@ -120,7 +117,7 @@ class BrandContextInterceptorTest {
   void noDeclarationNoEnrichment() {
     // The Studio's own namespace, undeclared. Enriching it anyway would be the engine assuming a
     // default, which is how it came to know one product's vocabulary in the first place.
-    List<Message> messages = messages();
+    List<EngineMessage> messages = messages();
 
     interceptor.preProcess(
         requestWith(Map.of("orazaka.studio.brand.tone", "premium")), "x", messages, null);
@@ -137,7 +134,7 @@ class BrandContextInterceptorTest {
   @Test
   @DisplayName("A request with no context is tolerated rather than throwing mid-pipeline")
   void toleratesAMissingContext() {
-    List<Message> messages = messages();
+    List<EngineMessage> messages = messages();
 
     interceptor.preProcess(
         new InternalChatRequest("x", List.of(), null, null, false), "x", messages, null);

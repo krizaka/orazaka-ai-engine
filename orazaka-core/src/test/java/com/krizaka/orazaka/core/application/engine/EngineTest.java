@@ -13,6 +13,8 @@ import com.krizaka.orazaka.core.application.routing.DynamicChatModelFactory;
 import com.krizaka.orazaka.core.domain.model.Context;
 import com.krizaka.orazaka.core.domain.model.PromptContext;
 import com.krizaka.orazaka.core.domain.model.audio.AudioRequest;
+import com.krizaka.orazaka.core.domain.model.chat.EngineChatOptions;
+import com.krizaka.orazaka.core.domain.model.chat.EngineMessage;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatResponse;
 import com.krizaka.orazaka.core.domain.ports.outbound.*;
@@ -32,14 +34,12 @@ import org.springframework.ai.audio.tts.Speech;
 import org.springframework.ai.audio.tts.TextToSpeechModel;
 import org.springframework.ai.audio.tts.TextToSpeechPrompt;
 import org.springframework.ai.audio.tts.TextToSpeechResponse;
-import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
-import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.ollama.api.OllamaChatOptions;
@@ -61,7 +61,7 @@ class EngineTest {
   @Mock private ToolRegistry toolRegistry;
   @Mock private KnowledgeService knowledgeService;
   @Mock private McpOrchestrator mcpOrchestrator;
-  @Mock private ChatMemory mockChatMemory;
+  @Mock private ConversationMemory mockChatMemory;
   @Mock private ApplicationEventPublisher eventPublisher;
   @Mock private ModelCatalogProvider modelCatalogProvider;
   @Mock private UserCredentialsProvider credentialsProvider;
@@ -295,13 +295,17 @@ class EngineTest {
     AssistantMessage oldAssistantMsg = new AssistantMessage("Old assistant reply");
 
     Object memoryResolver = createMemoryResolver();
-    when(mockChatMemory.get(SESSION_1)).thenReturn(List.of(oldUserMsg, oldAssistantMsg));
+    when(mockChatMemory.get(SESSION_1))
+        .thenReturn(
+            List.of(
+                EngineMessage.user(oldUserMsg.getText()),
+                EngineMessage.assistant(oldAssistantMsg.getText())));
 
-    // Inject the mock ChatMemory into the resolver via reflection
+    // Inject the mock ConversationMemory into the resolver via reflection
     var sessionsField = memoryResolver.getClass().getDeclaredField("sessionMemories");
     sessionsField.setAccessible(true);
     @SuppressWarnings("unchecked")
-    var sessions = (Map<String, ChatMemory>) sessionsField.get(memoryResolver);
+    var sessions = (Map<String, ConversationMemory>) sessionsField.get(memoryResolver);
     sessions.put(SESSION_1, mockChatMemory);
 
     var memoryInterceptor = createMemoryInterceptorWith(memoryResolver);
@@ -487,11 +491,11 @@ class EngineTest {
         (com.krizaka.orazaka.core.domain.ports.outbound.MemoryResolver) resolver;
     return new PromptContextInterceptor() {
       @Override
-      public ChatOptions preProcess(
+      public EngineChatOptions preProcess(
           InternalChatRequest request,
           String promptText,
-          List<Message> messages,
-          ChatOptions options) {
+          List<EngineMessage> messages,
+          EngineChatOptions options) {
         Optional.ofNullable(request.context())
             .map(com.krizaka.orazaka.core.domain.model.Context::conversationId)
             .filter(id -> !id.isBlank())
@@ -513,11 +517,11 @@ class EngineTest {
             .ifPresent(
                 convId -> {
                   var chatMemory = memoryResolver.resolve(convId);
-                  List<Message> newMessages = new java.util.ArrayList<>();
+                  List<EngineMessage> newMessages = new java.util.ArrayList<>();
                   if (promptText != null && !promptText.isBlank()) {
-                    newMessages.add(new UserMessage(promptText));
+                    newMessages.add(EngineMessage.user(promptText));
                   }
-                  newMessages.add(new AssistantMessage(responseText));
+                  newMessages.add(EngineMessage.assistant(responseText));
                   chatMemory.add(convId, newMessages);
                 });
       }
@@ -532,18 +536,14 @@ class EngineTest {
   private PromptContextInterceptor createMcpInterceptor(McpOrchestrator orchestrator) {
     return new PromptContextInterceptor() {
       @Override
-      public ChatOptions preProcess(
+      public EngineChatOptions preProcess(
           InternalChatRequest request,
           String promptText,
-          List<Message> messages,
-          ChatOptions options) {
+          List<EngineMessage> messages,
+          EngineChatOptions options) {
         Optional.ofNullable(orchestrator.resolveExternalContext())
             .filter(ctx -> !ctx.isBlank())
-            .ifPresent(
-                ctx ->
-                    messages.addFirst(
-                        new org.springframework.ai.chat.messages.SystemMessage(
-                            "MCP Context: " + ctx)));
+            .ifPresent(ctx -> messages.addFirst(EngineMessage.system("MCP Context: " + ctx)));
         return options;
       }
     };
@@ -554,20 +554,18 @@ class EngineTest {
       CoreProperties properties, KnowledgeService knowledgeService) {
     return new PromptContextInterceptor() {
       @Override
-      public ChatOptions preProcess(
+      public EngineChatOptions preProcess(
           InternalChatRequest request,
           String promptText,
-          List<Message> messages,
-          ChatOptions options) {
+          List<EngineMessage> messages,
+          EngineChatOptions options) {
         Optional.ofNullable(properties.rag())
             .filter(CoreProperties.RagConfig::enabled)
             .ifPresent(
                 rag -> {
                   String context = knowledgeService.retrieveContext(promptText, rag.topK());
                   if (context != null && !context.isBlank()) {
-                    messages.addFirst(
-                        new org.springframework.ai.chat.messages.SystemMessage(
-                            "RAG Context: \n" + context));
+                    messages.addFirst(EngineMessage.system("RAG Context: \n" + context));
                   }
                 });
         return options;
@@ -579,11 +577,11 @@ class EngineTest {
   private PromptContextInterceptor createToolInterceptor(ToolRegistry toolRegistry) {
     return new PromptContextInterceptor() {
       @Override
-      public ChatOptions preProcess(
+      public EngineChatOptions preProcess(
           InternalChatRequest request,
           String promptText,
-          List<Message> messages,
-          ChatOptions options) {
+          List<EngineMessage> messages,
+          EngineChatOptions options) {
         if (request.streaming()) {
           return options;
         }
@@ -619,21 +617,24 @@ class EngineTest {
           return options;
         }
 
-        if (options instanceof OllamaChatOptions ollama) {
-          return OllamaChatOptions.builder()
-              .model(ollama.getModel())
-              .temperature(ollama.getTemperature())
-              .numPredict(ollama.getNumPredict())
-              .numCtx(8192)
-              .toolCallbacks(demanded)
-              .build();
-        } else if (options instanceof OpenAiChatOptions openai) {
-          return OpenAiChatOptions.builder()
-              .model(openai.getModel())
-              .temperature(openai.getTemperature())
-              .maxTokens(openai.getMaxTokens())
-              .toolCallbacks(demanded)
-              .build();
+        Object nativeOptions = options == null ? null : options.nativeOptions();
+        if (nativeOptions instanceof OllamaChatOptions ollama) {
+          return options.withNativeOptions(
+              OllamaChatOptions.builder()
+                  .model(ollama.getModel())
+                  .temperature(ollama.getTemperature())
+                  .numPredict(ollama.getNumPredict())
+                  .numCtx(8192)
+                  .toolCallbacks(demanded)
+                  .build());
+        } else if (nativeOptions instanceof OpenAiChatOptions openai) {
+          return options.withNativeOptions(
+              OpenAiChatOptions.builder()
+                  .model(openai.getModel())
+                  .temperature(openai.getTemperature())
+                  .maxTokens(openai.getMaxTokens())
+                  .toolCallbacks(demanded)
+                  .build());
         }
         return options;
       }

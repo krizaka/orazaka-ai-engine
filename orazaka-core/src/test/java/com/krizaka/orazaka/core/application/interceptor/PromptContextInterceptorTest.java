@@ -3,13 +3,13 @@ package com.krizaka.orazaka.core.application.interceptor;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.krizaka.orazaka.core.domain.model.PromptContext;
+import com.krizaka.orazaka.core.domain.model.chat.EngineChatOptions;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
 import java.util.ArrayList;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
-import org.springframework.ai.chat.prompt.ChatOptions;
 
 class PromptContextInterceptorTest {
 
@@ -25,7 +25,7 @@ class PromptContextInterceptorTest {
     assertSame(context, interceptor.beforeExecution(context));
 
     InternalChatRequest request = Mockito.mock(InternalChatRequest.class);
-    ChatOptions options = Mockito.mock(ChatOptions.class);
+    EngineChatOptions options = new EngineChatOptions(null, null, null);
     assertSame(options, interceptor.preProcess(request, "prompt", new ArrayList<>(), options));
 
     // Calling postProcess should not throw any exception

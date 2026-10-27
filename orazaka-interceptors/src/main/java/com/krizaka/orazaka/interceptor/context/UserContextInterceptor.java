@@ -3,15 +3,14 @@ package com.krizaka.orazaka.interceptor.context;
 import com.krizaka.orazaka.core.application.interceptor.PromptContextInterceptor;
 import com.krizaka.orazaka.core.application.pipeline.PipelineRegistry;
 import com.krizaka.orazaka.core.domain.model.Context;
+import com.krizaka.orazaka.core.domain.model.chat.EngineChatOptions;
+import com.krizaka.orazaka.core.domain.model.chat.EngineMessage;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.chat.messages.Message;
-import org.springframework.ai.chat.messages.SystemMessage;
-import org.springframework.ai.chat.prompt.ChatOptions;
 
 /**
  * ContextInterceptor that dynamically injects onboarding profile details (ai_behavior,
@@ -37,8 +36,11 @@ class UserContextInterceptor implements PromptContextInterceptor {
   }
 
   @Override
-  public ChatOptions preProcess(
-      InternalChatRequest request, String promptText, List<Message> messages, ChatOptions options) {
+  public EngineChatOptions preProcess(
+      InternalChatRequest request,
+      String promptText,
+      List<EngineMessage> messages,
+      EngineChatOptions options) {
 
     if (!pipelineRegistry.isInterceptorEnabled(INTERCEPTOR_KEY)) {
       return options;
@@ -48,7 +50,7 @@ class UserContextInterceptor implements PromptContextInterceptor {
       Map<String, Object> preferences = request.context().preferences();
       String constraints = buildConstraints(preferences);
       if (!constraints.isEmpty()) {
-        messages.addFirst(new SystemMessage("System constraints:\n" + constraints));
+        messages.addFirst(EngineMessage.system("System constraints:\n" + constraints));
         logger.debug("Successfully injected user profile system prompt constraints.");
       }
     } catch (RuntimeException e) {

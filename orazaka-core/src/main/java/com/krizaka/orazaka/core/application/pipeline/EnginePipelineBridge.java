@@ -6,6 +6,8 @@ import com.krizaka.orazaka.core.application.routing.ChatOptionsResolver;
 import com.krizaka.orazaka.core.application.routing.ProviderClassifier;
 import com.krizaka.orazaka.core.domain.model.CachedResponse;
 import com.krizaka.orazaka.core.domain.model.PromptContext;
+import com.krizaka.orazaka.core.domain.model.chat.EngineChatOptions;
+import com.krizaka.orazaka.core.domain.model.chat.EngineMessage;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
 import com.krizaka.orazaka.core.domain.ports.outbound.ModelCatalogProvider;
 import com.krizaka.orazaka.core.domain.ports.outbound.PlatformMcpServerProvider;
@@ -137,12 +139,17 @@ public final class EnginePipelineBridge {
       springOptions = ChatOptionsResolver.resolveDefaultOptions(provider);
     }
 
-    ChatOptions finalOptions =
+    // Interceptors speak the engine's own types; the library's stay on this side of the call.
+    List<EngineMessage> engineMessages = MessageCompiler.toEngine(messages);
+    EngineChatOptions engineOptions =
         interceptors.stream()
             .reduce(
-                springOptions,
-                (opts, interceptor) -> interceptor.preProcess(request, promptText, messages, opts),
+                MessageCompiler.toEngine(springOptions),
+                (opts, interceptor) ->
+                    interceptor.preProcess(request, promptText, engineMessages, opts),
                 (o1, o2) -> o1);
+    messages = MessageCompiler.toSpring(engineMessages);
+    ChatOptions finalOptions = MessageCompiler.toSpring(engineOptions);
 
     // Assemble MCP tool callbacks via McpClientFactory
     List<AutoCloseable> closeables = new ArrayList<>();

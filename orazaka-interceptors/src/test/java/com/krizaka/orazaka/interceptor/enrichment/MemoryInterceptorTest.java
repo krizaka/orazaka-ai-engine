@@ -4,18 +4,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 
 import com.krizaka.orazaka.core.domain.model.Context;
+import com.krizaka.orazaka.core.domain.model.chat.EngineChatOptions;
+import com.krizaka.orazaka.core.domain.model.chat.EngineMessage;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
+import com.krizaka.orazaka.core.domain.ports.outbound.ConversationMemory;
 import com.krizaka.orazaka.core.domain.ports.outbound.MemoryResolver;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
-import org.springframework.ai.chat.memory.ChatMemory;
-import org.springframework.ai.chat.messages.AssistantMessage;
-import org.springframework.ai.chat.messages.Message;
-import org.springframework.ai.chat.messages.UserMessage;
-import org.springframework.ai.chat.prompt.ChatOptions;
 
 class MemoryInterceptorTest {
 
@@ -23,10 +21,11 @@ class MemoryInterceptorTest {
   @DisplayName("preProcess injects memory history before current prompt")
   void preProcessInjectsHistory() {
     MemoryResolver resolver = mock(MemoryResolver.class);
-    ChatMemory chatMemory = mock(ChatMemory.class);
+    ConversationMemory chatMemory = mock(ConversationMemory.class);
     when(resolver.resolve("conv-123")).thenReturn(chatMemory);
 
-    List<Message> history = List.of(new UserMessage("Hi"), new AssistantMessage("Hello"));
+    List<EngineMessage> history =
+        List.of(EngineMessage.user("Hi"), EngineMessage.assistant("Hello"));
     when(chatMemory.get("conv-123")).thenReturn(history);
 
     MemoryInterceptor interceptor = new MemoryInterceptor(resolver);
@@ -36,22 +35,22 @@ class MemoryInterceptorTest {
     when(request.context()).thenReturn(context);
     when(context.conversationId()).thenReturn("conv-123");
 
-    List<Message> messages = new ArrayList<>(List.of(new UserMessage("Current query")));
-    ChatOptions options = mock(ChatOptions.class);
+    List<EngineMessage> messages = new ArrayList<>(List.of(EngineMessage.user("Current query")));
+    EngineChatOptions options = new EngineChatOptions(null, null, null);
 
     interceptor.preProcess(request, "Current query", messages, options);
 
     assertThat(messages).hasSize(3);
-    assertThat(messages.getFirst().getText()).isEqualTo("Hi");
-    assertThat(messages.get(1).getText()).isEqualTo("Hello");
-    assertThat(messages.get(2).getText()).isEqualTo("Current query");
+    assertThat(messages.getFirst().text()).isEqualTo("Hi");
+    assertThat(messages.get(1).text()).isEqualTo("Hello");
+    assertThat(messages.get(2).text()).isEqualTo("Current query");
   }
 
   @Test
-  @DisplayName("postProcess appends query and response to ChatMemory")
+  @DisplayName("postProcess appends query and response to ConversationMemory")
   void postProcessAppendsToMemory() {
     MemoryResolver resolver = mock(MemoryResolver.class);
-    ChatMemory chatMemory = mock(ChatMemory.class);
+    ConversationMemory chatMemory = mock(ConversationMemory.class);
     when(resolver.resolve("conv-123")).thenReturn(chatMemory);
 
     MemoryInterceptor interceptor = new MemoryInterceptor(resolver);
@@ -64,15 +63,17 @@ class MemoryInterceptorTest {
     interceptor.postProcess(request, "User Prompt", "AI Response");
 
     @SuppressWarnings("unchecked")
-    ArgumentCaptor<List<Message>> captor = ArgumentCaptor.forClass(List.class);
+    ArgumentCaptor<List<EngineMessage>> captor = ArgumentCaptor.forClass(List.class);
     verify(chatMemory).add(eq("conv-123"), captor.capture());
 
-    List<Message> added = captor.getValue();
+    List<EngineMessage> added = captor.getValue();
     assertThat(added).hasSize(2);
-    assertThat(added.getFirst()).isInstanceOf(UserMessage.class);
-    assertThat(added.getFirst().getText()).isEqualTo("User Prompt");
-    assertThat(added.get(1)).isInstanceOf(AssistantMessage.class);
-    assertThat(added.get(1).getText()).isEqualTo("AI Response");
+    assertThat(added.getFirst()).extracting(EngineMessage::role).isEqualTo(EngineMessage.Role.USER);
+    assertThat(added.getFirst().text()).isEqualTo("User Prompt");
+    assertThat(added.get(1))
+        .extracting(EngineMessage::role)
+        .isEqualTo(EngineMessage.Role.ASSISTANT);
+    assertThat(added.get(1).text()).isEqualTo("AI Response");
   }
 
   private static Context retained(String retention) {
@@ -103,9 +104,10 @@ class MemoryInterceptorTest {
     MemoryInterceptor interceptor = new MemoryInterceptor(resolver);
     InternalChatRequest request = mock(InternalChatRequest.class);
     when(request.context()).thenReturn(retained(Context.RETENTION_NONE));
-    List<Message> messages = new ArrayList<>(List.of(new UserMessage("Current query")));
+    List<EngineMessage> messages = new ArrayList<>(List.of(EngineMessage.user("Current query")));
 
-    interceptor.preProcess(request, "Current query", messages, mock(ChatOptions.class));
+    interceptor.preProcess(
+        request, "Current query", messages, new EngineChatOptions(null, null, null));
 
     assertThat(messages).hasSize(1);
     verifyNoInteractions(resolver);
@@ -115,7 +117,7 @@ class MemoryInterceptorTest {
   @DisplayName("any other retention value keeps the default: the turn is remembered")
   void otherRetentionKeepsDefault() {
     MemoryResolver resolver = mock(MemoryResolver.class);
-    ChatMemory chatMemory = mock(ChatMemory.class);
+    ConversationMemory chatMemory = mock(ConversationMemory.class);
     when(resolver.resolve("conv-9")).thenReturn(chatMemory);
     MemoryInterceptor interceptor = new MemoryInterceptor(resolver);
     InternalChatRequest request = mock(InternalChatRequest.class);

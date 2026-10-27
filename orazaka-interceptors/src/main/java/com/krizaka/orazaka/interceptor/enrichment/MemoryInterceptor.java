@@ -2,24 +2,22 @@ package com.krizaka.orazaka.interceptor.enrichment;
 
 import com.krizaka.orazaka.core.application.interceptor.PromptContextInterceptor;
 import com.krizaka.orazaka.core.domain.model.Context;
+import com.krizaka.orazaka.core.domain.model.chat.EngineChatOptions;
+import com.krizaka.orazaka.core.domain.model.chat.EngineMessage;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
+import com.krizaka.orazaka.core.domain.ports.outbound.ConversationMemory;
 import com.krizaka.orazaka.core.domain.ports.outbound.MemoryResolver;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import org.springframework.ai.chat.memory.ChatMemory;
-import org.springframework.ai.chat.messages.AssistantMessage;
-import org.springframework.ai.chat.messages.Message;
-import org.springframework.ai.chat.messages.UserMessage;
-import org.springframework.ai.chat.prompt.ChatOptions;
 
 /**
  * Conversation memory interceptor — injects historical messages before inference and persists new
  * messages after completion.
  *
- * <p>Uses {@link MemoryResolver} to obtain a per-conversation {@link ChatMemory} store, enabling
- * multi-turn context within a single conversation thread.
+ * <p>Uses {@link MemoryResolver} to obtain a per-conversation {@link ConversationMemory} store,
+ * enabling multi-turn context within a single conversation thread.
  *
  * <p>A turn in no-storage mode ({@link Context#retentionNone()}) is neither read from nor written
  * to memory.
@@ -34,12 +32,15 @@ class MemoryInterceptor implements PromptContextInterceptor {
   }
 
   @Override
-  public ChatOptions preProcess(
-      InternalChatRequest request, String promptText, List<Message> messages, ChatOptions options) {
+  public EngineChatOptions preProcess(
+      InternalChatRequest request,
+      String promptText,
+      List<EngineMessage> messages,
+      EngineChatOptions options) {
     resolveConversationId(request)
         .ifPresent(
             convId -> {
-              List<Message> history = memoryResolver.resolve(convId).get(convId);
+              List<EngineMessage> history = memoryResolver.resolve(convId).get(convId);
               if (!history.isEmpty()) {
                 messages.addAll(0, history);
               }
@@ -52,12 +53,12 @@ class MemoryInterceptor implements PromptContextInterceptor {
     resolveConversationId(request)
         .ifPresent(
             convId -> {
-              ChatMemory chatMemory = memoryResolver.resolve(convId);
-              List<Message> newMessages = new ArrayList<>();
+              ConversationMemory chatMemory = memoryResolver.resolve(convId);
+              List<EngineMessage> newMessages = new ArrayList<>();
               if (promptText != null && !promptText.isBlank()) {
-                newMessages.add(new UserMessage(promptText));
+                newMessages.add(EngineMessage.user(promptText));
               }
-              newMessages.add(new AssistantMessage(responseText));
+              newMessages.add(EngineMessage.assistant(responseText));
               chatMemory.add(convId, newMessages);
             });
   }

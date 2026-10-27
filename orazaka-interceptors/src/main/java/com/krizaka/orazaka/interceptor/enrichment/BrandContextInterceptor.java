@@ -2,14 +2,13 @@ package com.krizaka.orazaka.interceptor.enrichment;
 
 import com.krizaka.orazaka.core.application.interceptor.PromptContextInterceptor;
 import com.krizaka.orazaka.core.domain.model.Context;
+import com.krizaka.orazaka.core.domain.model.chat.EngineChatOptions;
+import com.krizaka.orazaka.core.domain.model.chat.EngineMessage;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
 import com.krizaka.orazaka.jobs.domain.model.JobCommand;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
-import org.springframework.ai.chat.messages.Message;
-import org.springframework.ai.chat.messages.SystemMessage;
-import org.springframework.ai.chat.prompt.ChatOptions;
 
 /**
  * Injects an installed Studio's brand kit into the prompt (ADR-034 §9.1).
@@ -40,8 +39,11 @@ class BrandContextInterceptor implements PromptContextInterceptor {
   private static final String NAMESPACE_KEY = JobCommand.ENRICHMENT_NAMESPACE_KEY;
 
   @Override
-  public ChatOptions preProcess(
-      InternalChatRequest request, String promptText, List<Message> messages, ChatOptions options) {
+  public EngineChatOptions preProcess(
+      InternalChatRequest request,
+      String promptText,
+      List<EngineMessage> messages,
+      EngineChatOptions options) {
     Map<String, String> brand = brandOf(request);
     if (brand.isEmpty()) {
       return options;
@@ -49,7 +51,7 @@ class BrandContextInterceptor implements PromptContextInterceptor {
     StringBuilder instruction = new StringBuilder("Brand context for this workspace:");
     brand.forEach(
         (key, value) -> instruction.append("\n- ").append(key).append(": ").append(value));
-    messages.addFirst(new SystemMessage(instruction.toString()));
+    messages.addFirst(EngineMessage.system(instruction.toString()));
     return options;
   }
 

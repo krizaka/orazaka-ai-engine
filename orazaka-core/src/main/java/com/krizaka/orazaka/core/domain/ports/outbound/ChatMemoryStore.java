@@ -1,7 +1,7 @@
 package com.krizaka.orazaka.core.domain.ports.outbound;
 
+import com.krizaka.orazaka.core.domain.model.chat.EngineMessage;
 import java.util.List;
-import org.springframework.ai.chat.messages.Message;
 
 /**
  * Outbound port for durable conversation memory — the chronological transcript of a single
@@ -12,10 +12,10 @@ import org.springframework.ai.chat.messages.Message;
 public interface ChatMemoryStore {
 
   /** Last {@code limit} messages of a conversation, chronological (oldest-first). */
-  List<Message> findRecent(String conversationId, int limit);
+  List<EngineMessage> findRecent(String conversationId, int limit);
 
   /** Appends messages to a conversation's transcript in order. */
-  void append(String conversationId, List<Message> messages);
+  void append(String conversationId, List<EngineMessage> messages);
 
   /** Removes a conversation's whole transcript. */
   void clear(String conversationId);

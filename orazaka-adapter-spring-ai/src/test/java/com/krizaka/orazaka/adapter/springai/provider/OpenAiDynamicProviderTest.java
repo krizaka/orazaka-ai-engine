@@ -1,35 +1,30 @@
-package com.krizaka.orazaka.core.infrastructure.provider;
+package com.krizaka.orazaka.adapter.springai.provider;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.Test;
 
-class GeminiDynamicProviderTest {
+class OpenAiDynamicProviderTest {
 
-  private final GeminiDynamicProvider provider = new GeminiDynamicProvider();
-
-  @Test
-  void supports_gemini() {
-    assertThat(provider.supports("gemini")).isTrue();
-  }
+  private final OpenAiDynamicProvider provider = new OpenAiDynamicProvider();
 
   @Test
-  void supports_google() {
-    assertThat(provider.supports("google")).isTrue();
+  void supports_openai() {
+    assertThat(provider.supports("openai")).isTrue();
   }
 
   @Test
   void supports_caseInsensitive() {
-    assertThat(provider.supports("GEMINI")).isTrue();
-    assertThat(provider.supports("Google")).isTrue();
+    assertThat(provider.supports("OpenAI")).isTrue();
+    assertThat(provider.supports("OPENAI")).isTrue();
   }
 
   @Test
   void doesNotSupport_otherProviders() {
     assertThat(provider.supports("claude")).isFalse();
     assertThat(provider.supports("ollama")).isFalse();
-    assertThat(provider.supports("openai")).isFalse();
+    assertThat(provider.supports("gemini")).isFalse();
   }
 
   @Test
@@ -48,7 +43,7 @@ class GeminiDynamicProviderTest {
 
   @Test
   void create_returnsChatModel() {
-    var model = provider.create("gemini-2.0-flash", "test-key");
+    var model = provider.create("gpt-4o", "test-key");
     assertThat(model).isNotNull();
   }
 }

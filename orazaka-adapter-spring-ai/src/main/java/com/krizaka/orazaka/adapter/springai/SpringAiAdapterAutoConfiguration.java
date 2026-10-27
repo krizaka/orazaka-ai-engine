@@ -3,6 +3,11 @@ package com.krizaka.orazaka.adapter.springai;
 import com.krizaka.orazaka.adapter.springai.chat.SpringAiProviderChatClient;
 import com.krizaka.orazaka.adapter.springai.client.ChatGeneratorClientImpl;
 import com.krizaka.orazaka.adapter.springai.client.EmbeddingClientImpl;
+import com.krizaka.orazaka.adapter.springai.provider.AnthropicDynamicProvider;
+import com.krizaka.orazaka.adapter.springai.provider.DynamicChatModelProvider;
+import com.krizaka.orazaka.adapter.springai.provider.GeminiDynamicProvider;
+import com.krizaka.orazaka.adapter.springai.provider.OpenAiDynamicProvider;
+import com.krizaka.orazaka.adapter.springai.provider.SpringAiDynamicChatModelFactory;
 import com.krizaka.orazaka.adapter.springai.routing.DynamicModelRouter;
 import com.krizaka.orazaka.adapter.springai.routing.RoutedChatModel;
 import com.krizaka.orazaka.adapter.springai.routing.RoutedTextToSpeechModel;
@@ -12,9 +17,11 @@ import com.krizaka.orazaka.adapter.springai.tool.SpringAiToolOptions;
 import com.krizaka.orazaka.adapter.springai.tool.SpringAiToolRegistry;
 import com.krizaka.orazaka.core.application.engine.Engine;
 import com.krizaka.orazaka.core.application.pipeline.PipelineOptionsRegistry;
+import com.krizaka.orazaka.core.application.routing.DynamicChatModelFactory;
 import com.krizaka.orazaka.core.domain.ports.outbound.*;
 import com.krizaka.orazaka.core.infrastructure.adapter.security.LoggingAccessAudit;
 import com.krizaka.orazaka.core.infrastructure.spend.SpendGuard;
+import java.util.List;
 import java.util.Map;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.beans.factory.ObjectProvider;
@@ -179,6 +186,52 @@ public class SpringAiAdapterAutoConfiguration {
   public EmbeddingClientImpl embeddingClientImpl(
       ModelEndpointResolver endpoints, SpendGuard spendGuard) {
     return new EmbeddingClientImpl(endpoints, spendGuard);
+  }
+
+  /**
+   * Builds the Anthropic (Claude) model of a user's own key.
+   *
+   * @return the provider
+   */
+  @Bean
+  @ConditionalOnMissingBean
+  public AnthropicDynamicProvider anthropicDynamicProvider() {
+    return new AnthropicDynamicProvider();
+  }
+
+  /**
+   * Builds the Gemini model of a user's own key.
+   *
+   * @return the provider
+   */
+  @Bean
+  @ConditionalOnMissingBean
+  public GeminiDynamicProvider geminiDynamicProvider() {
+    return new GeminiDynamicProvider();
+  }
+
+  /**
+   * Builds the OpenAI model of a user's own key.
+   *
+   * @return the provider
+   */
+  @Bean
+  @ConditionalOnMissingBean
+  public OpenAiDynamicProvider openAiDynamicProvider() {
+    return new OpenAiDynamicProvider();
+  }
+
+  /**
+   * The port that builds, per request, the model of a commercial provider from the user's key.
+   *
+   * @param providers every provider strategy wired
+   * @return the factory
+   */
+  @Bean
+  @ConditionalOnMissingBean(DynamicChatModelFactory.class)
+  public SpringAiDynamicChatModelFactory dynamicChatModelFactory(
+      List<DynamicChatModelProvider> providers) {
+    return new SpringAiDynamicChatModelFactory(providers);
   }
 
   /** No cache: every call runs the tool. */

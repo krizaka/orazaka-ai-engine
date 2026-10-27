@@ -1,4 +1,4 @@
-package com.krizaka.orazaka.core.infrastructure.provider;
+package com.krizaka.orazaka.adapter.springai.provider;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;

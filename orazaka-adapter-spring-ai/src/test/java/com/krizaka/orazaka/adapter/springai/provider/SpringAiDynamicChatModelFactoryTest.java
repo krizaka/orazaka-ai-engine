@@ -1,4 +1,4 @@
-package com.krizaka.orazaka.core.application.routing;
+package com.krizaka.orazaka.adapter.springai.provider;
 
 import static com.krizaka.orazaka.test.TestConstants.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -6,18 +6,17 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.krizaka.orazaka.core.infrastructure.provider.DynamicChatModelProvider;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.model.ChatModel;
 
-class DynamicChatModelFactoryTest {
+class SpringAiDynamicChatModelFactoryTest {
 
   @Test
   @DisplayName("createChatModel throws if model name is blank")
   void modelNameValidation() {
-    DynamicChatModelFactory factory = new DynamicChatModelFactory(List.of());
+    SpringAiDynamicChatModelFactory factory = new SpringAiDynamicChatModelFactory(List.of());
     assertThrows(
         IllegalArgumentException.class,
         () -> factory.createChatModel(PROVIDER_OPENAI, null, "key"));
@@ -40,7 +39,8 @@ class DynamicChatModelFactoryTest {
     ChatModel mockModel = mock(ChatModel.class);
     when(provider2.create("gpt-4", "test-key")).thenReturn(mockModel);
 
-    DynamicChatModelFactory factory = new DynamicChatModelFactory(List.of(provider1, provider2));
+    SpringAiDynamicChatModelFactory factory =
+        new SpringAiDynamicChatModelFactory(List.of(provider1, provider2));
     ChatModel chatModel = factory.createChatModel(PROVIDER_OPENAI, "gpt-4", "test-key");
 
     assertEquals(mockModel, chatModel);
@@ -52,7 +52,8 @@ class DynamicChatModelFactoryTest {
     DynamicChatModelProvider provider = mock(DynamicChatModelProvider.class);
     when(provider.supports("anthropic")).thenReturn(false);
 
-    DynamicChatModelFactory factory = new DynamicChatModelFactory(List.of(provider));
+    SpringAiDynamicChatModelFactory factory =
+        new SpringAiDynamicChatModelFactory(List.of(provider));
     assertThrows(
         IllegalArgumentException.class,
         () -> factory.createChatModel("anthropic", "claude-3", "key"));

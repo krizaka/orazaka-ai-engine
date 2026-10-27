@@ -209,7 +209,8 @@ public abstract sealed class AbstractEngine permits Engine {
       return this.chatModel;
     }
     String modelName = ProviderClassifier.resolveModelName(context.toPrompt().getOptions());
-    return infra.modelFactory().createChatModel(resolvedProvider, modelName, apiKeyOpt.get());
+    return (ChatModel)
+        infra.modelFactory().createChatModel(resolvedProvider, modelName, apiKeyOpt.get());
   }
 
   /** Extracts text from a ChatResponse, returning empty string on null chain. */

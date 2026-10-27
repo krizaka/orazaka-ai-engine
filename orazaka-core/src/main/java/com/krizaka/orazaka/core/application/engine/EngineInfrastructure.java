@@ -24,7 +24,7 @@ public record EngineInfrastructure(
     EnginePipelineBridge pipelineBridge,
     EngineStreamBridge streamBridge,
     UserCredentialsProvider credentialsProvider,
-    DynamicChatModelFactory modelFactory) {
+    DynamicChatModelFactory<?> modelFactory) {
 
   public EngineInfrastructure {
     Objects.requireNonNull(pipelineBridge, "EnginePipelineBridge must not be null");

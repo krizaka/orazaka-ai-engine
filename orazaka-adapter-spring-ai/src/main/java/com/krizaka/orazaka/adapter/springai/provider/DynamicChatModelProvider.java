@@ -1,4 +1,4 @@
-package com.krizaka.orazaka.core.infrastructure.provider;
+package com.krizaka.orazaka.adapter.springai.provider;
 
 import org.springframework.ai.chat.model.ChatModel;
 

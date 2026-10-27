@@ -53,14 +53,14 @@ public final class EngineStreamBridge {
   private final ChatModel chatModel;
   private final EnginePipelineBridge pipelineBridge;
   private final UserCredentialsProvider credentialsProvider;
-  private final DynamicChatModelFactory modelFactory;
+  private final DynamicChatModelFactory<ChatModel> modelFactory;
 
   /** Constructs the streaming bridge. */
   public EngineStreamBridge(
       ChatModel chatModel,
       EnginePipelineBridge pipelineBridge,
       UserCredentialsProvider credentialsProvider,
-      DynamicChatModelFactory modelFactory) {
+      DynamicChatModelFactory<ChatModel> modelFactory) {
     this.chatModel = Objects.requireNonNull(chatModel, "ChatModel must not be null");
     this.pipelineBridge =
         Objects.requireNonNull(pipelineBridge, "EnginePipelineBridge must not be null");

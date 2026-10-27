@@ -50,7 +50,7 @@ public final class Engine extends AbstractEngine {
       EnginePipelineBridge pipelineBridge,
       EngineStreamBridge streamBridge,
       UserCredentialsProvider credentialsProvider,
-      DynamicChatModelFactory modelFactory) {
+      DynamicChatModelFactory<ChatModel> modelFactory) {
     super(
         chatModel,
         ttsModel,

@@ -1,12 +1,10 @@
-package com.krizaka.orazaka.core.infrastructure.provider;
+package com.krizaka.orazaka.adapter.springai.provider;
 
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
-import org.springframework.stereotype.Component;
 
 /** Dynamic ChatModel provider for OpenAI models (Spring AI 2.0 / official com.openai SDK). */
-@Component
 public class OpenAiDynamicProvider implements DynamicChatModelProvider {
 
   @Override

@@ -41,7 +41,9 @@ class EngineStreamBridgeTest {
   private com.krizaka.orazaka.core.domain.ports.outbound.UserCredentialsProvider
       credentialsProvider;
 
-  @Mock private com.krizaka.orazaka.core.application.routing.DynamicChatModelFactory modelFactory;
+  @Mock
+  private com.krizaka.orazaka.core.application.routing.DynamicChatModelFactory<ChatModel>
+      modelFactory;
 
   private EngineStreamBridge streamBridge;
 

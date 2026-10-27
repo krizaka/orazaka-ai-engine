@@ -5,12 +5,14 @@ import static org.mockito.Mockito.mock;
 
 import com.krizaka.orazaka.adapter.springai.client.ChatGeneratorClientImpl;
 import com.krizaka.orazaka.adapter.springai.client.EmbeddingClientImpl;
+import com.krizaka.orazaka.adapter.springai.provider.SpringAiDynamicChatModelFactory;
 import com.krizaka.orazaka.adapter.springai.routing.DynamicModelRouter;
 import com.krizaka.orazaka.adapter.springai.routing.RoutedChatModel;
 import com.krizaka.orazaka.adapter.springai.routing.RoutedTextToSpeechModel;
 import com.krizaka.orazaka.adapter.springai.routing.UniversalProxyChatProvider;
 import com.krizaka.orazaka.core.application.engine.Engine;
 import com.krizaka.orazaka.core.application.pipeline.PipelineOptionsRegistry;
+import com.krizaka.orazaka.core.application.routing.DynamicChatModelFactory;
 import com.krizaka.orazaka.core.domain.ports.outbound.ChatGeneratorClient;
 import com.krizaka.orazaka.core.domain.ports.outbound.EmbeddingClient;
 import com.krizaka.orazaka.core.domain.ports.outbound.ModelEndpointResolver;
@@ -76,5 +78,27 @@ class SpringAiAdapterAutoConfigurationTest {
     runner
         .withBean(DynamicModelRouter.class, () -> own)
         .run(context -> assertThat(context.getBean(DynamicModelRouter.class)).isSameAs(own));
+  }
+
+  @Test
+  void theDynamicChatModelFactoryIsWiredOverTheThreeProviders() {
+    runner.run(
+        context -> {
+          assertThat(context).hasSingleBean(DynamicChatModelFactory.class);
+          assertThat(context.getBean(DynamicChatModelFactory.class))
+              .isInstanceOf(SpringAiDynamicChatModelFactory.class);
+          var model = context.getBean(DynamicChatModelFactory.class);
+          assertThat(model.createChatModel("anthropic", "claude-x", "k")).isNotNull();
+          assertThat(model.createChatModel("gemini", "gemini-x", "k")).isNotNull();
+          assertThat(model.createChatModel("openai", "gpt-x", "k")).isNotNull();
+        });
+  }
+
+  @Test
+  void aHostFactoryWins() {
+    var own = mock(DynamicChatModelFactory.class);
+    runner
+        .withBean(DynamicChatModelFactory.class, () -> own)
+        .run(context -> assertThat(context.getBean(DynamicChatModelFactory.class)).isSameAs(own));
   }
 }

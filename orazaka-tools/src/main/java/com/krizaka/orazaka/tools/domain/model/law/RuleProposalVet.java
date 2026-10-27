@@ -111,6 +111,31 @@ public final class RuleProposalVet {
 
   // ── 1. the shape ───────────────────────────────────────────────────────────────
 
+  private static void methodShape(ProposedRule rule, List<String> missing) {
+    if (JUDGMENT.equals(rule.method())) {
+      requireText(rule.question(), "question", missing);
+      if (!ADVISORY.equals(rule.severity())) {
+        missing.add("severity ADVISORY: a JUDGMENT proposal is always ADVISORY");
+      }
+    } else if (DETERMINISTIC.equals(rule.method())) {
+      deterministicShape(rule, missing);
+    } else {
+      missing.add("method (DETERMINISTIC or JUDGMENT)");
+    }
+  }
+
+  private static void lawShape(ProposedRule rule, List<String> missing) {
+    if (rule.law().isEmpty()) {
+      missing.add("law: at least one article it rests on");
+    }
+    for (LawBlock block : rule.law()) {
+      if (!complete(block)) {
+        missing.add("law: instrument, ref, language (fr or en), contentHash and quote");
+        break;
+      }
+    }
+  }
+
   private static List<VetFinding> shape(ProposedRule rule, Set<String> seen) {
     List<String> missing = new ArrayList<>();
     if (!isRuleId(rule.ruleId())) {
@@ -126,25 +151,8 @@ public final class RuleProposalVet {
     if (rule.severity() == null || !SEVERITIES.contains(rule.severity())) {
       missing.add("severity (BLOCKING, MAJOR or ADVISORY)");
     }
-    if (JUDGMENT.equals(rule.method())) {
-      requireText(rule.question(), "question", missing);
-      if (!ADVISORY.equals(rule.severity())) {
-        missing.add("severity ADVISORY: a JUDGMENT proposal is always ADVISORY");
-      }
-    } else if (DETERMINISTIC.equals(rule.method())) {
-      deterministicShape(rule, missing);
-    } else {
-      missing.add("method (DETERMINISTIC or JUDGMENT)");
-    }
-    if (rule.law().isEmpty()) {
-      missing.add("law: at least one article it rests on");
-    }
-    for (LawBlock block : rule.law()) {
-      if (!complete(block)) {
-        missing.add("law: instrument, ref, language (fr or en), contentHash and quote");
-        break;
-      }
-    }
+    methodShape(rule, missing);
+    lawShape(rule, missing);
     return missing.isEmpty()
         ? List.of()
         : List.of(

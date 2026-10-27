@@ -2,27 +2,30 @@ package com.krizaka.orazaka.core.application.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
+import com.krizaka.orazaka.core.domain.model.chat.EngineTool;
 import com.krizaka.orazaka.core.domain.model.mcp.McpToolInfo;
 import com.krizaka.orazaka.core.domain.ports.outbound.ToolRegistry;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.ai.tool.ToolCallback;
-import org.springframework.ai.tool.definition.ToolDefinition;
 
-@ExtendWith(MockitoExtension.class)
 class McpServiceImplTest {
 
-  @Mock private ToolRegistry toolRegistry;
-  @Mock private ToolCallback toolCallback;
-  @Mock private ToolDefinition toolDefinition;
+  private final ToolRegistry toolRegistry = mock(ToolRegistry.class);
 
   private McpServiceImpl mcpService;
+
+  private static EngineTool testTool() {
+    return new EngineTool(
+        "testTool",
+        "A test tool description",
+        "{\"type\":\"object\"}",
+        json -> "{\"arg\":\"val\"}".equals(json) ? "execution result" : "unexpected " + json,
+        null);
+  }
 
   @BeforeEach
   void setUp() {
@@ -31,11 +34,7 @@ class McpServiceImplTest {
 
   @Test
   void shouldReturnAvailableTools() {
-    when(toolDefinition.name()).thenReturn("testTool");
-    when(toolDefinition.description()).thenReturn("A test tool description");
-    when(toolDefinition.inputSchema()).thenReturn("{\"type\":\"object\"}");
-    when(toolCallback.getToolDefinition()).thenReturn(toolDefinition);
-    when(toolRegistry.getRegisteredTools()).thenReturn(List.of(toolCallback));
+    when(toolRegistry.getRegisteredTools()).thenReturn(List.of(testTool()));
 
     List<McpToolInfo> tools = mcpService.getAvailableTools();
 
@@ -48,22 +47,16 @@ class McpServiceImplTest {
 
   @Test
   void shouldExecuteToolSuccessfully() {
-    when(toolDefinition.name()).thenReturn("testTool");
-    when(toolCallback.getToolDefinition()).thenReturn(toolDefinition);
-    when(toolCallback.call("{\"arg\":\"val\"}")).thenReturn("execution result");
-    when(toolRegistry.getRegisteredTools()).thenReturn(List.of(toolCallback));
+    when(toolRegistry.getRegisteredTools()).thenReturn(List.of(testTool()));
 
     String result = mcpService.executeTool("testTool", "{\"arg\":\"val\"}");
 
     assertThat(result).isEqualTo("execution result");
-    verify(toolCallback).call("{\"arg\":\"val\"}");
   }
 
   @Test
   void shouldThrowWhenExecutingNonexistentTool() {
-    when(toolDefinition.name()).thenReturn("testTool");
-    when(toolCallback.getToolDefinition()).thenReturn(toolDefinition);
-    when(toolRegistry.getRegisteredTools()).thenReturn(List.of(toolCallback));
+    when(toolRegistry.getRegisteredTools()).thenReturn(List.of(testTool()));
 
     assertThatThrownBy(() -> mcpService.executeTool("nonexistent", "{}"))
         .isInstanceOf(IllegalArgumentException.class)

@@ -159,8 +159,8 @@ class ChatGeneratorClientImplTest {
 
     var sent = org.mockito.ArgumentCaptor.forClass(InternalChatRequest.class);
     org.mockito.Mockito.verify(engine).chat(sent.capture());
-    assertThat(sent.getValue().options().getModel()).isEqualTo("qwen2.5:7b");
-    assertThat(sent.getValue().options().getTemperature()).isEqualTo(0.2);
+    assertThat(sent.getValue().options().model()).isEqualTo("qwen2.5:7b");
+    assertThat(sent.getValue().options().temperature()).isEqualTo(0.2);
   }
 
   @Test
@@ -178,6 +178,6 @@ class ChatGeneratorClientImplTest {
 
     var sent = org.mockito.ArgumentCaptor.forClass(InternalChatRequest.class);
     org.mockito.Mockito.verify(engine).chat(sent.capture());
-    assertThat(sent.getValue().options().getModel()).isEqualTo("deepseek-v4-pro");
+    assertThat(sent.getValue().options().model()).isEqualTo("deepseek-v4-pro");
   }
 }

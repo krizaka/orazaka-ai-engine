@@ -4,9 +4,6 @@ import com.krizaka.orazaka.core.domain.model.Context;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
-import org.springframework.ai.chat.messages.Message;
-import org.springframework.ai.chat.messages.UserMessage;
-import org.springframework.ai.chat.prompt.ChatOptions;
 
 /**
  * Internal engine-level chat request record.
@@ -19,14 +16,14 @@ import org.springframework.ai.chat.prompt.ChatOptions;
  *
  * @param prompt The current user prompt text.
  * @param messages The conversation history (defensively copied to unmodifiable list).
- * @param options AI-specific configuration options (nullable — uses defaults if null).
+ * @param options the call's settings in the engine's own type (nullable — uses defaults if null).
  * @param context The execution context carrying user and session metadata.
  * @see InternalChatResponse
  */
 public record InternalChatRequest(
     String prompt,
     List<ChatMessage> messages,
-    ChatOptions options,
+    EngineChatOptions options,
     Context context,
     boolean streaming) {
 
@@ -37,28 +34,28 @@ public record InternalChatRequest(
 
   /** Backwards compatible constructor defaulting streaming to false. */
   public InternalChatRequest(
-      String prompt, List<ChatMessage> messages, ChatOptions options, Context context) {
+      String prompt, List<ChatMessage> messages, EngineChatOptions options, Context context) {
     this(prompt, messages, options, context, false);
   }
 
   /**
-   * Compiles the message history and refined prompt into a flat list of Spring AI messages.
+   * Compiles the message history and refined prompt into a flat list of engine messages.
    *
    * <p>Maps each {@link ChatMessage} using the provided mapper function, then appends the refined
-   * prompt as a final {@link UserMessage}.
+   * prompt as a final user message.
    *
    * @param refinedPrompt The refined or original prompt text (nullable — skipped if blank).
-   * @param messageMapper A function converting {@link ChatMessage} to Spring AI {@link Message}.
-   * @return A mutable list of Spring AI messages ready for prompt assembly.
+   * @param messageMapper A function converting {@link ChatMessage} to an {@link EngineMessage}.
+   * @return A mutable list of engine messages ready for prompt assembly.
    */
-  public List<Message> compileMessages(
-      String refinedPrompt, Function<ChatMessage, Message> messageMapper) {
-    List<Message> container = new ArrayList<>();
+  public List<EngineMessage> compileMessages(
+      String refinedPrompt, Function<ChatMessage, EngineMessage> messageMapper) {
+    List<EngineMessage> container = new ArrayList<>();
     if (!this.messages.isEmpty()) {
       container.addAll(this.messages.stream().map(messageMapper).toList());
     }
     if (refinedPrompt != null && !refinedPrompt.isBlank()) {
-      container.add(new UserMessage(refinedPrompt));
+      container.add(EngineMessage.user(refinedPrompt));
     }
     return new ArrayList<>(container);
   }

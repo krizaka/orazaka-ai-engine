@@ -201,7 +201,8 @@ class EnginePipelineBridgeTest {
     @DisplayName("provider resolves to ollama when options is OllamaChatOptions")
     void resolvesOllamaFromOptions() {
       var ollamaOptions = OllamaChatOptions.builder().build();
-      var request = new InternalChatRequest(TEST, List.of(), ollamaOptions, Context.anonymous());
+      var request =
+          new InternalChatRequest(TEST, List.of(), wrap(ollamaOptions), Context.anonymous());
       var result = enginePipelineBridge.compileContext(request, null, null, List.of());
 
       assertEquals(PROVIDER_OLLAMA, result.provider());
@@ -211,7 +212,8 @@ class EnginePipelineBridgeTest {
     @DisplayName("provider resolves to openai when options is OpenAiChatOptions")
     void resolvesOpenAiFromOpenAiOptions() {
       var openAiOptions = OpenAiChatOptions.builder().build();
-      var request = new InternalChatRequest(TEST, List.of(), openAiOptions, Context.anonymous());
+      var request =
+          new InternalChatRequest(TEST, List.of(), wrap(openAiOptions), Context.anonymous());
       var result = enginePipelineBridge.compileContext(request, null, null, List.of());
 
       assertEquals(PROVIDER_OPENAI, result.provider());
@@ -221,7 +223,8 @@ class EnginePipelineBridgeTest {
     @DisplayName("provider resolves to defaultProvider when other options type is present")
     void resolvesDefaultFromOtherOptions() {
       var customOptions = ChatOptions.builder().build();
-      var request = new InternalChatRequest(TEST, List.of(), customOptions, Context.anonymous());
+      var request =
+          new InternalChatRequest(TEST, List.of(), wrap(customOptions), Context.anonymous());
       var result = enginePipelineBridge.compileContext(request, null, "my-default", List.of());
 
       assertEquals("my-default", result.provider());
@@ -288,7 +291,8 @@ class EnginePipelineBridgeTest {
     @DisplayName("maps OpenAiChatOptions to OllamaChatOptions correctly")
     void mapsOpenAiChatOptionsToOllama() {
       var openAiOptions = OpenAiChatOptions.builder().model("gpt-4").temperature(0.3).build();
-      var request = new InternalChatRequest(TEST, List.of(), openAiOptions, Context.anonymous());
+      var request =
+          new InternalChatRequest(TEST, List.of(), wrap(openAiOptions), Context.anonymous());
 
       var pipeline = mock(DynamicPipelineExecutor.class);
       var promptCtx = new PromptContext(TEST, Map.of()).withRoutedProvider(PROVIDER_OLLAMA);
@@ -308,7 +312,8 @@ class EnginePipelineBridgeTest {
     void mapsOpenAiChatOptionsNonGptModel() {
       var openAiOptions =
           OpenAiChatOptions.builder().model("custom-model").temperature(0.5).build();
-      var request = new InternalChatRequest(TEST, List.of(), openAiOptions, Context.anonymous());
+      var request =
+          new InternalChatRequest(TEST, List.of(), wrap(openAiOptions), Context.anonymous());
 
       var pipeline = mock(DynamicPipelineExecutor.class);
       var promptCtx = new PromptContext(TEST, Map.of()).withRoutedProvider(PROVIDER_OLLAMA);
@@ -348,7 +353,8 @@ class EnginePipelineBridgeTest {
     @DisplayName("corrects model name in OllamaChatOptions when model is null/blank")
     void correctsModelInOllamaOptions() {
       var ollamaOptions = OllamaChatOptions.builder().model("").temperature(0.9).build();
-      var request = new InternalChatRequest(TEST, List.of(), ollamaOptions, Context.anonymous());
+      var request =
+          new InternalChatRequest(TEST, List.of(), wrap(ollamaOptions), Context.anonymous());
       var result = enginePipelineBridge.compileContext(request, null, PROVIDER_OLLAMA, List.of());
 
       var options = (OllamaChatOptions) result.toPrompt().getOptions();
@@ -507,12 +513,13 @@ class EnginePipelineBridgeTest {
     @DisplayName("resolves provider for GoogleGenAiChatOptions and AnthropicChatOptions")
     void resolvesGeminiAndAnthropicFromOptions() {
       var geminiOptions = GoogleGenAiChatOptions.builder().build();
-      var req1 = new InternalChatRequest(TEST, List.of(), geminiOptions, Context.anonymous());
+      var req1 = new InternalChatRequest(TEST, List.of(), wrap(geminiOptions), Context.anonymous());
       assertEquals(
           "gemini", enginePipelineBridge.compileContext(req1, null, null, List.of()).provider());
 
       var anthropicOptions = AnthropicChatOptions.builder().build();
-      var req2 = new InternalChatRequest(TEST, List.of(), anthropicOptions, Context.anonymous());
+      var req2 =
+          new InternalChatRequest(TEST, List.of(), wrap(anthropicOptions), Context.anonymous());
       assertEquals(
           "anthropic", enginePipelineBridge.compileContext(req2, null, null, List.of()).provider());
     }
@@ -604,5 +611,10 @@ class EnginePipelineBridgeTest {
     syncMock
         .when(() -> SyncMcpToolCallbackProvider.syncToolCallbacks(anyList()))
         .thenReturn(callbacks);
+  }
+
+  private static EngineChatOptions wrap(ChatOptions options) {
+    return new EngineChatOptions(
+        options.getModel(), options.getTemperature(), options.getMaxTokens(), options);
   }
 }

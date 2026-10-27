@@ -1,5 +1,6 @@
 package com.krizaka.orazaka.core.application.pipeline;
 
+import com.krizaka.orazaka.core.domain.model.chat.EngineTool;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
 import com.krizaka.orazaka.core.domain.ports.outbound.PlatformMcpServerProvider;
 import com.krizaka.orazaka.core.domain.ports.outbound.ToolRegistry;
@@ -18,6 +19,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.mcp.SyncMcpToolCallbackProvider;
 import org.springframework.ai.tool.ToolCallback;
+import org.springframework.ai.tool.definition.ToolDefinition;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -79,7 +81,9 @@ final class McpClientFactory {
     List<ToolCallback> allToolCallbacks = new ArrayList<>();
 
     if (toolRegistry != null) {
-      allToolCallbacks.addAll(toolRegistry.getRegisteredTools());
+      toolRegistry.getRegisteredTools().stream()
+          .map(McpClientFactory::toCallback)
+          .forEach(allToolCallbacks::add);
     }
 
     // Platform MCP servers
@@ -103,6 +107,35 @@ final class McpClientFactory {
       }
     }
     return allToolCallbacks;
+  }
+
+  /** The library tool of a registered one: the original where there is one, else built from it. */
+  private static ToolCallback toCallback(EngineTool tool) {
+    if (tool.nativeTool() instanceof ToolCallback original) {
+      return original;
+    }
+    return new EngineToolCallback(
+        tool,
+        ToolDefinition.builder()
+            .name(tool.name())
+            .description(tool.description())
+            .inputSchema(tool.inputSchema())
+            .build());
+  }
+
+  /** A registered tool that came with no library behind it, offered to the models as one. */
+  private record EngineToolCallback(EngineTool tool, ToolDefinition definition)
+      implements ToolCallback {
+
+    @Override
+    public ToolDefinition getToolDefinition() {
+      return definition;
+    }
+
+    @Override
+    public String call(String toolInput) {
+      return tool.call(toolInput);
+    }
   }
 
   /**

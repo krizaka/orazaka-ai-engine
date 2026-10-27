@@ -1,9 +1,11 @@
 package com.krizaka.orazaka.adapter.springai;
 
 import com.krizaka.orazaka.adapter.springai.structured.SpringAiStructuredOutputClient;
+import com.krizaka.orazaka.adapter.springai.tool.SpringAiToolOptions;
 import com.krizaka.orazaka.adapter.springai.tool.SpringAiToolRegistry;
 import com.krizaka.orazaka.core.domain.ports.outbound.PlatformToolConfigProvider;
 import com.krizaka.orazaka.core.domain.ports.outbound.StructuredOutputClient;
+import com.krizaka.orazaka.core.domain.ports.outbound.ToolOptions;
 import com.krizaka.orazaka.core.domain.ports.outbound.ToolRegistry;
 import com.krizaka.orazaka.core.domain.ports.outbound.ToolResultCache;
 import org.springframework.ai.chat.model.ChatModel;
@@ -34,6 +36,17 @@ public class SpringAiAdapterAutoConfiguration {
       ObjectProvider<ToolResultCache> cache) {
     return new SpringAiToolRegistry(
         configProvider.getIfAvailable(), cache.getIfAvailable(NoToolResultCache::new));
+  }
+
+  /**
+   * The port that offers tools to a provider through its options.
+   *
+   * @return the adapter
+   */
+  @Bean
+  @ConditionalOnMissingBean(ToolOptions.class)
+  public SpringAiToolOptions toolOptions() {
+    return new SpringAiToolOptions();
   }
 
   /**

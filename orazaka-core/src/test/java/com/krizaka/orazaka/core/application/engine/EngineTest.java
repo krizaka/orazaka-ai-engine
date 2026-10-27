@@ -15,6 +15,7 @@ import com.krizaka.orazaka.core.domain.model.PromptContext;
 import com.krizaka.orazaka.core.domain.model.audio.AudioRequest;
 import com.krizaka.orazaka.core.domain.model.chat.EngineChatOptions;
 import com.krizaka.orazaka.core.domain.model.chat.EngineMessage;
+import com.krizaka.orazaka.core.domain.model.chat.EngineTool;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatResponse;
 import com.krizaka.orazaka.core.domain.ports.outbound.*;
@@ -40,6 +41,7 @@ import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
+import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.ollama.api.OllamaChatOptions;
@@ -148,7 +150,8 @@ class EngineTest {
     ToolDefinition mockDef = mock(ToolDefinition.class);
     when(mockDef.name()).thenReturn(TOOL_ANALYZE_POSTER);
     when(mockTool.getToolDefinition()).thenReturn(mockDef);
-    when(toolRegistry.getRegisteredTools()).thenReturn(List.of(mockTool));
+    EngineTool engineTool = engineTool(mockTool);
+    when(toolRegistry.getRegisteredTools()).thenReturn(List.of(engineTool));
 
     InternalChatRequest request =
         InternalChatRequest.simple("Please analyze this poster for visual themes");
@@ -182,7 +185,8 @@ class EngineTest {
     ToolDefinition mockDef = mock(ToolDefinition.class);
     when(mockDef.name()).thenReturn(TOOL_ANALYZE_POSTER);
     when(mockTool.getToolDefinition()).thenReturn(mockDef);
-    when(toolRegistry.getRegisteredTools()).thenReturn(List.of(mockTool));
+    EngineTool engineTool = engineTool(mockTool);
+    when(toolRegistry.getRegisteredTools()).thenReturn(List.of(engineTool));
 
     InternalChatRequest request = InternalChatRequest.simple("Hello there, how are you?");
     AssistantMessage assistantMessage = new AssistantMessage(RESPONSE);
@@ -573,6 +577,19 @@ class EngineTest {
     };
   }
 
+  private static EngineTool engineTool(ToolCallback tool) {
+    return new EngineTool(tool.getToolDefinition().name(), "", "", tool::call, tool);
+  }
+
+  private static List<ToolCallback> callbacks(List<EngineTool> tools) {
+    return tools.stream().map(t -> (ToolCallback) t.nativeTool()).toList();
+  }
+
+  private static EngineChatOptions wrap(ChatOptions options) {
+    return new EngineChatOptions(
+        options.getModel(), options.getTemperature(), options.getMaxTokens(), options);
+  }
+
   /** Creates a stub Tool interceptor that attaches demanded tools to chat options. */
   private PromptContextInterceptor createToolInterceptor(ToolRegistry toolRegistry) {
     return new PromptContextInterceptor() {
@@ -594,9 +611,9 @@ class EngineTest {
                 + " "
                 + (request.prompt() != null ? request.prompt() : "");
         String lowerContext = fullText.toLowerCase();
-        List<ToolCallback> demanded = new java.util.ArrayList<>();
-        for (ToolCallback tool : toolRegistry.getRegisteredTools()) {
-          String name = tool.getToolDefinition().name();
+        List<EngineTool> demanded = new java.util.ArrayList<>();
+        for (EngineTool tool : toolRegistry.getRegisteredTools()) {
+          String name = tool.name();
           boolean specialized = "analyzePoster".equals(name) || "analyzeAudioExtract".equals(name);
           if (!specialized
               || ("analyzePoster".equals(name)
@@ -625,7 +642,7 @@ class EngineTest {
                   .temperature(ollama.getTemperature())
                   .numPredict(ollama.getNumPredict())
                   .numCtx(8192)
-                  .toolCallbacks(demanded)
+                  .toolCallbacks(callbacks(demanded))
                   .build());
         } else if (nativeOptions instanceof OpenAiChatOptions openai) {
           return options.withNativeOptions(
@@ -633,7 +650,7 @@ class EngineTest {
                   .model(openai.getModel())
                   .temperature(openai.getTemperature())
                   .maxTokens(openai.getMaxTokens())
-                  .toolCallbacks(demanded)
+                  .toolCallbacks(callbacks(demanded))
                   .build());
         }
         return options;
@@ -695,7 +712,7 @@ class EngineTest {
     Context context = new Context("user-123", SESSION_1, Map.of(), Set.of());
     OpenAiChatOptions openAiOptions = OpenAiChatOptions.builder().model(MODEL_GPT4O).build();
     InternalChatRequest request =
-        new InternalChatRequest(PROMPT_HELLO_CAP, null, openAiOptions, context);
+        new InternalChatRequest(PROMPT_HELLO_CAP, null, wrap(openAiOptions), context);
 
     ChatModel commercialChatModel = mock(ChatModel.class);
     AssistantMessage assistantMessage = new AssistantMessage("Commercial response");

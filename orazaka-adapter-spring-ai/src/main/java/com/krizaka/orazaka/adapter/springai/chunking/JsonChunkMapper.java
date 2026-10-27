@@ -1,4 +1,4 @@
-package com.krizaka.orazaka.core.application.processing;
+package com.krizaka.orazaka.adapter.springai.chunking;
 
 import java.util.HashMap;
 import java.util.List;

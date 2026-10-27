@@ -9,8 +9,10 @@ import com.krizaka.orazaka.core.domain.model.AssertionContract;
 import com.krizaka.orazaka.core.domain.model.PromptContext;
 import com.krizaka.orazaka.core.domain.model.ValidationPipelineConfiguration;
 import com.krizaka.orazaka.core.domain.model.ValidationStepType;
+import com.krizaka.orazaka.core.domain.model.chat.EngineMessage;
 import com.krizaka.orazaka.core.domain.model.control.ControlVerdictRecord;
 import com.krizaka.orazaka.core.domain.ports.outbound.ControlVerdictRecorder;
+import com.krizaka.orazaka.core.domain.ports.outbound.ProviderChatClient;
 import com.krizaka.orazaka.core.domain.ports.outbound.TestShaperPort;
 import com.krizaka.orazaka.core.domain.ports.outbound.ValidationPipelineRepository;
 import java.time.Clock;
@@ -27,11 +29,6 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.ai.chat.messages.AssistantMessage;
-import org.springframework.ai.chat.model.ChatModel;
-import org.springframework.ai.chat.model.ChatResponse;
-import org.springframework.ai.chat.model.Generation;
-import org.springframework.ai.chat.prompt.Prompt;
 
 @ExtendWith(MockitoExtension.class)
 class ClosedLoopValidationInterceptorTest {
@@ -39,7 +36,7 @@ class ClosedLoopValidationInterceptorTest {
   private static final PromptContext CTX =
       new PromptContext("prompt", Map.of("conversationId", "run-1"));
 
-  @Mock private ChatModel chatModel;
+  @Mock private ProviderChatClient chatModel;
 
   @ParameterizedTest(name = "Tier A - {0}")
   @CsvSource({
@@ -71,11 +68,10 @@ class ClosedLoopValidationInterceptorTest {
     var props = new ClosedLoopValidationProperties(true, 3, false, false, true, false);
 
     // Critic scores low (3), Advocate scores high (8) — Advocate wins
-    ChatResponse criticResponse = mockResponse("{\"score\": 3, \"issues\": []}");
-    ChatResponse advocateResponse = mockResponse("{\"score\": 8, \"strengths\": [\"solid\"]}");
+    String criticResponse = "{\"score\": 3, \"issues\": []}";
+    String advocateResponse = "{\"score\": 8, \"strengths\": [\"solid\"]}";
 
-    when(chatModel.call(any(org.springframework.ai.chat.prompt.Prompt.class)))
-        .thenReturn(criticResponse, advocateResponse);
+    when(chatModel.completeWithDefault(any(), any())).thenReturn(criticResponse, advocateResponse);
 
     var advisor = new ClosedLoopValidationInterceptor(props, chatModel, null, null);
 
@@ -89,17 +85,18 @@ class ClosedLoopValidationInterceptorTest {
     var props = new ClosedLoopValidationProperties(true, 1, false, false, true, false);
     var recorder = mock(ControlVerdictRecorder.class);
 
-    when(chatModel.call(any(Prompt.class)))
+    when(chatModel.completeWithDefault(any(), any()))
         .thenAnswer(
             call -> {
-              String system = ((Prompt) call.getArgument(0)).getInstructions().getFirst().getText();
+              List<EngineMessage> messages = call.getArgument(0);
+              String system = messages.getFirst().text();
               if (system.contains("ruthless")) {
-                return mockResponse("{\"score\": 9, \"issues\": [\"logical flaw\"]}");
+                return "{\"score\": 9, \"issues\": [\"logical flaw\"]}";
               }
               if (system.contains("advocate")) {
-                return mockResponse("{\"score\": 2, \"strengths\": []}");
+                return "{\"score\": 2, \"strengths\": []}";
               }
-              return mockResponse("def foo(): return still_wrong");
+              return "def foo(): return still_wrong";
             });
 
     var advisor =
@@ -250,9 +247,9 @@ class ClosedLoopValidationInterceptorTest {
     var contract = new AssertionContract("schema-1", List.of("must contain value"), "now");
     when(testShaperPort.generateAssertions(any(), any())).thenReturn(contract);
 
-    ChatResponse criticResponse = mockResponse("{\"score\": 2, \"issues\": []}");
-    ChatResponse advocateResponse = mockResponse("{\"score\": 8, \"strengths\": []}");
-    when(chatModel.call(any(Prompt.class))).thenReturn(criticResponse, advocateResponse);
+    String criticResponse = "{\"score\": 2, \"issues\": []}";
+    String advocateResponse = "{\"score\": 8, \"strengths\": []}";
+    when(chatModel.completeWithDefault(any(), any())).thenReturn(criticResponse, advocateResponse);
 
     var advisor = new ClosedLoopValidationInterceptor(props, chatModel, null, testShaperPort);
     assertThatCode(() -> advisor.screenResponse(CTX, "{\"key\": \"other\"}"))
@@ -273,11 +270,5 @@ class ClosedLoopValidationInterceptorTest {
 
     assertThatThrownBy(() -> advisor.screenResponse(CTX, "```json\n{invalid\n```"))
         .isInstanceOf(PipelineShortCircuitException.class);
-  }
-
-  private ChatResponse mockResponse(String text) {
-    var output = new AssistantMessage(text);
-    var generation = new Generation(output);
-    return new ChatResponse(java.util.List.of(generation));
   }
 }

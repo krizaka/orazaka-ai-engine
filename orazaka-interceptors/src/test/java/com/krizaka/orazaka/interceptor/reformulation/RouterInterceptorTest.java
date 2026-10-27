@@ -1,15 +1,22 @@
 package com.krizaka.orazaka.interceptor.reformulation;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
-import com.krizaka.orazaka.core.application.pipeline.PipelineOptionsRegistry;
 import com.krizaka.orazaka.core.domain.model.PromptContext;
+import com.krizaka.orazaka.core.domain.model.chat.EngineMessage;
+import com.krizaka.orazaka.core.domain.ports.outbound.ProviderChatClient;
 import com.krizaka.orazaka.core.infrastructure.config.CoreProperties;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.core.io.ByteArrayResource;
@@ -20,7 +27,7 @@ class RouterInterceptorTest {
 
   @Mock private CoreProperties properties;
 
-  @Mock private PipelineOptionsRegistry optionsRegistry;
+  @Mock private ProviderChatClient chatClient;
 
   private Resource routerSystemResource;
 
@@ -29,92 +36,87 @@ class RouterInterceptorTest {
     routerSystemResource = new ByteArrayResource("system prompt".getBytes());
   }
 
+  private RouterInterceptor interceptor() {
+    return new RouterInterceptor(chatClient, properties, routerSystemResource);
+  }
+
+  private void routerConfigured(String provider, String model) {
+    var routerConfig = mock(CoreProperties.InterceptorConfig.class);
+    lenient().when(routerConfig.provider()).thenReturn(provider);
+    lenient().when(routerConfig.model()).thenReturn(model);
+    var orchestration = mock(CoreProperties.OrchestrationConfig.class);
+    when(orchestration.router()).thenReturn(routerConfig);
+    when(properties.orchestration()).thenReturn(orchestration);
+  }
+
   @Test
   void isAiDependent_returnsTrue() {
-    var interceptor =
-        new RouterInterceptor(Map.of(), properties, optionsRegistry, routerSystemResource);
-
-    assertTrue(interceptor.isAiDependent());
+    assertTrue(interceptor().isAiDependent());
   }
 
   @Test
   void intercept_whenDisabled_returnsContextUnchanged() {
     when(properties.orchestration()).thenReturn(null);
 
-    var interceptor =
-        new RouterInterceptor(Map.of(), properties, optionsRegistry, routerSystemResource);
-
     var context = new PromptContext("test query", Map.of());
-    PromptContext result = interceptor.intercept(context);
 
-    assertSame(context, result);
+    assertSame(context, interceptor().intercept(context));
   }
 
   @Test
   void intercept_withNoRegisteredModels_returnsContextUnchanged() {
-    var routerConfig = mock(CoreProperties.InterceptorConfig.class);
-    when(routerConfig.provider()).thenReturn("nonexistent");
-
-    var orchestration = mock(CoreProperties.OrchestrationConfig.class);
-    when(orchestration.router()).thenReturn(routerConfig);
-    when(properties.orchestration()).thenReturn(orchestration);
-
-    var interceptor =
-        new RouterInterceptor(Map.of(), properties, optionsRegistry, routerSystemResource);
+    routerConfigured("nonexistent", null);
+    when(chatClient.resolve("nonexistent")).thenReturn(Optional.empty());
 
     var context = new PromptContext("test query", Map.of());
-    PromptContext result = interceptor.intercept(context);
 
-    assertSame(context, result);
+    assertSame(context, interceptor().intercept(context));
+    verify(chatClient, never()).complete(any(), any(), any(), any(), any());
   }
 
   @Test
-  void constructor_nullChatModels_usesEmptyMap() {
-    var interceptor =
-        new RouterInterceptor(null, properties, optionsRegistry, routerSystemResource);
-    assertNotNull(interceptor);
+  void constructor_nullClient_throwsNpe() {
+    assertThrows(
+        NullPointerException.class,
+        () -> new RouterInterceptor(null, properties, routerSystemResource));
   }
 
   @Test
   void constructor_nullProperties_throwsNpe() {
-    Map<String, org.springframework.ai.chat.model.ChatModel> models = Map.of();
     assertThrows(
         NullPointerException.class,
-        () -> new RouterInterceptor(models, null, optionsRegistry, routerSystemResource));
+        () -> new RouterInterceptor(chatClient, null, routerSystemResource));
   }
 
   @Test
   void intercept_whenEnabledAndRoutesSuccessfully_returnsContextWithRoutedProvider() {
-    var chatModel = mock(org.springframework.ai.chat.model.ChatModel.class);
-    var chatResponse = mock(org.springframework.ai.chat.model.ChatResponse.class);
-    var generation = mock(org.springframework.ai.chat.model.Generation.class);
-    var assistantMessage = mock(org.springframework.ai.chat.messages.AssistantMessage.class);
-
-    when(assistantMessage.getText()).thenReturn("ollama");
-    when(generation.getOutput()).thenReturn(assistantMessage);
-    when(chatResponse.getResult()).thenReturn(generation);
-    when(chatModel.call(any(org.springframework.ai.chat.prompt.Prompt.class)))
-        .thenReturn(chatResponse);
-
-    var routerConfig = mock(CoreProperties.InterceptorConfig.class);
-    when(routerConfig.provider()).thenReturn("ollama");
-    when(routerConfig.model()).thenReturn("llama3");
-
-    var orchestration = mock(CoreProperties.OrchestrationConfig.class);
-    when(orchestration.router()).thenReturn(routerConfig);
-    when(properties.orchestration()).thenReturn(orchestration);
-
-    var options = mock(org.springframework.ai.chat.prompt.ChatOptions.class);
-    when(optionsRegistry.build("ollama", "llama3", 0.0)).thenReturn(options);
-
-    var interceptor =
-        new RouterInterceptor(
-            Map.of("ollama", chatModel), properties, optionsRegistry, routerSystemResource);
+    routerConfigured("ollama", "llama3");
+    when(chatClient.resolve("ollama")).thenReturn(Optional.of("ollama"));
+    when(chatClient.providers()).thenReturn(Set.of("ollama", "openai"));
+    when(chatClient.complete(eq("ollama"), eq("ollama"), any(), eq("llama3"), eq(0.0)))
+        .thenReturn(" ollama\n");
 
     var context = new PromptContext("test query", Map.of()).withRefinedPrompt("refined query");
-    PromptContext result = interceptor.intercept(context);
+    PromptContext result = interceptor().intercept(context);
 
     assertEquals("ollama", result.routedProvider());
+  }
+
+  @Test
+  void intercept_asksWithTheSystemPromptThenTheRefinedQueryAndTheKeys() {
+    routerConfigured("ollama", "llama3");
+    when(chatClient.resolve("ollama")).thenReturn(Optional.of("ollama"));
+    when(chatClient.providers()).thenReturn(Set.of("openai", "ollama"));
+    when(chatClient.complete(any(), any(), any(), any(), any())).thenReturn("ollama");
+
+    interceptor().intercept(new PromptContext("q", Map.of()).withRefinedPrompt("refined query"));
+
+    @SuppressWarnings("unchecked")
+    ArgumentCaptor<List<EngineMessage>> messages = ArgumentCaptor.forClass(List.class);
+    verify(chatClient).complete(any(), any(), messages.capture(), any(), any());
+    assertEquals(EngineMessage.system("system prompt"), messages.getValue().getFirst());
+    assertTrue(messages.getValue().get(1).text().contains("refined query"));
+    assertTrue(messages.getValue().get(1).text().contains("ollama, openai"));
   }
 
   @Test
@@ -122,88 +124,57 @@ class RouterInterceptorTest {
     // ADR-063: the router reads text and cannot tell which provider can see an image, and a routed
     // provider outranks the one the caller chose — a vision job naming its vision model would be
     // sent wherever the text reads best.
-    var chatModel = mock(org.springframework.ai.chat.model.ChatModel.class);
     var orchestration = mock(CoreProperties.OrchestrationConfig.class);
     when(orchestration.router()).thenReturn(mock(CoreProperties.InterceptorConfig.class));
     when(properties.orchestration()).thenReturn(orchestration);
-    var interceptor =
-        new RouterInterceptor(
-            Map.of("ollama", chatModel, "openai", chatModel),
-            properties,
-            optionsRegistry,
-            routerSystemResource);
 
     var context =
         new PromptContext(
             "Analyze this image", Map.of(), Map.of(), "Analyze this image", null, null, 1);
-    PromptContext result = interceptor.intercept(context);
+    PromptContext result = interceptor().intercept(context);
 
     assertSame(context, result);
     assertNull(result.routedProvider());
-    verifyNoInteractions(chatModel);
+    verifyNoInteractions(chatClient);
   }
 
   @Test
   void intercept_withPartialMatchProvider_resolvesAndRoutesCorrectly() {
-    var chatModel = mock(org.springframework.ai.chat.model.ChatModel.class);
-    var chatResponse = mock(org.springframework.ai.chat.model.ChatResponse.class);
-    var generation = mock(org.springframework.ai.chat.model.Generation.class);
-    var assistantMessage = mock(org.springframework.ai.chat.messages.AssistantMessage.class);
-
-    when(assistantMessage.getText()).thenReturn("openai");
-    when(generation.getOutput()).thenReturn(assistantMessage);
-    when(chatResponse.getResult()).thenReturn(generation);
-    when(chatModel.call(any(org.springframework.ai.chat.prompt.Prompt.class)))
-        .thenReturn(chatResponse);
-
-    var routerConfig =
-        mock(
-            CoreProperties.InterceptorConfig
-                .class); // Resolution logic will match "open" to "openai"
-    when(routerConfig.provider()).thenReturn("open");
-    when(routerConfig.model()).thenReturn("gpt-4");
-
-    var orchestration = mock(CoreProperties.OrchestrationConfig.class);
-    when(orchestration.router()).thenReturn(routerConfig);
-    when(properties.orchestration()).thenReturn(orchestration);
-
-    var options = mock(org.springframework.ai.chat.prompt.ChatOptions.class);
-    when(optionsRegistry.build("open", "gpt-4", 0.0)).thenReturn(options);
-
-    var interceptor =
-        new RouterInterceptor(
-            Map.of("openai", chatModel), properties, optionsRegistry, routerSystemResource);
+    routerConfigured("open", "gpt-4");
+    when(chatClient.resolve("open")).thenReturn(Optional.of("openai"));
+    when(chatClient.providers()).thenReturn(Set.of("openai"));
+    // The model asked is the resolved one; the options are built for the configured name.
+    when(chatClient.complete(eq("openai"), eq("open"), any(), eq("gpt-4"), eq(0.0)))
+        .thenReturn("openai");
 
     var context = new PromptContext("test query", Map.of()).withRefinedPrompt("refined query");
-    PromptContext result = interceptor.intercept(context);
+    PromptContext result = interceptor().intercept(context);
 
     assertEquals("openai", result.routedProvider());
   }
 
   @Test
-  void intercept_whenChatModelThrowsException_returnsUnmodifiedContext() {
-    var chatModel = mock(org.springframework.ai.chat.model.ChatModel.class);
-    when(chatModel.call(any(org.springframework.ai.chat.prompt.Prompt.class)))
-        .thenThrow(new RuntimeException("LLM failure"));
-
-    var routerConfig = mock(CoreProperties.InterceptorConfig.class);
-    when(routerConfig.provider()).thenReturn("ollama");
-    when(routerConfig.model()).thenReturn("llama3");
-
-    var orchestration = mock(CoreProperties.OrchestrationConfig.class);
-    when(orchestration.router()).thenReturn(routerConfig);
-    when(properties.orchestration()).thenReturn(orchestration);
-
-    var options = mock(org.springframework.ai.chat.prompt.ChatOptions.class);
-    when(optionsRegistry.build("ollama", "llama3", 0.0)).thenReturn(options);
-
-    var interceptor =
-        new RouterInterceptor(
-            Map.of("ollama", chatModel), properties, optionsRegistry, routerSystemResource);
+  void intercept_whenTheAnswerIsNotARegisteredProvider_returnsUnmodifiedContext() {
+    routerConfigured("ollama", "llama3");
+    when(chatClient.resolve("ollama")).thenReturn(Optional.of("ollama"));
+    when(chatClient.providers()).thenReturn(Set.of("ollama"));
+    when(chatClient.complete(any(), any(), any(), any(), any())).thenReturn("somewhere else");
 
     var context = new PromptContext("test query", Map.of()).withRefinedPrompt("refined query");
-    PromptContext result = interceptor.intercept(context);
 
-    assertSame(context, result);
+    assertSame(context, interceptor().intercept(context));
+  }
+
+  @Test
+  void intercept_whenChatModelThrowsException_returnsUnmodifiedContext() {
+    routerConfigured("ollama", "llama3");
+    when(chatClient.resolve("ollama")).thenReturn(Optional.of("ollama"));
+    when(chatClient.providers()).thenReturn(Set.of("ollama"));
+    when(chatClient.complete(any(), any(), any(), any(), any()))
+        .thenThrow(new RuntimeException("LLM failure"));
+
+    var context = new PromptContext("test query", Map.of()).withRefinedPrompt("refined query");
+
+    assertSame(context, interceptor().intercept(context));
   }
 }

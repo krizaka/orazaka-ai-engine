@@ -32,4 +32,18 @@ public final class SpringAiResponses {
         .map(String::strip)
         .filter(text -> !text.isBlank());
   }
+
+  /**
+   * Reads the text of a response as the model wrote it, unstripped.
+   *
+   * @param response The ChatResponse from a model call (nullable).
+   * @return the text, or {@code null} when the response carries none
+   */
+  public static String extractRawText(ChatResponse response) {
+    return Optional.ofNullable(response)
+        .map(ChatResponse::getResult)
+        .map(Generation::getOutput)
+        .map(AssistantMessage::getText)
+        .orElse(null);
+  }
 }

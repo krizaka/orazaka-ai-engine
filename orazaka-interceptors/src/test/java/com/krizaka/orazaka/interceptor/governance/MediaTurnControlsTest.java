@@ -192,9 +192,8 @@ class MediaTurnControlsTest {
             null);
     PromptContextInterceptor refiner =
         new RefinerInterceptor(
-            Map.of(),
+            mock(com.krizaka.orazaka.core.domain.ports.outbound.ProviderChatClient.class),
             properties,
-            mock(PipelineOptionsRegistry.class),
             new ByteArrayResource("system".getBytes()),
             new ByteArrayResource("{rawQuery}".getBytes()));
     List<PromptContextInterceptor> chain =

@@ -6,6 +6,7 @@ import com.krizaka.orazaka.core.domain.model.AssertionContract;
 import com.krizaka.orazaka.core.domain.model.PromptContext;
 import com.krizaka.orazaka.core.domain.model.ValidationPipelineConfiguration;
 import com.krizaka.orazaka.core.domain.model.ValidationStepType;
+import com.krizaka.orazaka.core.domain.model.chat.EngineMessage;
 import com.krizaka.orazaka.core.domain.model.control.ControlVerdict;
 import com.krizaka.orazaka.core.domain.model.control.ControlVerdictRecord;
 import com.krizaka.orazaka.core.domain.model.control.DriftAdjustment;
@@ -13,6 +14,7 @@ import com.krizaka.orazaka.core.domain.model.control.HumanEscalation;
 import com.krizaka.orazaka.core.domain.model.control.Validated;
 import com.krizaka.orazaka.core.domain.ports.outbound.CodeSandboxPort;
 import com.krizaka.orazaka.core.domain.ports.outbound.ControlVerdictRecorder;
+import com.krizaka.orazaka.core.domain.ports.outbound.ProviderChatClient;
 import com.krizaka.orazaka.core.domain.ports.outbound.TestShaperPort;
 import com.krizaka.orazaka.core.domain.ports.outbound.ValidationPipelineRepository;
 import java.time.Clock;
@@ -24,14 +26,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.chat.messages.AssistantMessage;
-import org.springframework.ai.chat.messages.SystemMessage;
-import org.springframework.ai.chat.messages.UserMessage;
-import org.springframework.ai.chat.model.ChatModel;
-import org.springframework.ai.chat.model.ChatResponse;
-import org.springframework.ai.chat.model.Generation;
-import org.springframework.ai.chat.prompt.ChatOptions;
-import org.springframework.ai.chat.prompt.Prompt;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -101,7 +95,7 @@ public class ClosedLoopValidationInterceptor implements PromptContextInterceptor
           + " answer, in the same format as asked, with no commentary.";
 
   private final ClosedLoopValidationProperties properties;
-  private final ChatModel chatModel;
+  private final ProviderChatClient chatModel;
   private final ValidationPipelineRepository validationPipelineRepository;
   private final TestShaperPort testShaperPort;
   private final ControlVerdictRecorder verdictRecorder;
@@ -112,7 +106,7 @@ public class ClosedLoopValidationInterceptor implements PromptContextInterceptor
    * Constructs a ClosedLoopValidationInterceptor with full 4-tier support and no audit recorder.
    *
    * @param properties Configuration controlling which tiers are active (static fallback).
-   * @param chatModel ChatModel for Tier C debate and for adjusting a rejected answer (nullable —
+   * @param chatModel model port for Tier C debate and for adjusting a rejected answer (nullable —
    *     Tier C degrades gracefully, a rejected answer then escalates at once).
    * @param validationPipelineRepository Repository for dynamic tier configuration (nullable —
    *     degrades to static config).
@@ -120,7 +114,7 @@ public class ClosedLoopValidationInterceptor implements PromptContextInterceptor
    */
   public ClosedLoopValidationInterceptor(
       ClosedLoopValidationProperties properties,
-      ChatModel chatModel,
+      ProviderChatClient chatModel,
       ValidationPipelineRepository validationPipelineRepository,
       TestShaperPort testShaperPort) {
     this(
@@ -137,7 +131,7 @@ public class ClosedLoopValidationInterceptor implements PromptContextInterceptor
    * Constructs the full control loop.
    *
    * @param properties Configuration controlling which tiers are active (static fallback).
-   * @param chatModel ChatModel for Tier C and for adjusting a rejected answer (nullable).
+   * @param chatModel model port for Tier C and for adjusting a rejected answer (nullable).
    * @param validationPipelineRepository Repository for dynamic tier configuration (nullable).
    * @param testShaperPort Tier D assertion generator (nullable).
    * @param verdictRecorder Where adjustments and escalations are persisted (nullable — not
@@ -147,7 +141,7 @@ public class ClosedLoopValidationInterceptor implements PromptContextInterceptor
    */
   public ClosedLoopValidationInterceptor(
       ClosedLoopValidationProperties properties,
-      ChatModel chatModel,
+      ProviderChatClient chatModel,
       ValidationPipelineRepository validationPipelineRepository,
       TestShaperPort testShaperPort,
       ControlVerdictRecorder verdictRecorder,
@@ -276,15 +270,9 @@ public class ClosedLoopValidationInterceptor implements PromptContextInterceptor
               + " check:\n"
               + failure.issue()
               + "\n\nCorrect it.";
-      ChatResponse response =
-          chatModel.call(
-              new Prompt(List.of(new SystemMessage(ADJUST_SYSTEM), new UserMessage(instruction))));
       String text =
-          Optional.ofNullable(response)
-              .map(ChatResponse::getResult)
-              .map(Generation::getOutput)
-              .map(AssistantMessage::getText)
-              .orElse(null);
+          chatModel.completeWithDefault(
+              List.of(EngineMessage.system(ADJUST_SYSTEM), EngineMessage.user(instruction)), null);
       return text == null || text.isBlank() ? null : text;
     } catch (RuntimeException e) {
       logger.error("Closed-loop validation — the adjustment attempt failed; escalating.", e);
@@ -448,21 +436,16 @@ public class ClosedLoopValidationInterceptor implements PromptContextInterceptor
       String debateContext =
           "Original user request: " + userPrompt + "\n\nAI Response:\n" + responseText;
 
-      ChatOptions debateOptions = ChatOptions.builder().temperature(0.0).build();
-
       // Critic evaluation
-      ChatResponse criticResponse =
-          chatModel.call(
-              new Prompt(
-                  List.of(new SystemMessage(CRITIC_SYSTEM), new UserMessage(debateContext)),
-                  debateOptions));
+      String criticResponse =
+          chatModel.completeWithDefault(
+              List.of(EngineMessage.system(CRITIC_SYSTEM), EngineMessage.user(debateContext)), 0.0);
 
       // Advocate evaluation
-      ChatResponse advocateResponse =
-          chatModel.call(
-              new Prompt(
-                  List.of(new SystemMessage(ADVOCATE_SYSTEM), new UserMessage(debateContext)),
-                  debateOptions));
+      String advocateResponse =
+          chatModel.completeWithDefault(
+              List.of(EngineMessage.system(ADVOCATE_SYSTEM), EngineMessage.user(debateContext)),
+              0.0);
 
       int criticScore = extractScore(criticResponse);
       int advocateScore = extractScore(advocateResponse);
@@ -473,13 +456,10 @@ public class ClosedLoopValidationInterceptor implements PromptContextInterceptor
           advocateScore);
 
       if (criticScore > advocateScore) {
-        String criticText =
-            Optional.ofNullable(criticResponse)
-                .map(ChatResponse::getResult)
-                .map(Generation::getOutput)
-                .map(AssistantMessage::getText)
-                .orElse("Critic prevailed with no detailed feedback.");
-        return Optional.of(criticText);
+        return Optional.of(
+            criticResponse != null
+                ? criticResponse
+                : "Critic prevailed with no detailed feedback.");
       }
 
       return Optional.empty();
@@ -605,17 +585,11 @@ public class ClosedLoopValidationInterceptor implements PromptContextInterceptor
   /**
    * Extracts the numeric "score" field from a debate response JSON.
    *
-   * @param response The ChatResponse from a Critic or Advocate call.
+   * @param text The text answered by a Critic or Advocate call (nullable).
    * @return The score value, or 5 (neutral) if extraction fails.
    */
-  private int extractScore(ChatResponse response) {
+  private int extractScore(String text) {
     try {
-      String text =
-          Optional.ofNullable(response)
-              .map(ChatResponse::getResult)
-              .map(Generation::getOutput)
-              .map(AssistantMessage::getText)
-              .orElse(null);
       if (text == null) {
         return 5;
       }

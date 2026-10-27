@@ -1,7 +1,7 @@
 {
   "rules": {
     "spring-ai-outside-adapter": {
-      "count": 36,
+      "count": 30,
       "classes": [
         "com.krizaka.orazaka.core.application.engine.AbstractEngine",
         "com.krizaka.orazaka.core.application.engine.Engine",
@@ -32,13 +32,7 @@
         "com.krizaka.orazaka.core.infrastructure.provider.UniversalProxyChatProvider",
         "com.krizaka.orazaka.core.infrastructure.provider.model.RoutedChatModel",
         "com.krizaka.orazaka.core.infrastructure.provider.model.RoutedTextToSpeechModel",
-        "com.krizaka.orazaka.core.infrastructure.spend.GuardedChatModel",
-        "com.krizaka.orazaka.interceptor.reformulation.RefinerInterceptor",
-        "com.krizaka.orazaka.interceptor.reformulation.ReformulationAutoConfiguration",
-        "com.krizaka.orazaka.interceptor.reformulation.RouterInterceptor",
-        "com.krizaka.orazaka.interceptor.validation.ClosedLoopValidationInterceptor",
-        "com.krizaka.orazaka.interceptor.validation.SpringAiTestShaperAdapter",
-        "com.krizaka.orazaka.interceptor.validation.ValidationAutoConfiguration"
+        "com.krizaka.orazaka.core.infrastructure.spend.GuardedChatModel"
       ]
     },
     "spring-in-business": {

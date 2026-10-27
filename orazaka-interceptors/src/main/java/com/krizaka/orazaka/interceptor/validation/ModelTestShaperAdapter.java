@@ -1,19 +1,14 @@
 package com.krizaka.orazaka.interceptor.validation;
 
 import com.krizaka.orazaka.core.domain.model.AssertionContract;
+import com.krizaka.orazaka.core.domain.model.chat.EngineMessage;
+import com.krizaka.orazaka.core.domain.ports.outbound.ProviderChatClient;
 import com.krizaka.orazaka.core.domain.ports.outbound.TestShaperPort;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.chat.messages.SystemMessage;
-import org.springframework.ai.chat.messages.UserMessage;
-import org.springframework.ai.chat.model.ChatModel;
-import org.springframework.ai.chat.model.ChatResponse;
-import org.springframework.ai.chat.model.Generation;
-import org.springframework.ai.chat.prompt.ChatOptions;
-import org.springframework.ai.chat.prompt.Prompt;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
@@ -21,17 +16,17 @@ import tools.jackson.databind.ObjectMapper;
  * Concrete adapter implementing the {@link TestShaperPort} outbound port for Tier D (Test-Driven
  * Response) assertion generation.
  *
- * <p>Uses a constructor-injected Spring AI {@link ChatModel} (preferably a fast reasoning model
- * like Qwen-2.5-Coder) to generate structured JSON assertion contracts. The prompt instructs the
- * model to produce machine-evaluable assertion rules that the LLM response must satisfy.
+ * <p>Uses a constructor-injected {@link ProviderChatClient} (preferably a fast reasoning model like
+ * Qwen-2.5-Coder) to generate structured JSON assertion contracts. The prompt instructs the model
+ * to produce machine-evaluable assertion rules that the LLM response must satisfy.
  *
  * <p>Graceful degradation: returns {@link AssertionContract#empty()} on any failure.
  *
  * @since 1.1.0
  */
-public class SpringAiTestShaperAdapter implements TestShaperPort {
+public class ModelTestShaperAdapter implements TestShaperPort {
 
-  private static final Logger logger = LoggerFactory.getLogger(SpringAiTestShaperAdapter.class);
+  private static final Logger logger = LoggerFactory.getLogger(ModelTestShaperAdapter.class);
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
   private static final String TDR_SYSTEM_PROMPT =
@@ -56,15 +51,16 @@ public class SpringAiTestShaperAdapter implements TestShaperPort {
       4. Format compliance (does it match the expected output format?)
       """;
 
-  private final ChatModel chatModel;
+  private final ProviderChatClient chatModel;
 
   /**
-   * Constructs a SpringAiTestShaperAdapter.
+   * Constructs a ModelTestShaperAdapter.
    *
-   * @param chatModel The ChatModel to use for assertion generation (e.g., Qwen-2.5-Coder).
+   * @param chatModel The model port to use for assertion generation (e.g., Qwen-2.5-Coder).
    */
-  public SpringAiTestShaperAdapter(ChatModel chatModel) {
-    this.chatModel = Objects.requireNonNull(chatModel, "ChatModel must not be null for TDR Tier D");
+  public ModelTestShaperAdapter(ProviderChatClient chatModel) {
+    this.chatModel =
+        Objects.requireNonNull(chatModel, "ProviderChatClient must not be null for TDR Tier D");
   }
 
   @Override
@@ -72,19 +68,10 @@ public class SpringAiTestShaperAdapter implements TestShaperPort {
     try {
       String userContent = "User Prompt:\n" + userPrompt + "\n\nAI Response:\n" + responseText;
 
-      ChatOptions options = ChatOptions.builder().temperature(0.0).build();
-      ChatResponse response =
-          chatModel.call(
-              new Prompt(
-                  List.of(new SystemMessage(TDR_SYSTEM_PROMPT), new UserMessage(userContent)),
-                  options));
-
       String text =
-          java.util.Optional.ofNullable(response)
-              .map(ChatResponse::getResult)
-              .map(Generation::getOutput)
-              .map(org.springframework.ai.chat.messages.AssistantMessage::getText)
-              .orElse(null);
+          chatModel.completeWithDefault(
+              List.of(EngineMessage.system(TDR_SYSTEM_PROMPT), EngineMessage.user(userContent)),
+              0.0);
 
       if (text == null || text.isBlank()) {
         logger.warn("Tier D — TDR model returned empty response. Returning empty contract.");

@@ -1,9 +1,7 @@
 package com.krizaka.orazaka.interceptor.reformulation;
 
-import com.krizaka.orazaka.core.application.pipeline.PipelineOptionsRegistry;
+import com.krizaka.orazaka.core.domain.ports.outbound.ProviderChatClient;
 import com.krizaka.orazaka.core.infrastructure.config.CoreProperties;
-import java.util.Map;
-import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -14,53 +12,50 @@ import org.springframework.core.io.Resource;
  * Spring Boot auto-configuration for the reformulation interceptor module.
  *
  * <p>Conditionally registers {@link RefinerInterceptor} and {@link RouterInterceptor} beans only
- * when their dependencies ({@link ChatModel} map, {@link CoreProperties}, {@link
- * PipelineOptionsRegistry}) are present in the application context.
+ * when their dependencies ({@link ProviderChatClient}, {@link CoreProperties}) are present in the
+ * application context.
  *
  * @since 1.0.0
  */
-@AutoConfiguration
+@AutoConfiguration(
+    afterName = "com.krizaka.orazaka.adapter.springai.SpringAiAdapterAutoConfiguration")
 public class ReformulationAutoConfiguration {
 
   /**
    * Registers the {@link RefinerInterceptor} bean.
    *
-   * @param chatModels Provider-keyed map of ChatModel beans.
+   * @param chatClient The port that asks a provider's model.
    * @param properties Core configuration properties.
-   * @param optionsRegistry Pipeline options strategy registry.
    * @param systemRefinementResource Refinement system prompt template.
    * @param contextEnvelopeResource Context envelope user prompt template.
    * @return The refiner interceptor.
    */
   @Bean
-  @ConditionalOnBean(PipelineOptionsRegistry.class)
+  @ConditionalOnBean(ProviderChatClient.class)
   public RefinerInterceptor refinerInterceptor(
-      Map<String, ChatModel> chatModels,
+      ProviderChatClient chatClient,
       CoreProperties properties,
-      PipelineOptionsRegistry optionsRegistry,
       @Value("classpath:/prompts/system-refinement.st") Resource systemRefinementResource,
       @Value("classpath:/prompts/context-envelope.st") Resource contextEnvelopeResource) {
     return new RefinerInterceptor(
-        chatModels, properties, optionsRegistry, systemRefinementResource, contextEnvelopeResource);
+        chatClient, properties, systemRefinementResource, contextEnvelopeResource);
   }
 
   /**
    * Registers the {@link RouterInterceptor} bean.
    *
-   * @param chatModels Provider-keyed map of ChatModel beans.
+   * @param chatClient The port that asks a provider's model.
    * @param properties Core configuration properties.
-   * @param optionsRegistry Pipeline options strategy registry.
    * @param routerSystemResource Router system prompt template.
    * @return The router interceptor.
    */
   @Bean
-  @ConditionalOnBean(PipelineOptionsRegistry.class)
+  @ConditionalOnBean(ProviderChatClient.class)
   public RouterInterceptor routerInterceptor(
-      Map<String, ChatModel> chatModels,
+      ProviderChatClient chatClient,
       CoreProperties properties,
-      PipelineOptionsRegistry optionsRegistry,
       @Value("classpath:/prompts/system-router.st") Resource routerSystemResource) {
-    return new RouterInterceptor(chatModels, properties, optionsRegistry, routerSystemResource);
+    return new RouterInterceptor(chatClient, properties, routerSystemResource);
   }
 
   /**

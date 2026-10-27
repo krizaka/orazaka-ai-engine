@@ -7,19 +7,17 @@ import static org.mockito.Mockito.*;
 
 import com.krizaka.orazaka.core.application.pipeline.PipelineShortCircuitException;
 import com.krizaka.orazaka.core.domain.model.PromptContext;
+import com.krizaka.orazaka.core.domain.model.chat.EngineMessage;
+import com.krizaka.orazaka.core.domain.ports.outbound.ProviderChatClient;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
-import org.springframework.ai.chat.messages.AssistantMessage;
-import org.springframework.ai.chat.model.ChatModel;
-import org.springframework.ai.chat.model.ChatResponse;
-import org.springframework.ai.chat.model.Generation;
-import org.springframework.ai.chat.prompt.Prompt;
 
 /**
  * Guard of orazaka-ai-engine#116 (ADR-092): the control loop re-runs the step with the drift
@@ -34,23 +32,28 @@ class ClosedLoopControlLoopGuardTest {
     return new ClosedLoopValidationProperties(true, maxRetries, true, false, false, false);
   }
 
-  private static ChatResponse reply(String text) {
-    return new ChatResponse(List.of(new Generation(new AssistantMessage(text))));
+  @SuppressWarnings("unchecked")
+  private static ArgumentCaptor<List<EngineMessage>> messagesCaptor() {
+    return ArgumentCaptor.forClass(List.class);
+  }
+
+  private static String contents(List<EngineMessage> messages) {
+    return messages.stream().map(EngineMessage::text).collect(Collectors.joining("\n"));
   }
 
   @Test
   @DisplayName("a retry re-runs the step with the drift diff injected and serves the adjusted text")
   void retryReRunsTheStepWithTheDriftDiff() {
-    ChatModel model = mock(ChatModel.class);
-    when(model.call(any(Prompt.class))).thenReturn(reply("{\"ok\":true}"));
+    ProviderChatClient model = mock(ProviderChatClient.class);
+    when(model.completeWithDefault(any(), any())).thenReturn("{\"ok\":true}");
     var interceptor = new ClosedLoopValidationInterceptor(tierAOnly(2), model, null, null);
 
     String served = interceptor.screenResponse(CONTEXT, "{invalid");
 
     assertThat(served).isEqualTo("{\"ok\":true}");
-    var prompt = ArgumentCaptor.forClass(Prompt.class);
-    verify(model).call(prompt.capture());
-    assertThat(prompt.getValue().getContents())
+    var prompt = messagesCaptor();
+    verify(model).completeWithDefault(prompt.capture(), any());
+    assertThat(contents(prompt.getValue()))
         .contains("Invalid JSON structure")
         .contains("{invalid")
         .contains("Give me JSON");
@@ -59,24 +62,23 @@ class ClosedLoopControlLoopGuardTest {
   @Test
   @DisplayName("the second attempt's input differs from the first's")
   void secondAttemptInputDiffersFromTheFirst() {
-    ChatModel model = mock(ChatModel.class);
-    when(model.call(any(Prompt.class))).thenReturn(reply("{still bad"), reply("{\"ok\":true}"));
+    ProviderChatClient model = mock(ProviderChatClient.class);
+    when(model.completeWithDefault(any(), any())).thenReturn("{still bad", "{\"ok\":true}");
     var interceptor = new ClosedLoopValidationInterceptor(tierAOnly(3), model, null, null);
 
     interceptor.screenResponse(CONTEXT, "{invalid");
 
-    var prompts = ArgumentCaptor.forClass(Prompt.class);
-    verify(model, org.mockito.Mockito.times(2)).call(prompts.capture());
-    assertThat(prompts.getAllValues().get(1).getContents())
-        .isNotEqualTo(prompts.getAllValues().getFirst().getContents());
+    var prompts = messagesCaptor();
+    verify(model, org.mockito.Mockito.times(2)).completeWithDefault(prompts.capture(), any());
+    assertThat(contents(prompts.getAllValues().get(1)))
+        .isNotEqualTo(contents(prompts.getAllValues().getFirst()));
   }
 
   @Test
   @DisplayName("after the last retry the turn escalates and the unvalidated text is never served")
   void exhaustedRetriesEscalate() {
-    ChatModel model = mock(ChatModel.class);
-    when(model.call(any(Prompt.class)))
-        .thenReturn(reply("{bad one"), reply("{bad two"), reply("{bad three"));
+    ProviderChatClient model = mock(ProviderChatClient.class);
+    when(model.completeWithDefault(any(), any())).thenReturn("{bad one", "{bad two", "{bad three");
     var interceptor = new ClosedLoopValidationInterceptor(tierAOnly(2), model, null, null);
 
     assertThatThrownBy(() -> interceptor.screenResponse(CONTEXT, "{invalid"))

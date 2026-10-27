@@ -9,17 +9,21 @@ import com.krizaka.billing.domain.model.CreditHoldResponse;
 import com.krizaka.billing.domain.model.EntitlementSnapshot;
 import com.krizaka.billing.domain.port.CreditAuthorizationClient;
 import com.krizaka.billing.domain.port.EntitlementProvider;
+import com.krizaka.orazaka.adapter.springai.prompt.SpringPreparedPrompt;
 import com.krizaka.orazaka.core.application.engine.Engine;
 import com.krizaka.orazaka.core.application.interceptor.PromptContextInterceptor;
 import com.krizaka.orazaka.core.application.pipeline.*;
-import com.krizaka.orazaka.core.application.routing.DynamicChatModelFactory;
 import com.krizaka.orazaka.core.application.routing.SemanticRoutingEngine;
 import com.krizaka.orazaka.core.domain.event.ChatCompletedEvent;
 import com.krizaka.orazaka.core.domain.model.Context;
 import com.krizaka.orazaka.core.domain.model.InterceptorConfig;
 import com.krizaka.orazaka.core.domain.model.PipelineConfig;
 import com.krizaka.orazaka.core.domain.model.RoutingMode;
+import com.krizaka.orazaka.core.domain.model.chat.ChatCompletion;
+import com.krizaka.orazaka.core.domain.model.chat.ChatRoute;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
+import com.krizaka.orazaka.core.domain.model.chat.PreparedPrompt;
+import com.krizaka.orazaka.core.domain.ports.outbound.ChatInvocation;
 import com.krizaka.orazaka.core.domain.ports.outbound.ModelCatalogProvider;
 import com.krizaka.orazaka.core.domain.ports.outbound.PlatformMcpServerProvider;
 import com.krizaka.orazaka.core.domain.ports.outbound.ToolRegistry;
@@ -231,11 +235,11 @@ class MediaTurnControlsTest {
             catalog,
             mock(PlatformMcpServerProvider.class),
             mock(UserMcpServerProvider.class),
-            mock(ToolRegistry.class));
+            mock(ToolRegistry.class),
+            new com.krizaka.orazaka.adapter.springai.prompt.SpringAiPromptAssembly());
     UserCredentialsProvider userCredentials = mock(UserCredentialsProvider.class);
-    DynamicChatModelFactory<ChatModel> modelFactory = mock(DynamicChatModelFactory.class);
     return new Engine(
-        model,
+        over(model),
         null,
         properties,
         List.of(),
@@ -243,9 +247,25 @@ class MediaTurnControlsTest {
         published::add,
         catalog,
         bridge,
-        new EngineStreamBridge(model, bridge, userCredentials, modelFactory),
-        userCredentials,
-        modelFactory);
+        new EngineStreamBridge(over(model), bridge, userCredentials),
+        userCredentials);
+  }
+
+  /** The port over the scripted model; the Spring AI implementation is tested in its adapter. */
+  private static ChatInvocation over(ChatModel model) {
+    return new ChatInvocation() {
+      @Override
+      public ChatCompletion call(PreparedPrompt prompt, ChatRoute route) {
+        var out = model.call(((SpringPreparedPrompt) prompt).prompt()).getResult().getOutput();
+        return new ChatCompletion(out.getText(), null);
+      }
+
+      @Override
+      public reactor.core.publisher.Flux<ChatCompletion> stream(
+          PreparedPrompt prompt, ChatRoute route) {
+        throw new UnsupportedOperationException("not streamed here");
+      }
+    };
   }
 
   private static CoreProperties.OrchestrationConfig orchestration(boolean enabled) {

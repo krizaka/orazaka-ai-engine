@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
+import com.krizaka.orazaka.core.application.ChatModelInvocation;
 import com.krizaka.orazaka.core.application.interceptor.PromptContextInterceptor;
 import com.krizaka.orazaka.core.application.pipeline.DynamicPipelineExecutor;
 import com.krizaka.orazaka.core.application.pipeline.EnginePipelineBridge;
@@ -107,13 +108,18 @@ class EngineTest {
 
     pipelineBridge =
         new EnginePipelineBridge(
-            modelCatalogProvider, platformMcpServerProvider, userMcpServerProvider, toolRegistry);
+            modelCatalogProvider,
+            platformMcpServerProvider,
+            userMcpServerProvider,
+            toolRegistry,
+            new com.krizaka.orazaka.core.application.TestPromptAssembly());
     streamBridge =
-        new EngineStreamBridge(chatModel, pipelineBridge, credentialsProvider, modelFactory);
+        new EngineStreamBridge(
+            ChatModelInvocation.of(chatModel, modelFactory), pipelineBridge, credentialsProvider);
 
     engine =
         new Engine(
-            chatModel,
+            ChatModelInvocation.of(chatModel, modelFactory),
             speechModel,
             properties,
             List.of(ragInterceptor, mcpInterceptor, memoryInterceptor, toolInterceptor),
@@ -122,8 +128,7 @@ class EngineTest {
             modelCatalogProvider,
             pipelineBridge,
             streamBridge,
-            credentialsProvider,
-            modelFactory);
+            credentialsProvider);
   }
 
   @Test
@@ -240,7 +245,7 @@ class EngineTest {
 
     engine =
         new Engine(
-            chatModel,
+            ChatModelInvocation.of(chatModel, modelFactory),
             speechModel,
             properties,
             List.of(ragInterceptor, mcpInterceptor, memoryInterceptor, toolInterceptor),
@@ -249,8 +254,7 @@ class EngineTest {
             modelCatalogProvider,
             pipelineBridge,
             streamBridge,
-            credentialsProvider,
-            modelFactory);
+            credentialsProvider);
 
     InternalChatRequest request = InternalChatRequest.simple(PROMPT_HELLO_CAP);
     when(knowledgeService.retrieveContext(any(Actor.class), anyString(), anyInt()))
@@ -323,7 +327,7 @@ class EngineTest {
 
     Engine historyEngine =
         new Engine(
-            chatModel,
+            ChatModelInvocation.of(chatModel, modelFactory),
             speechModel,
             properties,
             List.of(ragInterceptor, mcpInterceptor, memoryInterceptor, toolInterceptor),
@@ -332,8 +336,7 @@ class EngineTest {
             modelCatalogProvider,
             pipelineBridge,
             streamBridge,
-            credentialsProvider,
-            modelFactory);
+            credentialsProvider);
 
     Context context = new Context("user-123", SESSION_1, Map.of(), Set.of());
     InternalChatRequest request = new InternalChatRequest("New prompt", null, null, context);
@@ -379,7 +382,7 @@ class EngineTest {
             null);
     Engine badEngine =
         new Engine(
-            chatModel,
+            ChatModelInvocation.of(chatModel, modelFactory),
             speechModel,
             emptyProps,
             List.of(),
@@ -388,8 +391,7 @@ class EngineTest {
             modelCatalogProvider,
             pipelineBridge,
             streamBridge,
-            credentialsProvider,
-            modelFactory);
+            credentialsProvider);
 
     // When / Then
     var simpleReq = InternalChatRequest.simple("test");
@@ -453,7 +455,7 @@ class EngineTest {
 
     Engine customEngine =
         new Engine(
-            chatModel,
+            ChatModelInvocation.of(chatModel, modelFactory),
             speechModel,
             enabledProps,
             List.of(ragInterceptor, mcpInterceptor, memoryInterceptor, toolInterceptor),
@@ -462,8 +464,7 @@ class EngineTest {
             modelCatalogProvider,
             pipelineBridge,
             streamBridge,
-            credentialsProvider,
-            modelFactory);
+            credentialsProvider);
 
     InternalChatRequest request = InternalChatRequest.simple(FUZZY_PROMPT);
 
@@ -701,7 +702,7 @@ class EngineTest {
 
     Engine openAiEngine =
         new Engine(
-            chatModel,
+            ChatModelInvocation.of(chatModel, modelFactory),
             speechModel,
             openAiProps,
             List.of(),
@@ -710,8 +711,7 @@ class EngineTest {
             modelCatalogProvider,
             pipelineBridge,
             streamBridge,
-            credentialsProvider,
-            modelFactory);
+            credentialsProvider);
 
     Context context = new Context("user-123", SESSION_1, Map.of(), Set.of());
     OpenAiChatOptions openAiOptions = OpenAiChatOptions.builder().model(MODEL_GPT4O).build();
@@ -757,7 +757,7 @@ class EngineTest {
 
     Engine openAiEngine =
         new Engine(
-            chatModel,
+            ChatModelInvocation.of(chatModel, modelFactory),
             speechModel,
             openAiProps,
             List.of(),
@@ -766,8 +766,7 @@ class EngineTest {
             modelCatalogProvider,
             pipelineBridge,
             streamBridge,
-            credentialsProvider,
-            modelFactory);
+            credentialsProvider);
 
     Context context = new Context("user-123", SESSION_1, Map.of(), Set.of());
     InternalChatRequest request = new InternalChatRequest(PROMPT_HELLO_CAP, null, null, context);
@@ -817,14 +816,15 @@ class EngineTest {
             PROVIDER_OLLAMA,
             SESSION_1,
             PROMPT_HELLO_CAP,
-            new Prompt(PROMPT_HELLO_CAP),
+            new com.krizaka.orazaka.core.application.SpringPreparedPrompt(
+                new Prompt(PROMPT_HELLO_CAP)),
             List.of(mockCloseable1, mockCloseable2));
 
     when(mockBridge.compileContext(any(), any(), any(), any())).thenReturn(compiledCtx);
 
     Engine customEngine =
         new Engine(
-            chatModel,
+            ChatModelInvocation.of(chatModel, modelFactory),
             speechModel,
             properties,
             List.of(),
@@ -833,8 +833,7 @@ class EngineTest {
             modelCatalogProvider,
             mockBridge,
             streamBridge,
-            credentialsProvider,
-            modelFactory);
+            credentialsProvider);
 
     // When
     customEngine.chat(request);

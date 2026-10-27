@@ -1,18 +1,21 @@
 package com.krizaka.orazaka.core.application.engine;
 
 import com.krizaka.orazaka.core.application.interceptor.PromptContextInterceptor;
+import com.krizaka.orazaka.core.application.pipeline.ChatRoutes;
 import com.krizaka.orazaka.core.application.pipeline.DynamicPipelineExecutor;
 import com.krizaka.orazaka.core.application.pipeline.EnginePipelineBridge;
 import com.krizaka.orazaka.core.application.pipeline.EnginePipelineContext;
 import com.krizaka.orazaka.core.application.pipeline.EngineStreamBridge;
 import com.krizaka.orazaka.core.application.pipeline.ResponseScreen;
-import com.krizaka.orazaka.core.application.routing.ProviderClassifier;
 import com.krizaka.orazaka.core.domain.event.ChatCompletedEvent;
 import com.krizaka.orazaka.core.domain.model.CachedResponse;
 import com.krizaka.orazaka.core.domain.model.audio.AudioRequest;
+import com.krizaka.orazaka.core.domain.model.chat.ChatCompletion;
+import com.krizaka.orazaka.core.domain.model.chat.ChatRoute;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatResponse;
 import com.krizaka.orazaka.core.domain.model.chat.TokenUsage;
+import com.krizaka.orazaka.core.domain.ports.outbound.ChatInvocation;
 import com.krizaka.orazaka.core.infrastructure.support.CoreException;
 import java.util.HashMap;
 import java.util.List;
@@ -21,8 +24,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.audio.tts.TextToSpeechModel;
 import org.springframework.ai.audio.tts.TextToSpeechPrompt;
-import org.springframework.ai.chat.model.ChatModel;
-import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.openai.OpenAiAudioSpeechOptions;
 import org.springframework.context.ApplicationEventPublisher;
 import reactor.core.publisher.Flux;
@@ -54,8 +55,8 @@ public abstract sealed class AbstractEngine permits Engine {
 
   private static final Logger logger = LoggerFactory.getLogger(AbstractEngine.class);
 
-  /** Primary Spring AI model interface for text generation. */
-  protected final ChatModel chatModel;
+  /** The port that sends a prepared prompt to a model. */
+  protected final ChatInvocation chatInvocation;
 
   /** Primary Spring AI model interface for text-to-speech generation. */
   protected final TextToSpeechModel ttsModel;
@@ -78,7 +79,7 @@ public abstract sealed class AbstractEngine permits Engine {
   /**
    * Constructs the engine with primary Spring AI models and pipeline components.
    *
-   * @param chatModel Primary Spring AI chat model.
+   * @param chatInvocation The port that sends a prepared prompt to a model.
    * @param ttsModel Primary Spring AI text-to-speech model.
    * @param defaultProvider Default provider name.
    * @param interceptors Ordered list of context interceptors (nullable — defaults to empty).
@@ -87,14 +88,14 @@ public abstract sealed class AbstractEngine permits Engine {
    * @param infra Grouped infrastructure dependencies.
    */
   protected AbstractEngine(
-      ChatModel chatModel,
+      ChatInvocation chatInvocation,
       TextToSpeechModel ttsModel,
       String defaultProvider,
       List<PromptContextInterceptor> interceptors,
       DynamicPipelineExecutor pipeline,
       ApplicationEventPublisher publisher,
       EngineInfrastructure infra) {
-    this.chatModel = chatModel;
+    this.chatInvocation = chatInvocation;
     this.ttsModel = ttsModel;
     this.defaultProvider = defaultProvider;
     this.interceptors = interceptors != null ? List.copyOf(interceptors) : List.of();
@@ -134,20 +135,22 @@ public abstract sealed class AbstractEngine permits Engine {
         "Engine executing chat model call: provider={}, conversation={}, messages={}",
         context.provider(),
         context.conversationId(),
-        context.toPrompt().getInstructions().size());
-    ChatModel activeModel = resolveActiveModel(request, context);
+        context.toPrompt().messageCount());
+    ChatRoute route =
+        ChatRoutes.resolve(
+            request.context().userId(), context.provider(), infra.credentialsProvider());
 
-    ChatResponse response;
+    ChatCompletion response;
     long startTime = System.nanoTime();
     try {
-      response = activeModel.call(context.toPrompt());
+      response = chatInvocation.call(context.toPrompt(), route);
       logger.info("Engine chat model call returned for conversation {}", context.conversationId());
     } catch (RuntimeException e) {
       logger.warn(
           "Model '{}' failed tool execution activation, falling back to non-tool text inference.",
           context.provider(),
           e);
-      response = activeModel.call(EnginePipelineBridge.removeTools(context.toPrompt()));
+      response = chatInvocation.call(context.toPrompt().withoutTools(), route);
       logger.info(
           "Engine fallback chat model call returned for conversation {}", context.conversationId());
     } finally {
@@ -193,36 +196,14 @@ public abstract sealed class AbstractEngine permits Engine {
     return out;
   }
 
-  /** Resolves the active ChatModel, using commercial provider credentials when applicable. */
-  private ChatModel resolveActiveModel(InternalChatRequest request, EnginePipelineContext context) {
-    String resolvedProvider = context.provider();
-    if (!ProviderClassifier.isCommercial(resolvedProvider)) {
-      return this.chatModel;
-    }
-    String userId = request.context().userId();
-    var apiKeyOpt = infra.credentialsProvider().getDecryptedApiKey(userId, resolvedProvider);
-    if (apiKeyOpt.isEmpty()) {
-      logger.warn(
-          "No API key found for user {} and provider {}, falling back to local model.",
-          userId,
-          resolvedProvider);
-      return this.chatModel;
-    }
-    String modelName = ProviderClassifier.resolveModelName(context.toPrompt().getOptions());
-    return (ChatModel)
-        infra.modelFactory().createChatModel(resolvedProvider, modelName, apiKeyOpt.get());
-  }
-
-  /** Extracts text from a ChatResponse, returning empty string on null chain. */
-  private String extractResponseText(ChatResponse response) {
-    if (response == null
-        || response.getResult() == null
-        || response.getResult().getOutput() == null) {
+  /** Extracts the text of a completion, returning empty string when there is none. */
+  private String extractResponseText(ChatCompletion response) {
+    if (response == null || response.text() == null) {
       logger.warn(
           "Chat model response, result, or output was null. Falling back to default empty response.");
       return "";
     }
-    return response.getResult().getOutput().getText();
+    return response.text();
   }
 
   /** Builds metadata map from context and timing information. */
@@ -240,16 +221,8 @@ public abstract sealed class AbstractEngine permits Engine {
    * <p>A provider that reports nothing yields {@link TokenUsage#none()} rather than zeros: an
    * unmeasured turn releases its hold, and zeros would bill it at the pricebook's floor instead.
    */
-  private static TokenUsage extractUsage(ChatResponse response) {
-    if (response == null || response.getMetadata() == null) {
-      return TokenUsage.none();
-    }
-    var usage = response.getMetadata().getUsage();
-    if (usage == null) {
-      return TokenUsage.none();
-    }
-    return TokenUsage.reported(
-        usage.getPromptTokens(), usage.getCompletionTokens(), usage.getTotalTokens());
+  private static TokenUsage extractUsage(ChatCompletion response) {
+    return response == null ? TokenUsage.none() : response.usage();
   }
 
   /** Closes any dynamic MCP client resources from the inference context. */

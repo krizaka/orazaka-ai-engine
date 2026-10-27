@@ -4,13 +4,12 @@ import com.krizaka.orazaka.core.application.interceptor.PromptContextInterceptor
 import com.krizaka.orazaka.core.application.pipeline.DynamicPipelineExecutor;
 import com.krizaka.orazaka.core.application.pipeline.EnginePipelineBridge;
 import com.krizaka.orazaka.core.application.pipeline.EngineStreamBridge;
-import com.krizaka.orazaka.core.application.routing.DynamicChatModelFactory;
+import com.krizaka.orazaka.core.domain.ports.outbound.ChatInvocation;
 import com.krizaka.orazaka.core.domain.ports.outbound.ModelCatalogProvider;
 import com.krizaka.orazaka.core.domain.ports.outbound.UserCredentialsProvider;
 import com.krizaka.orazaka.core.infrastructure.config.CoreProperties;
 import java.util.List;
 import org.springframework.ai.audio.tts.TextToSpeechModel;
-import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
@@ -27,7 +26,7 @@ public final class Engine extends AbstractEngine {
   /**
    * Primary constructor for Engine with direct Spring AI dependency injection.
    *
-   * @param chatModel The primary chat model bean.
+   * @param chatInvocation The port that sends a prepared prompt to a model.
    * @param ttsModel The primary text-to-speech model bean.
    * @param properties Core engine configuration properties.
    * @param interceptors Ordered list of context interceptors.
@@ -37,10 +36,9 @@ public final class Engine extends AbstractEngine {
    * @param pipelineBridge The pipeline compilation bridge component.
    * @param streamBridge The reactive streaming bridge component.
    * @param credentialsProvider Outbound port for credentials lookup.
-   * @param modelFactory Dynamic ChatModel factory.
    */
   public Engine(
-      ChatModel chatModel,
+      ChatInvocation chatInvocation,
       TextToSpeechModel ttsModel,
       CoreProperties properties,
       List<PromptContextInterceptor> interceptors,
@@ -49,16 +47,15 @@ public final class Engine extends AbstractEngine {
       ModelCatalogProvider modelCatalogProvider,
       EnginePipelineBridge pipelineBridge,
       EngineStreamBridge streamBridge,
-      UserCredentialsProvider credentialsProvider,
-      DynamicChatModelFactory<ChatModel> modelFactory) {
+      UserCredentialsProvider credentialsProvider) {
     super(
-        chatModel,
+        chatInvocation,
         ttsModel,
         properties != null ? properties.defaultProvider() : null,
         interceptors,
         pipelineExecutor,
         eventPublisher,
         new EngineInfrastructure(
-            modelCatalogProvider, pipelineBridge, streamBridge, credentialsProvider, modelFactory));
+            modelCatalogProvider, pipelineBridge, streamBridge, credentialsProvider));
   }
 }

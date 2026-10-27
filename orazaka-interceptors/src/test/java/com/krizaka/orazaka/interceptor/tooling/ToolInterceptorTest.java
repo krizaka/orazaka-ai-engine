@@ -3,14 +3,19 @@ package com.krizaka.orazaka.interceptor.tooling;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 
+import com.krizaka.orazaka.core.domain.model.Authority;
+import com.krizaka.orazaka.core.domain.model.Context;
 import com.krizaka.orazaka.core.domain.model.chat.EngineChatOptions;
 import com.krizaka.orazaka.core.domain.model.chat.EngineTool;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
+import com.krizaka.orazaka.core.domain.model.security.Actor;
 import com.krizaka.orazaka.core.domain.ports.outbound.ToolOptions;
 import com.krizaka.orazaka.core.domain.ports.outbound.ToolRegistry;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -23,8 +28,13 @@ class ToolInterceptorTest {
     return new EngineTool(name, "", "{}", json -> "", null);
   }
 
+  private static final Context EMPLOYEE_CONTEXT =
+      new Context("emp-1", "c-1", Map.of(), Set.of(new Authority("ROLE_USER")));
+  private static final Actor EMPLOYEE = Actor.from(EMPLOYEE_CONTEXT).orElseThrow();
+
   private static InternalChatRequest request(String prompt, boolean streaming) {
     InternalChatRequest request = mock(InternalChatRequest.class);
+    when(request.context()).thenReturn(EMPLOYEE_CONTEXT);
     when(request.streaming()).thenReturn(streaming);
     when(request.prompt()).thenReturn(prompt);
     when(request.messages()).thenReturn(Collections.emptyList());
@@ -33,7 +43,7 @@ class ToolInterceptorTest {
 
   private ToolInterceptor interceptorOver(EngineTool... tools) {
     ToolRegistry toolRegistry = mock(ToolRegistry.class);
-    when(toolRegistry.getRegisteredTools()).thenReturn(List.of(tools));
+    when(toolRegistry.getRegisteredTools(EMPLOYEE)).thenReturn(List.of(tools));
     return new ToolInterceptor(toolRegistry, toolOptions);
   }
 
@@ -126,5 +136,23 @@ class ToolInterceptorTest {
         interceptorOver(audio).preProcess(request, null, new ArrayList<>(), options);
 
     assertThat(result).isSameAs(withTools);
+  }
+
+  @Test
+  @DisplayName("a turn with no verified actor is offered no tool, whatever the registry holds")
+  void noActorNoTools() {
+    ToolRegistry toolRegistry = mock(ToolRegistry.class);
+    when(toolRegistry.getRegisteredTools(null)).thenReturn(List.of());
+    when(toolRegistry.getRegisteredTools(EMPLOYEE)).thenReturn(List.of(tool("genericCalculator")));
+    InternalChatRequest request = request("compute this", false);
+    when(request.context()).thenReturn(null);
+    EngineChatOptions options = new EngineChatOptions("m", null, null);
+
+    EngineChatOptions result =
+        new ToolInterceptor(toolRegistry, toolOptions)
+            .preProcess(request, "compute", new ArrayList<>(), options);
+
+    assertThat(result).isSameAs(options);
+    verifyNoInteractions(toolOptions);
   }
 }

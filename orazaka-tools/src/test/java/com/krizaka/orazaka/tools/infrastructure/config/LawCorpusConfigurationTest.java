@@ -207,15 +207,26 @@ class LawCorpusConfigurationTest {
 
     @Override
     public <I, O> void registerTool(
-        String name, String description, Class<I> inputType, Function<I, O> function) {
+        String name,
+        String description,
+        Class<I> inputType,
+        Function<I, O> function,
+        java.util.Set<String> requiredRoles) {
       names.add(name);
       this.inputType = inputType;
       assertThat(description).contains("LAW_VERSION_UNKNOWN");
     }
 
     @Override
-    public List<EngineTool> getRegisteredTools() {
+    public List<EngineTool> getRegisteredTools(
+        com.krizaka.orazaka.core.domain.model.security.Actor actor) {
       return List.of();
+    }
+
+    @Override
+    public EngineTool authorize(
+        com.krizaka.orazaka.core.domain.model.security.Actor actor, String name) {
+      throw new IllegalArgumentException(name);
     }
   }
 }

@@ -2,41 +2,54 @@ package com.krizaka.orazaka.core.application.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 import com.krizaka.orazaka.core.domain.model.chat.EngineTool;
 import com.krizaka.orazaka.core.domain.model.mcp.McpToolInfo;
+import com.krizaka.orazaka.core.domain.model.security.AccessDeniedException;
+import com.krizaka.orazaka.core.domain.model.security.AccessDeniedException.Reason;
+import com.krizaka.orazaka.core.domain.model.security.Actor;
+import com.krizaka.orazaka.core.domain.ports.outbound.AccessAudit;
 import com.krizaka.orazaka.core.domain.ports.outbound.ToolRegistry;
 import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 class McpServiceImplTest {
 
+  private static final Actor USER = Actor.of("user-1", List.of("ROLE_USER")).orElseThrow();
+
   private final ToolRegistry toolRegistry = mock(ToolRegistry.class);
+  private final AccessAudit audit = mock(AccessAudit.class);
+  private final AtomicInteger runs = new AtomicInteger();
 
   private McpServiceImpl mcpService;
 
-  private static EngineTool testTool() {
+  private EngineTool testTool() {
     return new EngineTool(
         "testTool",
         "A test tool description",
         "{\"type\":\"object\"}",
-        json -> "{\"arg\":\"val\"}".equals(json) ? "execution result" : "unexpected " + json,
+        json -> {
+          runs.incrementAndGet();
+          return "{\"arg\":\"val\"}".equals(json) ? "execution result" : "unexpected " + json;
+        },
         null);
   }
 
   @BeforeEach
   void setUp() {
-    mcpService = new McpServiceImpl(toolRegistry);
+    mcpService = new McpServiceImpl(toolRegistry, audit);
   }
 
   @Test
   void shouldReturnAvailableTools() {
-    when(toolRegistry.getRegisteredTools()).thenReturn(List.of(testTool()));
+    when(toolRegistry.getRegisteredTools(USER)).thenReturn(List.of(testTool()));
 
-    List<McpToolInfo> tools = mcpService.getAvailableTools();
+    List<McpToolInfo> tools = mcpService.getAvailableTools(USER);
 
     assertThat(tools).hasSize(1);
     McpToolInfo toolInfo = tools.getFirst();
@@ -47,19 +60,46 @@ class McpServiceImplTest {
 
   @Test
   void shouldExecuteToolSuccessfully() {
-    when(toolRegistry.getRegisteredTools()).thenReturn(List.of(testTool()));
+    when(toolRegistry.authorize(USER, "testTool")).thenReturn(testTool());
 
-    String result = mcpService.executeTool("testTool", "{\"arg\":\"val\"}");
+    String result = mcpService.executeTool(USER, "testTool", "{\"arg\":\"val\"}");
 
     assertThat(result).isEqualTo("execution result");
   }
 
   @Test
   void shouldThrowWhenExecutingNonexistentTool() {
-    when(toolRegistry.getRegisteredTools()).thenReturn(List.of(testTool()));
+    when(toolRegistry.authorize(USER, "nonexistent"))
+        .thenThrow(new IllegalArgumentException("Tool not found: nonexistent"));
 
-    assertThatThrownBy(() -> mcpService.executeTool("nonexistent", "{}"))
+    assertThatThrownBy(() -> mcpService.executeTool(USER, "nonexistent", "{}"))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("Tool not found: nonexistent");
+  }
+
+  @Test
+  @DisplayName("a tool the actor may not use is refused, audited, and never run")
+  void refusesAndAuditsWhenTheActorLacksTheRole() {
+    when(toolRegistry.authorize(USER, "payroll"))
+        .thenThrow(new AccessDeniedException("payroll", Reason.MISSING_ROLE));
+
+    assertThatThrownBy(() -> mcpService.executeTool(USER, "payroll", "{}"))
+        .isInstanceOf(AccessDeniedException.class);
+
+    verify(audit).denied(Optional.of(USER), "tool.execute", "payroll", Reason.MISSING_ROLE);
+    assertThat(runs).hasValue(0);
+  }
+
+  @Test
+  @DisplayName("a call that acts for nobody is refused and audited")
+  void refusesAndAuditsWhenThereIsNoActor() {
+    when(toolRegistry.authorize(null, "searchKnowledge"))
+        .thenThrow(new AccessDeniedException("searchKnowledge", Reason.NO_ACTOR));
+
+    assertThatThrownBy(() -> mcpService.executeTool(null, "searchKnowledge", "{}"))
+        .isInstanceOf(AccessDeniedException.class);
+
+    verify(audit).denied(Optional.empty(), "tool.execute", "searchKnowledge", Reason.NO_ACTOR);
+    assertThat(runs).hasValue(0);
   }
 }

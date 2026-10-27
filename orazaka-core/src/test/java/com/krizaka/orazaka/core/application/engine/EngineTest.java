@@ -18,6 +18,7 @@ import com.krizaka.orazaka.core.domain.model.chat.EngineMessage;
 import com.krizaka.orazaka.core.domain.model.chat.EngineTool;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatResponse;
+import com.krizaka.orazaka.core.domain.model.security.Actor;
 import com.krizaka.orazaka.core.domain.ports.outbound.*;
 import com.krizaka.orazaka.core.infrastructure.config.CoreProperties;
 import com.krizaka.orazaka.core.infrastructure.support.CoreException;
@@ -56,6 +57,8 @@ import org.springframework.context.ApplicationEventPublisher;
  */
 @ExtendWith(MockitoExtension.class)
 class EngineTest {
+
+  private static final Actor ACTOR = Actor.of("user-1", List.of("ROLE_USER")).orElseThrow();
 
   @Mock private ChatModel chatModel;
   @Mock private EmbeddingModel embeddingModel;
@@ -151,7 +154,7 @@ class EngineTest {
     when(mockDef.name()).thenReturn(TOOL_ANALYZE_POSTER);
     when(mockTool.getToolDefinition()).thenReturn(mockDef);
     EngineTool engineTool = engineTool(mockTool);
-    when(toolRegistry.getRegisteredTools()).thenReturn(List.of(engineTool));
+    when(toolRegistry.getRegisteredTools(any())).thenReturn(List.of(engineTool));
 
     InternalChatRequest request =
         InternalChatRequest.simple("Please analyze this poster for visual themes");
@@ -186,7 +189,7 @@ class EngineTest {
     when(mockDef.name()).thenReturn(TOOL_ANALYZE_POSTER);
     when(mockTool.getToolDefinition()).thenReturn(mockDef);
     EngineTool engineTool = engineTool(mockTool);
-    when(toolRegistry.getRegisteredTools()).thenReturn(List.of(engineTool));
+    when(toolRegistry.getRegisteredTools(any())).thenReturn(List.of(engineTool));
 
     InternalChatRequest request = InternalChatRequest.simple("Hello there, how are you?");
     AssistantMessage assistantMessage = new AssistantMessage(RESPONSE);
@@ -250,7 +253,8 @@ class EngineTest {
             modelFactory);
 
     InternalChatRequest request = InternalChatRequest.simple(PROMPT_HELLO_CAP);
-    when(knowledgeService.retrieveContext(anyString(), anyInt())).thenReturn("Relevant context");
+    when(knowledgeService.retrieveContext(any(Actor.class), anyString(), anyInt()))
+        .thenReturn("Relevant context");
 
     AssistantMessage assistantMessage = new AssistantMessage(RESPONSE);
     ChatResponse chatResponse = new ChatResponse(List.of(new Generation(assistantMessage)));
@@ -260,7 +264,7 @@ class EngineTest {
     engine.chat(request);
 
     // Then
-    verify(knowledgeService).retrieveContext(PROMPT_HELLO_CAP, 3);
+    verify(knowledgeService).retrieveContext(ACTOR, PROMPT_HELLO_CAP, 3);
     verify(chatModel)
         .call(
             argThat(
@@ -567,7 +571,7 @@ class EngineTest {
             .filter(CoreProperties.RagConfig::enabled)
             .ifPresent(
                 rag -> {
-                  String context = knowledgeService.retrieveContext(promptText, rag.topK());
+                  String context = knowledgeService.retrieveContext(ACTOR, promptText, rag.topK());
                   if (context != null && !context.isBlank()) {
                     messages.addFirst(EngineMessage.system("RAG Context: \n" + context));
                   }
@@ -602,7 +606,7 @@ class EngineTest {
         if (request.streaming()) {
           return options;
         }
-        if (toolRegistry == null || toolRegistry.getRegisteredTools().isEmpty()) {
+        if (toolRegistry == null || toolRegistry.getRegisteredTools(ACTOR).isEmpty()) {
           return options;
         }
 
@@ -612,7 +616,7 @@ class EngineTest {
                 + (request.prompt() != null ? request.prompt() : "");
         String lowerContext = fullText.toLowerCase();
         List<EngineTool> demanded = new java.util.ArrayList<>();
-        for (EngineTool tool : toolRegistry.getRegisteredTools()) {
+        for (EngineTool tool : toolRegistry.getRegisteredTools(ACTOR)) {
           String name = tool.name();
           boolean specialized = "analyzePoster".equals(name) || "analyzeAudioExtract".equals(name);
           if (!specialized

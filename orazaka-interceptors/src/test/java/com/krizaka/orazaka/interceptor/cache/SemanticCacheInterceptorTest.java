@@ -87,6 +87,9 @@ class SemanticCacheInterceptorTest {
   private static PromptContext turn(
       String text, String tenant, String mode, Map<String, Object> more) {
     Map<String, Object> meta = new HashMap<>(more);
+    // The platform's keys for who the turn is for (ADR-091): one ordinary user unless a test says.
+    meta.putIfAbsent("userId", "u-1");
+    meta.putIfAbsent("roles", List.of("ROLE_USER"));
     if (tenant != null) {
       meta.put("orazaka.tenantId", tenant);
     }
@@ -106,6 +109,38 @@ class SemanticCacheInterceptorTest {
 
   private static boolean hit(PromptContext context) {
     return context.cachedResponse().isPresent();
+  }
+
+  // ---------------------------------------------------------------------------------------------
+  // 0. never across actors (ADR-091): an answer was written from what its actor could read
+  @Nested
+  @DisplayName("0. never across actors")
+  class Actors {
+    private PromptContext as(String userId, List<String> roles) {
+      return turn(
+          "what is the ceo salary", "acme", "semantic", Map.of("userId", userId, "roles", roles));
+    }
+
+    @Test
+    void anAnswerWrittenForAnHrUserIsNotServedToAnEmployee() {
+      remember(as("hr-1", List.of("ROLE_USER", "ROLE_HR")), "480000 CAD");
+
+      assertThat(hit(cache.beforeExecution(as("emp-1", List.of("ROLE_USER"))))).isFalse();
+      assertThat(hit(cache.beforeExecution(as("hr-1", List.of("ROLE_USER"))))).isFalse();
+      assertThat(hit(cache.beforeExecution(as("hr-1", List.of("ROLE_USER", "ROLE_HR"))))).isTrue();
+    }
+
+    @Test
+    void aTurnWithNoVerifiedActorIsNeverCached() {
+      var anonymous =
+          new PromptContext(
+              "what is the ceo salary",
+              Map.of("orazaka.tenantId", "acme", SemanticCacheInterceptor.MODE_KEY, "semantic"));
+      remember(anonymous, "anything");
+
+      assertThat(hit(cache.beforeExecution(anonymous))).isFalse();
+      assertThat(embedder.calls.get()).isZero();
+    }
   }
 
   // ---------------------------------------------------------------------------------------------
@@ -274,7 +309,15 @@ class SemanticCacheInterceptorTest {
       var withImage =
           new PromptContext(
               "look at this",
-              Map.of("orazaka.tenantId", "acme", SemanticCacheInterceptor.MODE_KEY, "semantic"),
+              Map.of(
+                  "orazaka.tenantId",
+                  "acme",
+                  SemanticCacheInterceptor.MODE_KEY,
+                  "semantic",
+                  "userId",
+                  "u-1",
+                  "roles",
+                  List.of("ROLE_USER")),
               Map.of(),
               "look at this",
               null,

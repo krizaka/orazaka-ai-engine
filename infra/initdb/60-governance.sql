@@ -89,3 +89,17 @@ INSERT INTO interceptor_policy_predicate (id, policy_id, field, operator, value)
 ('b0000001-0000-0000-0000-000000000003', 'a0000001-0000-0000-0000-000000000005',
  'context.memoryEnabled', 'EQUALS', 'true')
 ON CONFLICT DO NOTHING;
+
+-- ============================================================================
+-- TOOL PERMISSIONS (orazaka-ai-engine#107, ADR-091) — the roles an administrator granted a tool.
+-- A tool with no row uses the roles it declared when it registered; a tool that declared none is
+-- for administrators only. Read on every call: a change holds on the next request. Kept identical
+-- to infra/migrations/2026-10-26-knowledge-access.sql (workspace).
+-- ============================================================================
+CREATE TABLE platform_tool_permissions (
+    id SERIAL PRIMARY KEY,
+    tool_id VARCHAR(255) NOT NULL,
+    required_role VARCHAR(100) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_platform_tool_permissions UNIQUE (tool_id, required_role)
+);

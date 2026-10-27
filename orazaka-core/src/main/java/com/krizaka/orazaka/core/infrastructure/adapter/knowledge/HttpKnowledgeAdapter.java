@@ -1,7 +1,7 @@
 package com.krizaka.orazaka.core.infrastructure.adapter.knowledge;
 
+import com.krizaka.orazaka.core.domain.model.security.Actor;
 import com.krizaka.orazaka.core.domain.ports.outbound.KnowledgeService;
-import com.krizaka.security.token.ServiceTokenProvider;
 import java.util.HashMap;
 import java.util.Map;
 import org.slf4j.Logger;
@@ -23,45 +23,45 @@ class HttpKnowledgeAdapter implements KnowledgeService {
   private static final Logger logger = LoggerFactory.getLogger(HttpKnowledgeAdapter.class);
 
   private final RestClient knowledgeClient;
+  private final ActingServiceToken tokens;
 
   HttpKnowledgeAdapter(KnowledgeProperties properties) {
-    ServiceTokenProvider tokens =
-        new ServiceTokenProvider(properties.serviceSecret(), "orazaka-core");
-    this.knowledgeClient =
-        RestClient.builder()
-            .baseUrl(properties.baseUrl().toString())
-            // /internal/v1/knowledge/** is authenticated as of ADR-035's follow-up. Attached at
-            // the client, not per call, so the next retrieval method added cannot forget it.
-            .requestInitializer(request -> request.getHeaders().setBearerAuth(tokens.token()))
-            .build();
+    this.tokens = new ActingServiceToken(properties.serviceSecret(), "orazaka-core");
+    this.knowledgeClient = RestClient.builder().baseUrl(properties.baseUrl().toString()).build();
   }
 
   /** Wire shape of the internal knowledge responses (contract copy — no shared jar). */
   record ContentResponse(String content) {}
 
   @Override
-  public String retrieveContext(String query, int topK) {
+  public String retrieveContext(Actor actor, String query, int topK) {
     Map<String, Object> request = new HashMap<>();
     request.put("query", query);
     request.put("topK", topK);
-    return post("/internal/v1/knowledge/retrieve", request);
+    return post(actor, "/internal/v1/knowledge/retrieve", request);
   }
 
   @Override
-  public String searchSources(String toolId, String userId, String query) {
+  public String searchSources(Actor actor, String toolId, String query) {
     Map<String, Object> request = new HashMap<>();
     request.put("toolId", toolId);
-    request.put("userId", userId);
     request.put("query", query);
-    return post("/internal/v1/knowledge/sources/search", request);
+    return post(actor, "/internal/v1/knowledge/sources/search", request);
   }
 
-  private String post(String path, Map<String, Object> request) {
+  private String post(Actor actor, String path, Map<String, Object> request) {
+    if (actor == null) {
+      // Acting for nobody reads nothing; the knowledge service would refuse it anyway.
+      return "";
+    }
     try {
       ContentResponse response =
           knowledgeClient
               .post()
               .uri(path)
+              // The token is minted per call and names this actor in its signed act claim, so the
+              // knowledge service filters for them and for nobody else (ADR-091).
+              .headers(headers -> headers.setBearerAuth(tokens.tokenFor(actor)))
               .header("Content-Type", "application/json")
               .body(request)
               .retrieve()

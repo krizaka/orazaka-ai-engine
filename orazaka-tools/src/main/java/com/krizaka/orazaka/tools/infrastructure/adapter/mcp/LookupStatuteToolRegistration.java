@@ -30,6 +30,10 @@ public final class LookupStatuteToolRegistration {
   @PostConstruct
   void register() {
     registry.registerTool(
-        LookupStatuteTool.NAME, LookupStatuteTool.DESCRIPTION, LookupStatuteRequest.class, tool);
+        LookupStatuteTool.NAME,
+        LookupStatuteTool.DESCRIPTION,
+        LookupStatuteRequest.class,
+        tool,
+        java.util.Set.of("ROLE_USER"));
   }
 }

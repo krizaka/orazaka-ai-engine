@@ -2,6 +2,7 @@ package com.krizaka.orazaka.core.application.pipeline;
 
 import com.krizaka.orazaka.core.domain.model.chat.EngineTool;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
+import com.krizaka.orazaka.core.domain.model.security.Actor;
 import com.krizaka.orazaka.core.domain.ports.outbound.PlatformMcpServerProvider;
 import com.krizaka.orazaka.core.domain.ports.outbound.ToolRegistry;
 import com.krizaka.orazaka.core.domain.ports.outbound.UserMcpServerProvider;
@@ -80,14 +81,17 @@ final class McpClientFactory {
 
     List<ToolCallback> allToolCallbacks = new ArrayList<>();
 
+    // Tools are attached for the turn's actor only; with no actor there are none (ADR-091).
+    Actor actor = Actor.from(request.context()).orElse(null);
     if (toolRegistry != null) {
-      toolRegistry.getRegisteredTools().stream()
+      toolRegistry.getRegisteredTools(actor).stream()
           .map(McpClientFactory::toCallback)
           .forEach(allToolCallbacks::add);
     }
 
-    // Platform MCP servers
-    if (platformMcpServerProvider != null) {
+    // Platform MCP servers: an administrator configured them for the signed-in users of the
+    // platform. A turn with no verified actor gets none, and a user's own servers are theirs alone.
+    if (platformMcpServerProvider != null && actor != null) {
       for (PlatformMcpServerProvider.PlatformMcpServer server :
           platformMcpServerProvider.getActivePlatformMcpServers()) {
         if (Boolean.TRUE.equals(server.enabled())) {
@@ -98,7 +102,7 @@ final class McpClientFactory {
 
     // User private MCP servers
     String currentUserId = request.context().userId();
-    if (userMcpServerProvider != null) {
+    if (userMcpServerProvider != null && actor != null) {
       for (UserMcpServerProvider.UserMcpServer server :
           userMcpServerProvider.getActiveUserMcpServers(currentUserId)) {
         if (Boolean.TRUE.equals(server.enabled())) {

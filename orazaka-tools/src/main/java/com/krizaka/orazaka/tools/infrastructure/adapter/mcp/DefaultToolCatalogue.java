@@ -1,8 +1,9 @@
 package com.krizaka.orazaka.tools.infrastructure.adapter.mcp;
 
+import com.krizaka.orazaka.core.application.security.ActorScope;
+import com.krizaka.orazaka.core.domain.model.security.Actor;
 import com.krizaka.orazaka.core.domain.ports.outbound.KnowledgeService;
 import com.krizaka.orazaka.core.domain.ports.outbound.ToolRegistry;
-import com.krizaka.orazaka.core.infrastructure.support.SecurityContextUtil;
 import com.krizaka.orazaka.tools.domain.model.audio.AnalyzeAudioExtractRequest;
 import com.krizaka.orazaka.tools.domain.model.audio.AnalyzeAudioExtractResponse;
 import com.krizaka.orazaka.tools.domain.model.poster.AnalyzePosterRequest;
@@ -10,6 +11,7 @@ import com.krizaka.orazaka.tools.domain.model.poster.AnalyzePosterResponse;
 import com.krizaka.orazaka.tools.domain.model.search.SearchWebRequest;
 import com.krizaka.orazaka.tools.domain.model.search.SearchWebResponse;
 import jakarta.annotation.PostConstruct;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -32,6 +34,9 @@ public class DefaultToolCatalogue {
    */
   static final String TOOL_SEARCH_KNOWLEDGE = "searchKnowledge";
 
+  /** The built-in tools are for any signed-in user, until an administrator narrows them. */
+  private static final Set<String> USERS = Set.of("ROLE_USER");
+
   private final ToolRegistry toolRegistry;
   private final KnowledgeService knowledgeService;
 
@@ -52,32 +57,38 @@ public class DefaultToolCatalogue {
         "analyzePoster",
         "Analyzes a movie poster provided as a base64 encoded string using vision model.",
         AnalyzePosterRequest.class,
-        this::analyzePoster);
+        this::analyzePoster,
+        USERS);
     toolRegistry.registerTool(
         "analyzeAudioExtract",
         "Analyzes a film audio extract to check for specific compliance or content criteria.",
         AnalyzeAudioExtractRequest.class,
-        this::analyzeAudioExtract);
+        this::analyzeAudioExtract,
+        USERS);
     toolRegistry.registerTool(
         TOOL_SEARCH_KNOWLEDGE,
         "Searches the documents of the organisation's knowledge base (not the web) and returns"
             + " the passages that match the query.",
         SearchWebRequest.class,
-        this::searchKnowledge);
+        this::searchKnowledge,
+        USERS);
   }
 
-  private SearchWebResponse searchKnowledge(SearchWebRequest request) {
+  SearchWebResponse searchKnowledge(SearchWebRequest request) {
     // The tool, never its arguments: a query or a poster is the user's content (ADR-064).
     log.info("Executing searchKnowledge tool");
     if (knowledgeService == null) {
       return new SearchWebResponse("Knowledge service is not initialized.", false);
     }
-    String currentUserId = (String) SecurityContextUtil.extractSecurityMetadata().get("userId");
-    String matches =
-        knowledgeService.searchSources(TOOL_SEARCH_KNOWLEDGE, currentUserId, request.query());
+    // The actor of the running call, never an argument the model wrote: no actor, no knowledge.
+    Actor actor = ActorScope.current().orElse(null);
+    if (actor == null) {
+      return new SearchWebResponse("", false);
+    }
+    String matches = knowledgeService.searchSources(actor, TOOL_SEARCH_KNOWLEDGE, request.query());
     if (matches.isBlank()) {
-      // Fallback: return any corporate profile/framework description visible to the user.
-      matches = knowledgeService.searchSources(TOOL_SEARCH_KNOWLEDGE, currentUserId, "");
+      // Fallback: return any corporate profile/framework description visible to the actor.
+      matches = knowledgeService.searchSources(actor, TOOL_SEARCH_KNOWLEDGE, "");
     }
     return new SearchWebResponse(matches, true);
   }

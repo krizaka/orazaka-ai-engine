@@ -438,31 +438,16 @@ class EnginePipelineBridgeTest {
     }
 
     @Test
-    @DisplayName("resolves user MCP servers when context has anonymous user")
-    void resolvesUserMcpWithAnonymousContext() {
+    @DisplayName("an anonymous context gets no MCP server at all: no actor, no tools (ADR-091)")
+    void anonymousContextGetsNoMcpServers() {
       var request = new InternalChatRequest("test prompt", List.of(), null, Context.anonymous());
-      var platformServer =
-          new PlatformMcpServer(
-              1, "platform-label", "SSE", "http://platform/mcp", null, null, "plat-token", true);
 
-      when(platformMcpServerProvider.getActivePlatformMcpServers())
-          .thenReturn(List.of(platformServer));
-      when(userMcpServerProvider.getActiveUserMcpServers("anonymous")).thenReturn(List.of());
+      var result = enginePipelineBridge.compileContext(request, null, PROVIDER_OLLAMA, List.of());
 
-      var mockSyncClient = mock(McpSyncClient.class);
-      var mockBuilder = mock(McpClient.SyncSpec.class);
-      when(mockBuilder.build()).thenReturn(mockSyncClient);
-
-      try (var mcMock = mockStatic(McpClient.class);
-          var syncMock = mockStatic(SyncMcpToolCallbackProvider.class)) {
-        stubMcpClientSync(mcMock, mockBuilder);
-        stubSyncToolCallbacks(syncMock, List.of(mock(ToolCallback.class)));
-
-        var result = enginePipelineBridge.compileContext(request, null, PROVIDER_OLLAMA, List.of());
-        assertNotNull(result);
-        assertEquals(1, result.closeables().size()); // 1 platform only
-        verify(userMcpServerProvider).getActiveUserMcpServers("anonymous");
-      }
+      assertNotNull(result);
+      assertEquals(0, result.closeables().size());
+      verifyNoInteractions(userMcpServerProvider);
+      verifyNoInteractions(platformMcpServerProvider);
     }
 
     @Test

@@ -1,13 +1,11 @@
-package com.krizaka.orazaka.core.infrastructure.provider;
+package com.krizaka.orazaka.adapter.springai.provider;
 
 import com.google.genai.Client;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.google.genai.GoogleGenAiChatModel;
 import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
-import org.springframework.stereotype.Component;
 
 /** Dynamic ChatModel provider for Google Gemini models. */
-@Component
 public class GeminiDynamicProvider implements DynamicChatModelProvider {
 
   @Override

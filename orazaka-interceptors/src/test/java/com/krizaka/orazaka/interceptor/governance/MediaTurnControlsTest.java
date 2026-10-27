@@ -233,7 +233,7 @@ class MediaTurnControlsTest {
             mock(UserMcpServerProvider.class),
             mock(ToolRegistry.class));
     UserCredentialsProvider userCredentials = mock(UserCredentialsProvider.class);
-    DynamicChatModelFactory modelFactory = mock(DynamicChatModelFactory.class);
+    DynamicChatModelFactory<ChatModel> modelFactory = mock(DynamicChatModelFactory.class);
     return new Engine(
         model,
         null,

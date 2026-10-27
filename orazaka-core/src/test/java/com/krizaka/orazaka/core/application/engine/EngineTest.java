@@ -70,7 +70,7 @@ class EngineTest {
   @Mock private ApplicationEventPublisher eventPublisher;
   @Mock private ModelCatalogProvider modelCatalogProvider;
   @Mock private UserCredentialsProvider credentialsProvider;
-  @Mock private DynamicChatModelFactory modelFactory;
+  @Mock private DynamicChatModelFactory<ChatModel> modelFactory;
   @Mock private PlatformMcpServerProvider platformMcpServerProvider;
   @Mock private UserMcpServerProvider userMcpServerProvider;
 

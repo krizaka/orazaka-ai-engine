@@ -1,14 +1,12 @@
-package com.krizaka.orazaka.core.infrastructure.provider;
+package com.krizaka.orazaka.adapter.springai.provider;
 
 import com.anthropic.client.AnthropicClient;
 import com.anthropic.client.okhttp.AnthropicOkHttpClient;
 import org.springframework.ai.anthropic.AnthropicChatModel;
 import org.springframework.ai.anthropic.AnthropicChatOptions;
 import org.springframework.ai.chat.model.ChatModel;
-import org.springframework.stereotype.Component;
 
 /** Dynamic ChatModel provider for Anthropic (Claude) models. */
-@Component
 public class AnthropicDynamicProvider implements DynamicChatModelProvider {
 
   @Override

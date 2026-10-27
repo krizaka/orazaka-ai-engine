@@ -140,21 +140,50 @@ final class MessageCompiler {
   }
 
   /**
-   * The library options of the engine view: the original where there is one, else built from the
-   * settings.
+   * The library options of the engine view. Settings left as they were give the original back; a
+   * model, temperature or token cap the view sets differently is applied to a copy of the original
+   * (a {@code null} setting means "as the original"), so the provider's own settings (tools,
+   * context) survive and the options the caller was handed are not mutated; with no original the
+   * options are built from the settings.
    */
   static ChatOptions toSpring(EngineChatOptions options) {
     if (options == null) {
       return null;
     }
     if (options.nativeOptions() instanceof ChatOptions original) {
-      return original;
+      return withEdits(original, options);
     }
     return ChatOptions.builder()
         .model(options.model())
         .temperature(options.temperature())
         .maxTokens(options.maxTokens())
         .build();
+  }
+
+  /** The original, or a copy with the settings the engine view sets and the original does not. */
+  private static ChatOptions withEdits(ChatOptions original, EngineChatOptions options) {
+    boolean model = differs(options.model(), original.getModel());
+    boolean temperature = differs(options.temperature(), original.getTemperature());
+    boolean maxTokens = differs(options.maxTokens(), original.getMaxTokens());
+    if (!model && !temperature && !maxTokens) {
+      return original;
+    }
+    var copy = original.mutate();
+    if (model) {
+      copy.model(options.model());
+    }
+    if (temperature) {
+      copy.temperature(options.temperature());
+    }
+    if (maxTokens) {
+      copy.maxTokens(options.maxTokens());
+    }
+    return copy.build();
+  }
+
+  /** A setting the engine view carries (not {@code null}) that is not the original's. */
+  private static boolean differs(Object edited, Object original) {
+    return edited != null && !edited.equals(original);
   }
 
   /** Appends a user message with an image media attachment. */

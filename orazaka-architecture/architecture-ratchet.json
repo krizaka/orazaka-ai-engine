@@ -1,7 +1,7 @@
 {
   "rules": {
     "spring-ai-outside-adapter": {
-      "count": 27,
+      "count": 26,
       "classes": [
         "com.krizaka.orazaka.core.application.engine.AbstractEngine",
         "com.krizaka.orazaka.core.application.engine.Engine",
@@ -16,7 +16,6 @@
         "com.krizaka.orazaka.core.application.routing.DynamicChatModelFactory",
         "com.krizaka.orazaka.core.application.routing.ProviderClassifier",
         "com.krizaka.orazaka.core.application.service.ChatMemoryStoreImpl",
-        "com.krizaka.orazaka.core.infrastructure.adapter.ai.ChatGeneratorClientImpl",
         "com.krizaka.orazaka.core.infrastructure.adapter.ai.ImageGeneratorClientImpl",
         "com.krizaka.orazaka.core.infrastructure.config.OllamaOptionsStrategy",
         "com.krizaka.orazaka.core.infrastructure.config.OpenAiOptionsStrategy",
@@ -40,7 +39,7 @@
       ]
     },
     "spring-in-core": {
-      "count": 56,
+      "count": 54,
       "classes": [
         "com.krizaka.orazaka.core.application.engine.AbstractEngine",
         "com.krizaka.orazaka.core.application.engine.Engine",
@@ -67,8 +66,6 @@
         "com.krizaka.orazaka.core.domain.ports.inbound.JobService",
         "com.krizaka.orazaka.core.domain.ports.outbound.MemoryResolver",
         "com.krizaka.orazaka.core.infrastructure.adapter.ai.AudioGeneratorClientImpl",
-        "com.krizaka.orazaka.core.infrastructure.adapter.ai.ChatGeneratorClientImpl",
-        "com.krizaka.orazaka.core.infrastructure.adapter.ai.EmbeddingClientImpl",
         "com.krizaka.orazaka.core.infrastructure.adapter.ai.ImageGeneratorClientImpl",
         "com.krizaka.orazaka.core.infrastructure.adapter.ai.LocalAiSemanticClassifierAdapter",
         "com.krizaka.orazaka.core.infrastructure.adapter.ai.OllamaModelCatalogProvider",

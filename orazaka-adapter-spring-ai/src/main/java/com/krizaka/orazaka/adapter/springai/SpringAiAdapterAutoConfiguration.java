@@ -1,12 +1,16 @@
 package com.krizaka.orazaka.adapter.springai;
 
 import com.krizaka.orazaka.adapter.springai.chat.SpringAiProviderChatClient;
+import com.krizaka.orazaka.adapter.springai.client.ChatGeneratorClientImpl;
+import com.krizaka.orazaka.adapter.springai.client.EmbeddingClientImpl;
 import com.krizaka.orazaka.adapter.springai.structured.SpringAiStructuredOutputClient;
 import com.krizaka.orazaka.adapter.springai.tool.SpringAiToolOptions;
 import com.krizaka.orazaka.adapter.springai.tool.SpringAiToolRegistry;
+import com.krizaka.orazaka.core.application.engine.Engine;
 import com.krizaka.orazaka.core.application.pipeline.PipelineOptionsRegistry;
 import com.krizaka.orazaka.core.domain.ports.outbound.*;
 import com.krizaka.orazaka.core.infrastructure.adapter.security.LoggingAccessAudit;
+import com.krizaka.orazaka.core.infrastructure.spend.SpendGuard;
 import java.util.Map;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.beans.factory.ObjectProvider;
@@ -91,6 +95,32 @@ public class SpringAiAdapterAutoConfiguration {
   public SpringAiProviderChatClient providerChatClient(
       ObjectProvider<Map<String, ChatModel>> chatModels, PipelineOptionsRegistry optionsRegistry) {
     return new SpringAiProviderChatClient(chatModels.getIfAvailable(Map::of), optionsRegistry);
+  }
+
+  /**
+   * The chat port: a request runs through the engine.
+   *
+   * @param engine the engine
+   * @return the client
+   */
+  @Bean
+  @ConditionalOnMissingBean(ChatGeneratorClient.class)
+  public ChatGeneratorClientImpl chatGeneratorClientImpl(Engine engine) {
+    return new ChatGeneratorClientImpl(engine);
+  }
+
+  /**
+   * The embedding port, over any OpenAI-compatible {@code /v1/embeddings} endpoint.
+   *
+   * @param endpoints where the embedding model lives
+   * @param spendGuard the daily budget of paid providers
+   * @return the client
+   */
+  @Bean
+  @ConditionalOnMissingBean(EmbeddingClient.class)
+  public EmbeddingClientImpl embeddingClientImpl(
+      ModelEndpointResolver endpoints, SpendGuard spendGuard) {
+    return new EmbeddingClientImpl(endpoints, spendGuard);
   }
 
   /** No cache: every call runs the tool. */

@@ -1,4 +1,4 @@
-package com.krizaka.orazaka.core.infrastructure.adapter.ai;
+package com.krizaka.orazaka.adapter.springai.client;
 
 import com.krizaka.orazaka.core.application.engine.Engine;
 import com.krizaka.orazaka.core.domain.model.chat.ChatRequest;
@@ -13,15 +13,13 @@ import java.util.Objects;
 import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.ollama.api.OllamaChatOptions;
 import org.springframework.ai.openai.OpenAiChatOptions;
-import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
 /**
  * Outbound adapter implementing {@link ChatGeneratorClient} by delegating inference execution to
  * the core Engine.
  */
-@Component
-class ChatGeneratorClientImpl implements ChatGeneratorClient {
+public class ChatGeneratorClientImpl implements ChatGeneratorClient {
 
   private final Engine engine;
 

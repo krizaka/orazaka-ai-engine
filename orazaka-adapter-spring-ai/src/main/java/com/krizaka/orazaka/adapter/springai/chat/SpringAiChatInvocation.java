@@ -1,6 +1,6 @@
 package com.krizaka.orazaka.adapter.springai.chat;
 
-import com.krizaka.orazaka.core.application.pipeline.EnginePipelineBridge.SpringPreparedPrompt;
+import com.krizaka.orazaka.adapter.springai.prompt.SpringPreparedPrompt;
 import com.krizaka.orazaka.core.application.routing.DynamicChatModelFactory;
 import com.krizaka.orazaka.core.domain.model.chat.ChatCompletion;
 import com.krizaka.orazaka.core.domain.model.chat.ChatRoute;

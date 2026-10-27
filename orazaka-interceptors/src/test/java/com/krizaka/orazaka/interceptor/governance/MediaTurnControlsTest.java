@@ -9,10 +9,10 @@ import com.krizaka.billing.domain.model.CreditHoldResponse;
 import com.krizaka.billing.domain.model.EntitlementSnapshot;
 import com.krizaka.billing.domain.port.CreditAuthorizationClient;
 import com.krizaka.billing.domain.port.EntitlementProvider;
+import com.krizaka.orazaka.adapter.springai.prompt.SpringPreparedPrompt;
 import com.krizaka.orazaka.core.application.engine.Engine;
 import com.krizaka.orazaka.core.application.interceptor.PromptContextInterceptor;
 import com.krizaka.orazaka.core.application.pipeline.*;
-import com.krizaka.orazaka.core.application.pipeline.EnginePipelineBridge.SpringPreparedPrompt;
 import com.krizaka.orazaka.core.application.routing.SemanticRoutingEngine;
 import com.krizaka.orazaka.core.domain.event.ChatCompletedEvent;
 import com.krizaka.orazaka.core.domain.model.Context;
@@ -235,7 +235,8 @@ class MediaTurnControlsTest {
             catalog,
             mock(PlatformMcpServerProvider.class),
             mock(UserMcpServerProvider.class),
-            mock(ToolRegistry.class));
+            mock(ToolRegistry.class),
+            new com.krizaka.orazaka.adapter.springai.prompt.SpringAiPromptAssembly());
     UserCredentialsProvider userCredentials = mock(UserCredentialsProvider.class);
     return new Engine(
         over(model),

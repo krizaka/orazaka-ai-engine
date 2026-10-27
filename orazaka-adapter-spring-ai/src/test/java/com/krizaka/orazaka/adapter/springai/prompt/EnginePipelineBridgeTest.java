@@ -1,11 +1,11 @@
-package com.krizaka.orazaka.core.application.pipeline;
+package com.krizaka.orazaka.adapter.springai.prompt;
 
 import static com.krizaka.orazaka.test.TestConstants.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-import com.krizaka.orazaka.core.application.ChatModelInvocation;
 import com.krizaka.orazaka.core.application.interceptor.PromptContextInterceptor;
+import com.krizaka.orazaka.core.application.pipeline.*;
 import com.krizaka.orazaka.core.domain.model.Context;
 import com.krizaka.orazaka.core.domain.model.PromptContext;
 import com.krizaka.orazaka.core.domain.model.chat.EngineChatOptions;
@@ -59,7 +59,11 @@ class EnginePipelineBridgeTest {
   void setUp() {
     enginePipelineBridge =
         new EnginePipelineBridge(
-            modelCatalogProvider, platformMcpServerProvider, userMcpServerProvider, toolRegistry);
+            modelCatalogProvider,
+            platformMcpServerProvider,
+            userMcpServerProvider,
+            toolRegistry,
+            new SpringAiPromptAssembly());
   }
 
   @Nested
@@ -284,10 +288,14 @@ class EnginePipelineBridgeTest {
       var request = new InternalChatRequest(TEST, messages, null, Context.anonymous());
       var result = enginePipelineBridge.compileContext(request, null, PROVIDER_OLLAMA, List.of());
 
-      assertEquals(4, ChatModelInvocation.spring(result.toPrompt()).getInstructions().size());
+      assertEquals(4, ((SpringPreparedPrompt) result.toPrompt()).prompt().getInstructions().size());
       assertEquals(
           "sys-msg",
-          ChatModelInvocation.spring(result.toPrompt()).getInstructions().getFirst().getText());
+          ((SpringPreparedPrompt) result.toPrompt())
+              .prompt()
+              .getInstructions()
+              .getFirst()
+              .getText());
     }
 
     @Test
@@ -305,8 +313,10 @@ class EnginePipelineBridgeTest {
           enginePipelineBridge.compileContext(request, pipeline, PROVIDER_OLLAMA, List.of());
 
       assertInstanceOf(
-          OllamaChatOptions.class, ChatModelInvocation.spring(result.toPrompt()).getOptions());
-      var options = (OllamaChatOptions) ChatModelInvocation.spring(result.toPrompt()).getOptions();
+          OllamaChatOptions.class,
+          ((SpringPreparedPrompt) result.toPrompt()).prompt().getOptions());
+      var options =
+          (OllamaChatOptions) ((SpringPreparedPrompt) result.toPrompt()).prompt().getOptions();
       assertEquals("llama3.1:8b", options.getModel());
       assertEquals(0.3, options.getTemperature());
     }
@@ -326,7 +336,8 @@ class EnginePipelineBridgeTest {
       var result =
           enginePipelineBridge.compileContext(request, pipeline, PROVIDER_OLLAMA, List.of());
 
-      var options = (OllamaChatOptions) ChatModelInvocation.spring(result.toPrompt()).getOptions();
+      var options =
+          (OllamaChatOptions) ((SpringPreparedPrompt) result.toPrompt()).prompt().getOptions();
       assertEquals("custom-model", options.getModel());
     }
 
@@ -336,19 +347,21 @@ class EnginePipelineBridgeTest {
       // Test ollama
       var request1 = InternalChatRequest.simple(TEST);
       var result1 = enginePipelineBridge.compileContext(request1, null, PROVIDER_OLLAMA, List.of());
-      var opt1 = (OllamaChatOptions) ChatModelInvocation.spring(result1.toPrompt()).getOptions();
+      var opt1 =
+          (OllamaChatOptions) ((SpringPreparedPrompt) result1.toPrompt()).prompt().getOptions();
       assertEquals("llama3.1:8b", opt1.getModel());
       assertEquals(0.7, opt1.getTemperature());
 
       // Test openai (returns OpenAI default options)
       var result2 = enginePipelineBridge.compileContext(request1, null, PROVIDER_OPENAI, List.of());
-      var opt2 = (OpenAiChatOptions) ChatModelInvocation.spring(result2.toPrompt()).getOptions();
+      var opt2 =
+          (OpenAiChatOptions) ((SpringPreparedPrompt) result2.toPrompt()).prompt().getOptions();
       assertNotNull(opt2);
       assertEquals(0.7, opt2.getTemperature());
 
       // Test custom default
       var result3 = enginePipelineBridge.compileContext(request1, null, "custom", List.of());
-      var opt3 = ChatModelInvocation.spring(result3.toPrompt()).getOptions();
+      var opt3 = ((SpringPreparedPrompt) result3.toPrompt()).prompt().getOptions();
       assertInstanceOf(DefaultChatOptions.class, opt3);
       assertEquals(0.7, opt3.getTemperature());
     }
@@ -361,7 +374,8 @@ class EnginePipelineBridgeTest {
           new InternalChatRequest(TEST, List.of(), wrap(ollamaOptions), Context.anonymous());
       var result = enginePipelineBridge.compileContext(request, null, PROVIDER_OLLAMA, List.of());
 
-      var options = (OllamaChatOptions) ChatModelInvocation.spring(result.toPrompt()).getOptions();
+      var options =
+          (OllamaChatOptions) ((SpringPreparedPrompt) result.toPrompt()).prompt().getOptions();
       assertEquals("llama3.1:8b", options.getModel());
       assertEquals(0.9, options.getTemperature());
     }
@@ -379,7 +393,7 @@ class EnginePipelineBridgeTest {
       var result =
           enginePipelineBridge.compileContext(
               request, null, PROVIDER_OLLAMA, List.of(mockInterceptor));
-      assertEquals(mockOptions, ChatModelInvocation.spring(result.toPrompt()).getOptions());
+      assertEquals(mockOptions, ((SpringPreparedPrompt) result.toPrompt()).prompt().getOptions());
     }
 
     @Test
@@ -461,7 +475,8 @@ class EnginePipelineBridgeTest {
       var result = enginePipelineBridge.compileContext(request, null, PROVIDER_OLLAMA, List.of());
 
       assertEquals("test prompt", result.promptText());
-      var userMsg = ChatModelInvocation.spring(result.toPrompt()).getInstructions().getFirst();
+      var userMsg =
+          ((SpringPreparedPrompt) result.toPrompt()).prompt().getInstructions().getFirst();
       assertInstanceOf(UserMessage.class, userMsg);
       var mediaList = ((UserMessage) userMsg).getMedia();
       assertEquals(1, mediaList.size());
@@ -481,7 +496,8 @@ class EnginePipelineBridgeTest {
 
       // The pipeline was told this turn carried no media. An image lifted out of its output would
       // reach the model behind every guard that passed the turn as text.
-      var userMsg = ChatModelInvocation.spring(result.toPrompt()).getInstructions().getFirst();
+      var userMsg =
+          ((SpringPreparedPrompt) result.toPrompt()).prompt().getInstructions().getFirst();
       assertInstanceOf(UserMessage.class, userMsg);
       assertTrue(((UserMessage) userMsg).getMedia().isEmpty());
     }
@@ -493,7 +509,8 @@ class EnginePipelineBridgeTest {
       var result = enginePipelineBridge.compileContext(request, null, PROVIDER_OLLAMA, List.of());
 
       assertEquals("test prompt", result.promptText());
-      var userMsg = ChatModelInvocation.spring(result.toPrompt()).getInstructions().getFirst();
+      var userMsg =
+          ((SpringPreparedPrompt) result.toPrompt()).prompt().getInstructions().getFirst();
       assertInstanceOf(UserMessage.class, userMsg);
       assertTrue(((UserMessage) userMsg).getMedia().isEmpty());
     }
@@ -520,11 +537,13 @@ class EnginePipelineBridgeTest {
 
       var res1 = enginePipelineBridge.compileContext(request, null, "anthropic", List.of());
       assertInstanceOf(
-          AnthropicChatOptions.class, ChatModelInvocation.spring(res1.toPrompt()).getOptions());
+          AnthropicChatOptions.class,
+          ((SpringPreparedPrompt) res1.toPrompt()).prompt().getOptions());
 
       var res2 = enginePipelineBridge.compileContext(request, null, "gemini", List.of());
       assertInstanceOf(
-          GoogleGenAiChatOptions.class, ChatModelInvocation.spring(res2.toPrompt()).getOptions());
+          GoogleGenAiChatOptions.class,
+          ((SpringPreparedPrompt) res2.toPrompt()).prompt().getOptions());
     }
   }
 
@@ -536,7 +555,7 @@ class EnginePipelineBridgeTest {
     @DisplayName("returns same prompt when options is null")
     void returnsPromptWhenNoOptions() {
       var prompt = new org.springframework.ai.chat.prompt.Prompt(TEST);
-      var result = EnginePipelineBridge.removeTools(prompt);
+      var result = SpringPreparedPrompt.removeTools(prompt);
       assertSame(prompt, result);
     }
 
@@ -546,7 +565,7 @@ class EnginePipelineBridgeTest {
       var options =
           OllamaChatOptions.builder().model("model-x").temperature(0.5).numPredict(100).build();
       var prompt = new org.springframework.ai.chat.prompt.Prompt(TEST, options);
-      var result = EnginePipelineBridge.removeTools(prompt);
+      var result = SpringPreparedPrompt.removeTools(prompt);
 
       var cleanOptions = (OllamaChatOptions) result.getOptions();
       assertEquals("model-x", cleanOptions.getModel());
@@ -560,7 +579,7 @@ class EnginePipelineBridgeTest {
       var options =
           OpenAiChatOptions.builder().model("model-y").temperature(0.6).maxTokens(200).build();
       var prompt = new org.springframework.ai.chat.prompt.Prompt(TEST, options);
-      var result = EnginePipelineBridge.removeTools(prompt);
+      var result = SpringPreparedPrompt.removeTools(prompt);
 
       var cleanOptions = (OpenAiChatOptions) result.getOptions();
       assertEquals("model-y", cleanOptions.getModel());
@@ -573,7 +592,7 @@ class EnginePipelineBridgeTest {
     void returnsOtherOptionsUnchanged() {
       var options = ChatOptions.builder().build();
       var prompt = new org.springframework.ai.chat.prompt.Prompt(TEST, options);
-      var result = EnginePipelineBridge.removeTools(prompt);
+      var result = SpringPreparedPrompt.removeTools(prompt);
       assertSame(options, result.getOptions());
     }
   }

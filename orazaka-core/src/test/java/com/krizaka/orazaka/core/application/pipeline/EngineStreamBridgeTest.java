@@ -6,8 +6,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 import com.krizaka.orazaka.core.application.ChatModelInvocation;
+import com.krizaka.orazaka.core.application.SpringPreparedPrompt;
 import com.krizaka.orazaka.core.application.interceptor.PromptContextInterceptor;
-import com.krizaka.orazaka.core.application.pipeline.EnginePipelineBridge.SpringPreparedPrompt;
 import com.krizaka.orazaka.core.domain.event.ChatCompletedEvent;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatResponse;

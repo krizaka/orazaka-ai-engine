@@ -1,11 +1,11 @@
-package com.krizaka.orazaka.core.application.pipeline;
+package com.krizaka.orazaka.adapter.springai.prompt;
 
 import com.krizaka.orazaka.core.domain.model.chat.EngineChatOptions;
 import com.krizaka.orazaka.core.domain.model.chat.EngineMessage;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
-import com.krizaka.orazaka.core.infrastructure.support.CoreException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
@@ -19,9 +19,9 @@ import org.springframework.util.MimeTypeUtils;
  * Compiles Spring AI {@link Message} lists from {@link InternalChatRequest} history and the current
  * prompt text. Handles media attachment embedding for vision-capable models.
  *
- * <p>Extracted from {@link EnginePipelineBridge} to keep the bridge focused on orchestration.
+ * <p>Extracted from the pipeline bridge to keep the bridge focused on orchestration.
  */
-final class MessageCompiler {
+public final class MessageCompiler {
 
   private MessageCompiler() {}
 
@@ -30,15 +30,11 @@ final class MessageCompiler {
    *
    * @param request The incoming chat request.
    * @param promptText The resolved prompt text (after pipeline refinement).
-   * @param mediaResult The extracted media result from the raw query.
-   * @param hasMedia Whether the raw query contained embedded media.
+   * @param image The image the raw query carried, if any.
    * @return Ordered list of Spring AI messages ready for prompt assembly.
    */
-  static List<Message> compile(
-      InternalChatRequest request,
-      String promptText,
-      Base64MediaExtractor.ExtractionResult mediaResult,
-      boolean hasMedia) {
+  public static List<Message> compile(
+      InternalChatRequest request, String promptText, Optional<byte[]> image) {
 
     List<Message> messages = new ArrayList<>();
     if (request.messages() != null) {
@@ -51,8 +47,8 @@ final class MessageCompiler {
       return messages;
     }
 
-    if (hasMedia) {
-      appendMediaMessage(messages, promptText, mediaResult);
+    if (image.isPresent()) {
+      appendMediaMessage(messages, promptText, image.get());
     } else {
       // Text, and only text. Media reaches the model only from the user's own prompt, where the
       // engine counted it before the pipeline ran. Lifting a marker out of the REFINED prompt — as
@@ -71,7 +67,7 @@ final class MessageCompiler {
    * @return The corresponding Spring AI message ({@link SystemMessage}, {@link AssistantMessage},
    *     or {@link UserMessage}).
    */
-  static Message mapMessage(InternalChatRequest.ChatMessage msg) {
+  public static Message mapMessage(InternalChatRequest.ChatMessage msg) {
     return switch (msg.role().toLowerCase()) {
       case "system" -> new SystemMessage(msg.content());
       case "assistant" -> new AssistantMessage(msg.content());
@@ -83,7 +79,7 @@ final class MessageCompiler {
    * The engine view of library messages. Each keeps the message it came from, so converting back
    * loses nothing (media, tool answers).
    */
-  static List<EngineMessage> toEngine(List<Message> messages) {
+  public static List<EngineMessage> toEngine(List<Message> messages) {
     List<EngineMessage> engine = new ArrayList<>(messages.size());
     for (Message message : messages) {
       String type = message.getMessageType().getValue();
@@ -101,7 +97,7 @@ final class MessageCompiler {
   }
 
   /** The library messages of the engine view: the original where there is one, else built. */
-  static List<Message> toSpring(List<EngineMessage> messages) {
+  public static List<Message> toSpring(List<EngineMessage> messages) {
     List<Message> spring = new ArrayList<>(messages.size());
     for (EngineMessage message : messages) {
       if (message.nativeMessage() instanceof Message original) {
@@ -132,7 +128,7 @@ final class MessageCompiler {
   }
 
   /** The engine view of library options, which it keeps for the way back. */
-  static EngineChatOptions toEngine(ChatOptions options) {
+  public static EngineChatOptions toEngine(ChatOptions options) {
     return options == null
         ? null
         : new EngineChatOptions(
@@ -146,7 +142,7 @@ final class MessageCompiler {
    * context) survive and the options the caller was handed are not mutated; with no original the
    * options are built from the settings.
    */
-  static ChatOptions toSpring(EngineChatOptions options) {
+  public static ChatOptions toSpring(EngineChatOptions options) {
     if (options == null) {
       return null;
     }
@@ -187,15 +183,8 @@ final class MessageCompiler {
   }
 
   /** Appends a user message with an image media attachment. */
-  private static void appendMediaMessage(
-      List<Message> messages,
-      String promptText,
-      Base64MediaExtractor.ExtractionResult mediaResult) {
-    byte[] imageBytes =
-        mediaResult
-            .imageBytes()
-            .orElseThrow(() -> new CoreException("Expected media bytes but none found"));
-    Media media = new Media(MimeTypeUtils.IMAGE_PNG, new ByteArrayResource(imageBytes));
+  private static void appendMediaMessage(List<Message> messages, String promptText, byte[] bytes) {
+    Media media = new Media(MimeTypeUtils.IMAGE_PNG, new ByteArrayResource(bytes));
     messages.add(UserMessage.builder().text(promptText).media(media).build());
   }
 }

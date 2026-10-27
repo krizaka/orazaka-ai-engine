@@ -1,15 +1,13 @@
-package com.krizaka.orazaka.core.application.pipeline;
+package com.krizaka.orazaka.adapter.springai.prompt;
 
 import java.util.List;
 import java.util.Objects;
 import org.springframework.ai.chat.prompt.ChatOptions;
-import org.springframework.stereotype.Component;
 
 /**
  * Spring-managed registry that delegates to registered {@link PipelineOptionsStrategy} instances
  * for building provider-specific options.
  */
-@Component
 public class PipelineOptionsRegistry {
 
   private final List<PipelineOptionsStrategy> strategies;

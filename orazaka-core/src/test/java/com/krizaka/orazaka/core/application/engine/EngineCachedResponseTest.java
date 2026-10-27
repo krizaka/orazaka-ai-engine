@@ -112,7 +112,11 @@ class EngineCachedResponseTest {
             null);
     var bridge =
         new EnginePipelineBridge(
-            modelCatalogProvider, platformMcpServerProvider, userMcpServerProvider, toolRegistry);
+            modelCatalogProvider,
+            platformMcpServerProvider,
+            userMcpServerProvider,
+            toolRegistry,
+            new com.krizaka.orazaka.core.application.TestPromptAssembly());
     var streamBridge =
         new EngineStreamBridge(
             ChatModelInvocation.of(chatModel, modelFactory), bridge, credentialsProvider);

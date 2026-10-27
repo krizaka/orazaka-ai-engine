@@ -1,4 +1,4 @@
-package com.krizaka.orazaka.core.application.pipeline;
+package com.krizaka.orazaka.adapter.springai.prompt;
 
 import org.springframework.ai.chat.prompt.ChatOptions;
 

@@ -1,7 +1,7 @@
 package com.krizaka.orazaka.adapter.springai.chat;
 
+import com.krizaka.orazaka.adapter.springai.prompt.PipelineOptionsRegistry;
 import com.krizaka.orazaka.adapter.springai.response.SpringAiResponses;
-import com.krizaka.orazaka.core.application.pipeline.PipelineOptionsRegistry;
 import com.krizaka.orazaka.core.domain.model.chat.EngineMessage;
 import com.krizaka.orazaka.core.domain.ports.outbound.ProviderChatClient;
 import java.util.*;

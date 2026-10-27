@@ -3,6 +3,7 @@ package com.krizaka.orazaka.core.application.pipeline;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.krizaka.orazaka.core.domain.model.Context;
+import com.krizaka.orazaka.core.domain.model.chat.EngineChatOptions;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
 import java.util.List;
 import java.util.Optional;
@@ -11,6 +12,8 @@ import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.chat.prompt.ChatOptions;
+import org.springframework.ai.model.tool.ToolCallingChatOptions;
 
 class MessageCompilerTest {
 
@@ -103,5 +106,49 @@ class MessageCompilerTest {
     assertInstanceOf(UserMessage.class, result.get(1));
     assertInstanceOf(AssistantMessage.class, result.get(2));
     assertInstanceOf(UserMessage.class, result.get(3));
+  }
+
+  @Test
+  void toSpring_untouchedEngineOptions_returnsTheOriginalObject() {
+    ChatOptions original = ChatOptions.builder().model("a").temperature(0.2).maxTokens(100).build();
+
+    assertSame(original, MessageCompiler.toSpring(MessageCompiler.toEngine(original)));
+  }
+
+  @Test
+  void toSpring_editedSettings_reachTheNativeOptionsAndProviderSettingsSurvive() {
+    ToolCallingChatOptions original =
+        ToolCallingChatOptions.builder()
+            .model("a")
+            .temperature(0.2)
+            .maxTokens(100)
+            .toolContext("tenant", "t-1")
+            .build();
+    EngineChatOptions engine = MessageCompiler.toEngine(original);
+
+    EngineChatOptions edited = new EngineChatOptions("b", 0.9, 50, engine.nativeOptions());
+    ChatOptions result = MessageCompiler.toSpring(edited);
+
+    assertEquals("b", result.getModel());
+    assertEquals(0.9, result.getTemperature());
+    assertEquals(50, result.getMaxTokens());
+    assertInstanceOf(ToolCallingChatOptions.class, result);
+    assertEquals("t-1", ((ToolCallingChatOptions) result).getToolContext().get("tenant"));
+    // the options the interceptor was handed are not mutated behind its back
+    assertEquals("a", original.getModel());
+  }
+
+  @Test
+  void toSpring_noNativeOptions_buildsFromTheSettings() {
+    ChatOptions result = MessageCompiler.toSpring(new EngineChatOptions("m", 0.5, 10));
+
+    assertEquals("m", result.getModel());
+    assertEquals(0.5, result.getTemperature());
+    assertEquals(10, result.getMaxTokens());
+  }
+
+  @Test
+  void toSpring_nullStaysNull() {
+    assertNull(MessageCompiler.toSpring((EngineChatOptions) null));
   }
 }

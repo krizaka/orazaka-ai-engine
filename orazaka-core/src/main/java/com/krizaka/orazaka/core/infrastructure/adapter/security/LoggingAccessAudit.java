@@ -8,13 +8,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Writes a refusal as one structured line on the {@code orazaka.audit.access} logger: tenant,
- * subject, action, resource and reason. A host that keeps audit lines in a store replaces this bean
- * (registered by the adapter's auto-configuration, only when the host has none).
+ * Writes a refusal as one structured line on this class's logger: tenant, subject, action, resource
+ * and reason. A host that keeps audit lines in a store replaces this bean (registered by the
+ * adapter's auto-configuration, only when the host has none).
  */
 public class LoggingAccessAudit implements AccessAudit {
 
-  private static final Logger audit = LoggerFactory.getLogger("orazaka.audit.access");
+  private static final Logger audit = LoggerFactory.getLogger(LoggingAccessAudit.class);
 
   @Override
   public void denied(Optional<Actor> actor, String action, String resource, Reason reason) {

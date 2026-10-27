@@ -1,12 +1,9 @@
-package com.krizaka.orazaka.core.infrastructure.config;
+package com.krizaka.orazaka.adapter.springai.prompt;
 
-import com.krizaka.orazaka.core.application.pipeline.PipelineOptionsStrategy;
 import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.ollama.api.OllamaChatOptions;
-import org.springframework.stereotype.Component;
 
 /** Ollama-specific options strategy implementation. */
-@Component
 public class OllamaOptionsStrategy implements PipelineOptionsStrategy {
 
   @Override

@@ -108,7 +108,11 @@ class EngineTest {
 
     pipelineBridge =
         new EnginePipelineBridge(
-            modelCatalogProvider, platformMcpServerProvider, userMcpServerProvider, toolRegistry);
+            modelCatalogProvider,
+            platformMcpServerProvider,
+            userMcpServerProvider,
+            toolRegistry,
+            new com.krizaka.orazaka.core.application.TestPromptAssembly());
     streamBridge =
         new EngineStreamBridge(
             ChatModelInvocation.of(chatModel, modelFactory), pipelineBridge, credentialsProvider);
@@ -812,8 +816,8 @@ class EngineTest {
             PROVIDER_OLLAMA,
             SESSION_1,
             PROMPT_HELLO_CAP,
-            new com.krizaka.orazaka.core.application.pipeline.EnginePipelineBridge
-                .SpringPreparedPrompt(new Prompt(PROMPT_HELLO_CAP)),
+            new com.krizaka.orazaka.core.application.SpringPreparedPrompt(
+                new Prompt(PROMPT_HELLO_CAP)),
             List.of(mockCloseable1, mockCloseable2));
 
     when(mockBridge.compileContext(any(), any(), any(), any())).thenReturn(compiledCtx);

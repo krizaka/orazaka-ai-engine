@@ -1,6 +1,5 @@
 package com.krizaka.orazaka.core.application;
 
-import com.krizaka.orazaka.core.application.pipeline.EnginePipelineBridge.SpringPreparedPrompt;
 import com.krizaka.orazaka.core.application.routing.DynamicChatModelFactory;
 import com.krizaka.orazaka.core.domain.model.chat.ChatCompletion;
 import com.krizaka.orazaka.core.domain.model.chat.ChatRoute;

@@ -6,13 +6,13 @@ import static org.mockito.Mockito.mock;
 import com.krizaka.orazaka.adapter.springai.chat.SpringAiChatInvocation;
 import com.krizaka.orazaka.adapter.springai.client.ChatGeneratorClientImpl;
 import com.krizaka.orazaka.adapter.springai.client.EmbeddingClientImpl;
+import com.krizaka.orazaka.adapter.springai.prompt.PipelineOptionsRegistry;
 import com.krizaka.orazaka.adapter.springai.provider.SpringAiDynamicChatModelFactory;
 import com.krizaka.orazaka.adapter.springai.routing.DynamicModelRouter;
 import com.krizaka.orazaka.adapter.springai.routing.RoutedChatModel;
 import com.krizaka.orazaka.adapter.springai.routing.RoutedTextToSpeechModel;
 import com.krizaka.orazaka.adapter.springai.routing.UniversalProxyChatProvider;
 import com.krizaka.orazaka.core.application.engine.Engine;
-import com.krizaka.orazaka.core.application.pipeline.PipelineOptionsRegistry;
 import com.krizaka.orazaka.core.application.routing.DynamicChatModelFactory;
 import com.krizaka.orazaka.core.domain.ports.outbound.ChatGeneratorClient;
 import com.krizaka.orazaka.core.domain.ports.outbound.ChatInvocation;
@@ -51,6 +51,19 @@ class SpringAiAdapterAutoConfigurationTest {
           assertThat(context)
               .getBean(EmbeddingClient.class)
               .isInstanceOf(EmbeddingClientImpl.class);
+        });
+  }
+
+  @Test
+  void thePromptAssemblyIsRegisteredWithItsOptionsRegistry() {
+    runner.run(
+        context -> {
+          assertThat(context)
+              .hasSingleBean(com.krizaka.orazaka.core.domain.ports.outbound.PromptAssembly.class);
+          assertThat(context)
+              .getBean(com.krizaka.orazaka.core.domain.ports.outbound.PromptAssembly.class)
+              .isInstanceOf(
+                  com.krizaka.orazaka.adapter.springai.prompt.SpringAiPromptAssembly.class);
         });
   }
 

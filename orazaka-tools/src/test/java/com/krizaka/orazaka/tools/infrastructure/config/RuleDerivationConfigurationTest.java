@@ -211,10 +211,14 @@ class RuleDerivationConfigurationTest {
     }
 
     @Override
-    public void saveDocument(FetchedDocument document, String requestedUrl, UUID sourceId) {}
+    public void saveDocument(FetchedDocument document, String requestedUrl, UUID sourceId) {
+      // intentionally empty: test double
+    }
 
     @Override
-    public void audit(FetchAudit audit) {}
+    public void audit(FetchAudit audit) {
+      // intentionally empty: test double
+    }
   }
 
   private static final class NoCache implements LawRetrievalCache {
@@ -225,6 +229,8 @@ class RuleDerivationConfigurationTest {
     }
 
     @Override
-    public void save(StoredRetrieval retrieval) {}
+    public void save(StoredRetrieval retrieval) {
+      // intentionally empty: test double
+    }
   }
 }

@@ -87,25 +87,33 @@ final class WorkerRegex {
         afterQuantifier = false;
         continue;
       }
+      Optional<String> problem = charProblem(pattern, i, inClass, afterQuantifier);
+      if (problem.isPresent()) {
+        return problem;
+      }
       if (inClass) {
-        if (c == '&' && i + 1 < pattern.length() && pattern.charAt(i + 1) == '&') {
-          return Optional.of(
-              "intersects classes with &&, which the worker reads as two characters");
-        }
         inClass = c != ']';
-        continue;
+      } else {
+        inClass = c == '[';
+        afterQuantifier = c == '*' || c == '+' || c == '?' || c == '}';
       }
-      if (c == '+' && afterQuantifier) {
-        return Optional.of("uses a possessive quantifier, which the worker may not read");
-      }
-      Optional<String> group = groupProblem(pattern.substring(i), i);
-      if (group.isPresent()) {
-        return group;
-      }
-      inClass = c == '[';
-      afterQuantifier = c == '*' || c == '+' || c == '?' || c == '}';
     }
     return Optional.empty();
+  }
+
+  private static Optional<String> charProblem(
+      String pattern, int i, boolean inClass, boolean afterQuantifier) {
+    char c = pattern.charAt(i);
+    if (inClass) {
+      boolean intersects = c == '&' && i + 1 < pattern.length() && pattern.charAt(i + 1) == '&';
+      return intersects
+          ? Optional.of("intersects classes with &&, which the worker reads as two characters")
+          : Optional.empty();
+    }
+    if (c == '+' && afterQuantifier) {
+      return Optional.of("uses a possessive quantifier, which the worker may not read");
+    }
+    return groupProblem(pattern.substring(i), i);
   }
 
   private static Optional<String> groupProblem(String rest, int at) {
@@ -140,13 +148,10 @@ final class WorkerRegex {
         groups.push(new boolean[1]);
         i++;
       } else if (c == ')' && groups.size() > 1) {
-        boolean bodyUnbounded = groups.pop()[0];
-        int after = unboundedQuantifierEnd(pattern, i + 1);
-        if (bodyUnbounded && after > i + 1) {
+        i = closeGroup(groups, pattern, i);
+        if (i < 0) {
           return true;
         }
-        groups.peek()[0] |= bodyUnbounded || after > i + 1;
-        i = Math.max(after, i + 1);
       } else {
         int after = unboundedQuantifierEnd(pattern, i);
         if (after > i) {
@@ -158,6 +163,19 @@ final class WorkerRegex {
       }
     }
     return false;
+  }
+
+  /**
+   * Pops the group closed at {@code at}: the next index, or -1 when it repeats an unbounded body.
+   */
+  private static int closeGroup(java.util.ArrayDeque<boolean[]> groups, String pattern, int at) {
+    boolean bodyUnbounded = groups.pop()[0];
+    int after = unboundedQuantifierEnd(pattern, at + 1);
+    if (bodyUnbounded && after > at + 1) {
+      return -1;
+    }
+    groups.peek()[0] |= bodyUnbounded || after > at + 1;
+    return Math.max(after, at + 1);
   }
 
   /** The index after an unbounded quantifier ({@code *}, {@code +}, {@code {n,}}) at {@code at}. */

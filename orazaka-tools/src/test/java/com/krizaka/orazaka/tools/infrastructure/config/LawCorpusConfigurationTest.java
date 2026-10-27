@@ -107,10 +107,14 @@ class LawCorpusConfigurationTest {
           held.add(providerKey);
           return new ResearchMeter.Hold() {
             @Override
-            public void settle() {}
+            public void settle() {
+              // intentionally empty: test double
+            }
 
             @Override
-            public void release(String reason) {}
+            public void release(String reason) {
+              // intentionally empty: test double
+            }
           };
         };
     LawArticleQuery query = new LawArticleQuery("QC", "CCQ-1991", "1942", "fr", "2025-06-01", null);
@@ -169,7 +173,9 @@ class LawCorpusConfigurationTest {
     }
 
     @Override
-    public void finishImport(UUID importId, LawImportResult result) {}
+    public void finishImport(UUID importId, LawImportResult result) {
+      // intentionally empty: test double
+    }
 
     @Override
     public Optional<String> lastEtag(String sourceKey, String datasetUrl) {
@@ -182,17 +188,25 @@ class LawCorpusConfigurationTest {
     }
 
     @Override
-    public void add(UUID importId, String sourceKey, LawArticle article, Instant seenAt) {}
+    public void add(UUID importId, String sourceKey, LawArticle article, Instant seenAt) {
+      // intentionally empty: test double
+    }
 
     @Override
-    public void replace(UUID importId, LawArticle previous, LawArticle next, Instant seenAt) {}
+    public void replace(UUID importId, LawArticle previous, LawArticle next, Instant seenAt) {
+      // intentionally empty: test double
+    }
 
     @Override
-    public void close(LawArticle previous, LocalDate inForceTo) {}
+    public void close(LawArticle previous, LocalDate inForceTo) {
+      // intentionally empty: test double
+    }
 
     @Override
     public void touch(
-        String jurisdiction, String instrument, Collection<LawArticle> articles, Instant seenAt) {}
+        String jurisdiction, String instrument, Collection<LawArticle> articles, Instant seenAt) {
+      // intentionally empty: test double
+    }
 
     @Override
     public Optional<LawArticleVersion> inForceOn(

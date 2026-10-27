@@ -1,15 +1,27 @@
 package com.krizaka.orazaka.interceptor.validation;
 
 import com.krizaka.orazaka.core.application.interceptor.PromptContextInterceptor;
+import com.krizaka.orazaka.core.application.pipeline.PipelineShortCircuitException;
 import com.krizaka.orazaka.core.domain.model.AssertionContract;
+import com.krizaka.orazaka.core.domain.model.PromptContext;
 import com.krizaka.orazaka.core.domain.model.ValidationPipelineConfiguration;
 import com.krizaka.orazaka.core.domain.model.ValidationStepType;
-import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
+import com.krizaka.orazaka.core.domain.model.control.ControlVerdict;
+import com.krizaka.orazaka.core.domain.model.control.ControlVerdictRecord;
+import com.krizaka.orazaka.core.domain.model.control.DriftAdjustment;
+import com.krizaka.orazaka.core.domain.model.control.HumanEscalation;
+import com.krizaka.orazaka.core.domain.model.control.Validated;
+import com.krizaka.orazaka.core.domain.ports.outbound.CodeSandboxPort;
+import com.krizaka.orazaka.core.domain.ports.outbound.ControlVerdictRecorder;
 import com.krizaka.orazaka.core.domain.ports.outbound.TestShaperPort;
 import com.krizaka.orazaka.core.domain.ports.outbound.ValidationPipelineRepository;
+import java.time.Clock;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.messages.AssistantMessage;
@@ -43,6 +55,16 @@ import tools.jackson.databind.ObjectMapper;
  *       Tiers A and B pass, gracefully delegates to Tier C for final arbitration.
  * </ul>
  *
+ * <p><strong>Control loop (ADR-092, orazaka-ai-engine#116)</strong>: the interceptor decides in
+ * {@link #screenResponse}, before an answer is served. Each pass ends in a typed {@link
+ * ControlVerdict}: {@link Validated} serves the text; {@link DriftAdjustment} re-runs the step with
+ * the diff of what failed injected (so the next attempt never receives the input the failed one
+ * did); once the retries are spent, or when nothing can adjust, {@link HumanEscalation} refuses the
+ * turn with a {@link PipelineShortCircuitException} — an output that did not pass is never served.
+ * Every adjustment and escalation is recorded through the {@link ControlVerdictRecorder} (the
+ * outbox). Streamed answers leave chunk by chunk before the end and are not screened here (see
+ * orazaka-ai-engine#114).
+ *
  * <p>Tier execution order and enabled state are loaded dynamically from the {@link
  * ValidationPipelineRepository} database configuration. If the repository is unavailable, falls
  * back to the static {@link ClosedLoopValidationProperties} configuration.
@@ -67,16 +89,31 @@ public class ClosedLoopValidationInterceptor implements PromptContextInterceptor
           + " actionable value. Score from 0 (no value) to 10 (excellent). Respond with ONLY a JSON"
           + " object: {\"score\": N, \"strengths\": [\"...\"]}.";
 
+  /** The machine-readable refusal code of a {@link HumanEscalation}. */
+  public static final String ESCALATION_REASON = "control_escalation";
+
+  private static final Pattern CODE_FENCE =
+      Pattern.compile("```([\\w+#.-]*)[ \\t]*\\R(.*?)```", Pattern.DOTALL);
+  private static final int MAX_REASON_LENGTH = 500;
+
+  private static final String ADJUST_SYSTEM =
+      "You are correcting your own previous answer. A check rejected it. Return ONLY the corrected"
+          + " answer, in the same format as asked, with no commentary.";
+
   private final ClosedLoopValidationProperties properties;
   private final ChatModel chatModel;
   private final ValidationPipelineRepository validationPipelineRepository;
   private final TestShaperPort testShaperPort;
+  private final ControlVerdictRecorder verdictRecorder;
+  private final CodeSandboxPort sandbox;
+  private final Clock clock;
 
   /**
-   * Constructs a ClosedLoopValidationInterceptor with full 4-tier support.
+   * Constructs a ClosedLoopValidationInterceptor with full 4-tier support and no audit recorder.
    *
    * @param properties Configuration controlling which tiers are active (static fallback).
-   * @param chatModel ChatModel for Tier C semantic debate (nullable — Tier C degrades gracefully).
+   * @param chatModel ChatModel for Tier C debate and for adjusting a rejected answer (nullable —
+   *     Tier C degrades gracefully, a rejected answer then escalates at once).
    * @param validationPipelineRepository Repository for dynamic tier configuration (nullable —
    *     degrades to static config).
    * @param testShaperPort Tier D assertion generator (nullable — Tier D degrades gracefully).
@@ -86,11 +123,50 @@ public class ClosedLoopValidationInterceptor implements PromptContextInterceptor
       ChatModel chatModel,
       ValidationPipelineRepository validationPipelineRepository,
       TestShaperPort testShaperPort) {
+    this(
+        properties,
+        chatModel,
+        validationPipelineRepository,
+        testShaperPort,
+        null,
+        null,
+        Clock.systemUTC());
+  }
+
+  /**
+   * Constructs the full control loop.
+   *
+   * @param properties Configuration controlling which tiers are active (static fallback).
+   * @param chatModel ChatModel for Tier C and for adjusting a rejected answer (nullable).
+   * @param validationPipelineRepository Repository for dynamic tier configuration (nullable).
+   * @param testShaperPort Tier D assertion generator (nullable).
+   * @param verdictRecorder Where adjustments and escalations are persisted (nullable — not
+   *     persisted).
+   * @param sandbox Tier B sandbox adding to the built-in structural crash-test (nullable).
+   * @param clock The clock stamping the persisted verdicts.
+   */
+  public ClosedLoopValidationInterceptor(
+      ClosedLoopValidationProperties properties,
+      ChatModel chatModel,
+      ValidationPipelineRepository validationPipelineRepository,
+      TestShaperPort testShaperPort,
+      ControlVerdictRecorder verdictRecorder,
+      CodeSandboxPort sandbox,
+      Clock clock) {
     this.properties =
         Objects.requireNonNull(properties, "ClosedLoopValidationProperties must not be null");
     this.chatModel = chatModel;
     this.validationPipelineRepository = validationPipelineRepository;
     this.testShaperPort = testShaperPort;
+    this.verdictRecorder = verdictRecorder;
+    this.sandbox = sandbox;
+    this.clock = Objects.requireNonNull(clock, "clock must not be null");
+  }
+
+  /** A control: whatever it did not anticipate stops the turn instead of serving it unchecked. */
+  @Override
+  public boolean failsClosed() {
+    return true;
   }
 
   @Override
@@ -100,31 +176,154 @@ public class ClosedLoopValidationInterceptor implements PromptContextInterceptor
   }
 
   @Override
-  public void postProcess(InternalChatRequest request, String promptText, String responseText) {
+  public String screenResponse(PromptContext context, String responseText) {
     if (!properties.enabled() || responseText == null || responseText.isBlank()) {
-      return;
+      return responseText;
     }
 
     List<ValidationStepType> activeSteps = resolveActiveSteps();
     if (activeSteps.isEmpty()) {
       logger.debug("Closed-loop validation — No active tiers resolved. Skipping validation.");
-      return;
+      return responseText;
     }
 
-    String validated = responseText;
-    int attempt = 0;
+    String userPrompt = userPromptOf(context);
+    String runId = runIdOf(context);
+    String current = responseText;
 
-    while (attempt < properties.maxRetries()) {
-      if (validateAttempt(attempt, promptText, validated, activeSteps)) {
-        logger.debug("Closed-loop validation — All tiers passed on attempt {}.", attempt + 1);
-        return;
+    for (int attempt = 0; ; attempt++) {
+      Failure failure = firstFailure(userPrompt, current, activeSteps);
+      if (failure == null) {
+        ControlVerdict validated = new Validated(activeSteps);
+        logger.debug("Closed-loop validation — {} on attempt {}.", validated.reason(), attempt + 1);
+        return current;
       }
-      attempt++;
-    }
+      logger.warn(
+          "Tier {} — attempt {}/{}: {}",
+          failure.step().name(),
+          attempt + 1,
+          properties.maxRetries() + 1,
+          failure.issue());
 
-    logger.warn(
-        "Closed-loop validation — Exhausted {} retries. Yielding last validated response.",
-        properties.maxRetries());
+      String adjusted = null;
+      if (attempt < properties.maxRetries()) {
+        adjusted = adjust(userPrompt, current, failure);
+      }
+      if (adjusted == null) {
+        ControlVerdict escalation =
+            new HumanEscalation(failure.step(), failure.summary(), failure.issue(), attempt + 1);
+        record(runId, escalation);
+        throw new PipelineShortCircuitException(
+            getId(),
+            ESCALATION_REASON,
+            "The answer could not be validated (" + failure.step().name() + ") and was not served.",
+            null);
+      }
+      record(
+          runId, new DriftAdjustment(failure.step(), failure.summary(), failure.issue(), attempt));
+      current = adjusted;
+    }
+  }
+
+  /** The first failing tier, in order, or {@code null} when every active tier passes. */
+  private Failure firstFailure(
+      String promptText, String candidate, List<ValidationStepType> activeSteps) {
+    boolean tierAPass = true;
+    boolean tierBPass = true;
+
+    for (ValidationStepType step : activeSteps) {
+      Optional<String> issue =
+          switch (step) {
+            case STRUCTURAL_A -> {
+              Optional<String> result = executeTierA(candidate);
+              tierAPass = result.isEmpty();
+              yield result;
+            }
+            case SANDBOX_B -> {
+              Optional<String> result = executeTierB(candidate);
+              tierBPass = result.isEmpty();
+              yield result;
+            }
+            case SEMANTIC_C -> executeTierC(promptText, candidate);
+            case TDR_D -> executeTierD(promptText, candidate, tierAPass, tierBPass);
+          };
+      if (issue.isPresent()) {
+        return new Failure(step, issue.get());
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Re-runs the step with the diff of what failed injected. The prompt of the new attempt carries
+   * the previous answer and the diff, so it differs from the one that failed.
+   *
+   * @return the adjusted answer, or {@code null} when nothing can adjust it (no model, a failure,
+   *     an empty answer)
+   */
+  private String adjust(String userPrompt, String previous, Failure failure) {
+    if (chatModel == null) {
+      return null;
+    }
+    try {
+      String instruction =
+          "Original request:\n"
+              + userPrompt
+              + "\n\nYour previous answer:\n"
+              + previous
+              + "\n\nIt failed the "
+              + failure.step().name()
+              + " check:\n"
+              + failure.issue()
+              + "\n\nCorrect it.";
+      ChatResponse response =
+          chatModel.call(
+              new Prompt(List.of(new SystemMessage(ADJUST_SYSTEM), new UserMessage(instruction))));
+      String text =
+          Optional.ofNullable(response)
+              .map(ChatResponse::getResult)
+              .map(Generation::getOutput)
+              .map(AssistantMessage::getText)
+              .orElse(null);
+      return text == null || text.isBlank() ? null : text;
+    } catch (RuntimeException e) {
+      logger.error("Closed-loop validation — the adjustment attempt failed; escalating.", e);
+      return null;
+    }
+  }
+
+  private void record(String runId, ControlVerdict verdict) {
+    if (verdictRecorder != null) {
+      verdictRecorder.record(ControlVerdictRecord.of(runId, verdict, clock.instant()));
+    }
+  }
+
+  private static String userPromptOf(PromptContext context) {
+    if (context == null) {
+      return "";
+    }
+    String refined = context.refinedPrompt();
+    return refined != null ? refined : String.valueOf(context.rawUserQuery());
+  }
+
+  private static String runIdOf(PromptContext context) {
+    if (context != null) {
+      for (String key : List.of("runId", "conversationId")) {
+        Object value = context.userMetadata().get(key);
+        if (value != null && !String.valueOf(value).isBlank()) {
+          return String.valueOf(value);
+        }
+      }
+    }
+    return "unknown";
+  }
+
+  /** A tier that rejected a candidate, and why. */
+  private record Failure(ValidationStepType step, String issue) {
+    String summary() {
+      String text = step.name() + ": " + issue;
+      return text.length() > MAX_REASON_LENGTH ? text.substring(0, MAX_REASON_LENGTH) : text;
+    }
   }
 
   /**
@@ -148,7 +347,7 @@ public class ClosedLoopValidationInterceptor implements PromptContextInterceptor
     }
 
     // Static fallback from properties
-    List<ValidationStepType> steps = new java.util.ArrayList<>();
+    List<ValidationStepType> steps = new ArrayList<>();
     if (properties.schemaStrict()) {
       steps.add(ValidationStepType.STRUCTURAL_A);
     }
@@ -164,41 +363,42 @@ public class ClosedLoopValidationInterceptor implements PromptContextInterceptor
     return List.copyOf(steps);
   }
 
-  private boolean validateAttempt(
-      int attempt, String promptText, String validated, List<ValidationStepType> activeSteps) {
-
-    boolean tierAPass = true;
-    boolean tierBPass = true;
-
-    for (ValidationStepType step : activeSteps) {
-      Optional<String> issue =
-          switch (step) {
-            case STRUCTURAL_A -> {
-              Optional<String> result = executeTierA(validated);
-              tierAPass = result.isEmpty();
-              yield result;
-            }
-            case SANDBOX_B -> {
-              // Tier B placeholder — degrades gracefully when MCP sandbox is absent
-              tierBPass = true;
-              yield Optional.empty();
-            }
-            case SEMANTIC_C -> executeTierC(promptText, validated);
-            case TDR_D -> executeTierD(promptText, validated, tierAPass, tierBPass);
-          };
-
-      if (issue.isPresent()) {
-        logger.warn(
-            "Tier {} — Retry {}/{}: {}",
-            step.name(),
-            attempt + 1,
-            properties.maxRetries(),
-            issue.get());
-        return false;
+  /**
+   * Tier B — crash-test of the code blocks. Every fenced block must be closed; a {@code json} block
+   * must parse; a wired {@link CodeSandboxPort} compiles or lints each block as well. An answer
+   * with no code block has nothing to crash-test. A sandbox that itself fails rejects the answer
+   * (fails closed).
+   *
+   * @param responseText The LLM response text.
+   * @return Empty if every block passes; the first failure otherwise.
+   */
+  private Optional<String> executeTierB(String responseText) {
+    if (responseText.split("```", -1).length % 2 == 0) {
+      return Optional.of("Unterminated code block: a ``` fence is never closed.");
+    }
+    Matcher blocks = CODE_FENCE.matcher(responseText);
+    while (blocks.find()) {
+      String language = blocks.group(1).toLowerCase(java.util.Locale.ROOT);
+      String code = blocks.group(2);
+      if ("json".equals(language)) {
+        try {
+          MAPPER.readTree(code);
+        } catch (Exception e) {
+          return Optional.of("Invalid JSON in a json code block: " + e.getMessage());
+        }
+      }
+      if (sandbox != null) {
+        try {
+          Optional<String> failure = sandbox.crashTest(language, code);
+          if (failure.isPresent()) {
+            return Optional.of("Sandbox crash-test failed (" + language + "): " + failure.get());
+          }
+        } catch (RuntimeException e) {
+          return Optional.of("Sandbox crash-test could not run: " + e.getMessage());
+        }
       }
     }
-
-    return true;
+    return Optional.empty();
   }
 
   /**

@@ -3,9 +3,7 @@ package com.krizaka.orazaka.interceptor.validation;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 import com.krizaka.orazaka.core.application.pipeline.PipelineShortCircuitException;
 import com.krizaka.orazaka.core.domain.model.PromptContext;
@@ -70,7 +68,7 @@ class ClosedLoopControlLoopGuardTest {
     var prompts = ArgumentCaptor.forClass(Prompt.class);
     verify(model, org.mockito.Mockito.times(2)).call(prompts.capture());
     assertThat(prompts.getAllValues().get(1).getContents())
-        .isNotEqualTo(prompts.getAllValues().get(0).getContents());
+        .isNotEqualTo(prompts.getAllValues().getFirst().getContents());
   }
 
   @Test

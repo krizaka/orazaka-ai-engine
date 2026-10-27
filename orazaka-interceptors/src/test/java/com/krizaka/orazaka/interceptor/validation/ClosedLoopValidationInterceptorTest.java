@@ -1,15 +1,21 @@
 package com.krizaka.orazaka.interceptor.validation;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
+import com.krizaka.orazaka.core.application.pipeline.PipelineShortCircuitException;
 import com.krizaka.orazaka.core.domain.model.AssertionContract;
+import com.krizaka.orazaka.core.domain.model.PromptContext;
 import com.krizaka.orazaka.core.domain.model.ValidationPipelineConfiguration;
 import com.krizaka.orazaka.core.domain.model.ValidationStepType;
+import com.krizaka.orazaka.core.domain.model.control.ControlVerdictRecord;
+import com.krizaka.orazaka.core.domain.ports.outbound.ControlVerdictRecorder;
 import com.krizaka.orazaka.core.domain.ports.outbound.TestShaperPort;
 import com.krizaka.orazaka.core.domain.ports.outbound.ValidationPipelineRepository;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -18,6 +24,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.ai.chat.messages.AssistantMessage;
@@ -29,12 +36,14 @@ import org.springframework.ai.chat.prompt.Prompt;
 @ExtendWith(MockitoExtension.class)
 class ClosedLoopValidationInterceptorTest {
 
+  private static final PromptContext CTX =
+      new PromptContext("prompt", Map.of("conversationId", "run-1"));
+
   @Mock private ChatModel chatModel;
 
   @ParameterizedTest(name = "Tier A - {0}")
   @CsvSource({
     "Valid JSON passes schema validation silently, true, 3, '{\"key\": \"value\"}'",
-    "Invalid JSON triggers retry logging (no exception thrown), true, 1, '{invalid json'",
     "Non-JSON text passes when no JSON block detected, true, 3, 'This is a plain text response without JSON.'"
   })
   void tierA_validationScenarios(
@@ -43,8 +52,17 @@ class ClosedLoopValidationInterceptorTest {
         new ClosedLoopValidationProperties(true, maxRetries, schemaStrict, false, false, false);
     var advisor = new ClosedLoopValidationInterceptor(props, null, null, null);
 
-    assertThatCode(() -> advisor.postProcess(null, "test prompt", responseText))
-        .doesNotThrowAnyException();
+    assertThat(advisor.screenResponse(CTX, responseText)).isEqualTo(responseText);
+  }
+
+  @Test
+  @DisplayName("Tier A — invalid JSON with nothing to adjust it escalates")
+  void tierA_invalidJsonEscalates() {
+    var props = new ClosedLoopValidationProperties(true, 1, true, false, false, false);
+    var advisor = new ClosedLoopValidationInterceptor(props, null, null, null);
+
+    assertThatThrownBy(() -> advisor.screenResponse(CTX, "{invalid json"))
+        .isInstanceOf(PipelineShortCircuitException.class);
   }
 
   @Test
@@ -61,26 +79,51 @@ class ClosedLoopValidationInterceptorTest {
 
     var advisor = new ClosedLoopValidationInterceptor(props, chatModel, null, null);
 
-    assertThatCode(() -> advisor.postProcess(null, "Write a function", "def foo(): return 42"))
-        .doesNotThrowAnyException();
+    assertThat(advisor.screenResponse(CTX, "def foo(): return 42"))
+        .isEqualTo("def foo(): return 42");
   }
 
   @Test
-  @DisplayName("Tier C — Critic wins, retries exhausted gracefully")
+  @DisplayName("Tier C — Critic wins every time: the adjustments are spent, then it escalates")
   void tierC_criticWinsRetriesExhausted() {
     var props = new ClosedLoopValidationProperties(true, 1, false, false, true, false);
+    var recorder = mock(ControlVerdictRecorder.class);
 
-    // Critic always scores high (9), Advocate always scores low (2) — Critic wins
-    ChatResponse criticResponse = mockResponse("{\"score\": 9, \"issues\": [\"logical flaw\"]}");
-    ChatResponse advocateResponse = mockResponse("{\"score\": 2, \"strengths\": []}");
+    when(chatModel.call(any(Prompt.class)))
+        .thenAnswer(
+            call -> {
+              String system = ((Prompt) call.getArgument(0)).getInstructions().getFirst().getText();
+              if (system.contains("ruthless")) {
+                return mockResponse("{\"score\": 9, \"issues\": [\"logical flaw\"]}");
+              }
+              if (system.contains("advocate")) {
+                return mockResponse("{\"score\": 2, \"strengths\": []}");
+              }
+              return mockResponse("def foo(): return still_wrong");
+            });
 
-    when(chatModel.call(any(org.springframework.ai.chat.prompt.Prompt.class)))
-        .thenReturn(criticResponse, advocateResponse);
+    var advisor =
+        new ClosedLoopValidationInterceptor(
+            props,
+            chatModel,
+            null,
+            null,
+            recorder,
+            null,
+            Clock.fixed(Instant.parse("2026-10-26T12:00:00Z"), ZoneOffset.UTC));
 
-    var advisor = new ClosedLoopValidationInterceptor(props, chatModel, null, null);
+    assertThatThrownBy(() -> advisor.screenResponse(CTX, "def foo(): return None"))
+        .isInstanceOf(PipelineShortCircuitException.class);
 
-    assertThatCode(() -> advisor.postProcess(null, "Write correct code", "def foo(): return None"))
-        .doesNotThrowAnyException();
+    var records = ArgumentCaptor.forClass(ControlVerdictRecord.class);
+    verify(recorder, times(2)).record(records.capture());
+    assertThat(records.getAllValues())
+        .extracting(ControlVerdictRecord::actionTaken)
+        .containsExactly("ADJUSTED", "ESCALATED");
+    assertThat(records.getAllValues().get(1).runId()).isEqualTo("run-1");
+    assertThat(records.getAllValues().get(1).timestamp())
+        .isEqualTo(Instant.parse("2026-10-26T12:00:00Z"));
+    assertThat(records.getAllValues().get(1).driftReason()).startsWith("SEMANTIC_C");
   }
 
   @Test
@@ -89,8 +132,8 @@ class ClosedLoopValidationInterceptorTest {
     var props = new ClosedLoopValidationProperties(false, 3, true, true, true, false);
     var advisor = new ClosedLoopValidationInterceptor(props, chatModel, null, null);
 
-    assertThatCode(() -> advisor.postProcess(null, "prompt", "{\"key\": \"value\"}"))
-        .doesNotThrowAnyException();
+    assertThat(advisor.screenResponse(CTX, "{\"key\": \"value\"}"))
+        .isEqualTo("{\"key\": \"value\"}");
     verifyNoInteractions(chatModel);
   }
 
@@ -100,7 +143,7 @@ class ClosedLoopValidationInterceptorTest {
     var props = ClosedLoopValidationProperties.defaults();
     var advisor = new ClosedLoopValidationInterceptor(props, chatModel, null, null);
 
-    assertThatCode(() -> advisor.postProcess(null, "prompt", null)).doesNotThrowAnyException();
+    assertThat(advisor.screenResponse(CTX, null)).isNull();
     verifyNoInteractions(chatModel);
   }
 
@@ -152,7 +195,7 @@ class ClosedLoopValidationInterceptorTest {
     var props = new ClosedLoopValidationProperties(true, 3, false, false, false, false);
     var advisor = new ClosedLoopValidationInterceptor(props, chatModel, repo, null);
 
-    advisor.postProcess(null, "prompt", "response");
+    advisor.screenResponse(CTX, "response");
     verify(repo, times(1)).findAllOrderedByExecution();
   }
 
@@ -165,8 +208,7 @@ class ClosedLoopValidationInterceptorTest {
     var props = new ClosedLoopValidationProperties(true, 3, true, false, false, false);
     var advisor = new ClosedLoopValidationInterceptor(props, null, repo, null);
 
-    assertThatCode(() -> advisor.postProcess(null, "prompt", "invalid json"))
-        .doesNotThrowAnyException();
+    assertThatCode(() -> advisor.screenResponse(CTX, "invalid json")).doesNotThrowAnyException();
   }
 
   @Test
@@ -181,22 +223,22 @@ class ClosedLoopValidationInterceptorTest {
     when(testShaperPort.generateAssertions(any(), any())).thenReturn(contractPass);
 
     var advisorPass = new ClosedLoopValidationInterceptor(props, null, null, testShaperPort);
-    assertThatCode(() -> advisorPass.postProcess(null, "prompt", "This is the value we want."))
+    assertThatCode(() -> advisorPass.screenResponse(CTX, "This is the value we want."))
         .doesNotThrowAnyException();
 
     var contractFail1 = new AssertionContract("schema-1", List.of("must contain value"), "now");
     when(testShaperPort.generateAssertions(any(), any())).thenReturn(contractFail1);
 
     var advisorFail1 = new ClosedLoopValidationInterceptor(props, null, null, testShaperPort);
-    assertThatCode(() -> advisorFail1.postProcess(null, "prompt", "Other content."))
-        .doesNotThrowAnyException();
+    assertThatThrownBy(() -> advisorFail1.screenResponse(CTX, "Other content."))
+        .isInstanceOf(PipelineShortCircuitException.class);
 
     var contractFail2 = new AssertionContract("schema-1", List.of("must not contain error"), "now");
     when(testShaperPort.generateAssertions(any(), any())).thenReturn(contractFail2);
 
     var advisorFail2 = new ClosedLoopValidationInterceptor(props, null, null, testShaperPort);
-    assertThatCode(() -> advisorFail2.postProcess(null, "prompt", "This is an error!"))
-        .doesNotThrowAnyException();
+    assertThatThrownBy(() -> advisorFail2.screenResponse(CTX, "This is an error!"))
+        .isInstanceOf(PipelineShortCircuitException.class);
   }
 
   @Test
@@ -213,7 +255,7 @@ class ClosedLoopValidationInterceptorTest {
     when(chatModel.call(any(Prompt.class))).thenReturn(criticResponse, advocateResponse);
 
     var advisor = new ClosedLoopValidationInterceptor(props, chatModel, null, testShaperPort);
-    assertThatCode(() -> advisor.postProcess(null, "prompt", "{\"key\": \"other\"}"))
+    assertThatCode(() -> advisor.screenResponse(CTX, "{\"key\": \"other\"}"))
         .doesNotThrowAnyException();
   }
 
@@ -223,14 +265,14 @@ class ClosedLoopValidationInterceptorTest {
     var props = new ClosedLoopValidationProperties(true, 1, true, false, false, false);
     var advisor = new ClosedLoopValidationInterceptor(props, null, null, null);
 
-    assertThatCode(() -> advisor.postProcess(null, "prompt", "```json\n{\"key\": \"val\"}\n```"))
+    assertThatCode(() -> advisor.screenResponse(CTX, "```json\n{\"key\": \"val\"}\n```"))
         .doesNotThrowAnyException();
 
-    assertThatCode(() -> advisor.postProcess(null, "prompt", "```\n{\"key\": \"val\"}\n```"))
+    assertThatCode(() -> advisor.screenResponse(CTX, "```\n{\"key\": \"val\"}\n```"))
         .doesNotThrowAnyException();
 
-    assertThatCode(() -> advisor.postProcess(null, "prompt", "```json\n{invalid\n```"))
-        .doesNotThrowAnyException();
+    assertThatThrownBy(() -> advisor.screenResponse(CTX, "```json\n{invalid\n```"))
+        .isInstanceOf(PipelineShortCircuitException.class);
   }
 
   private ChatResponse mockResponse(String text) {

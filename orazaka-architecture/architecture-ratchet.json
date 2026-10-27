@@ -1,11 +1,10 @@
 {
   "rules": {
     "spring-ai-outside-adapter": {
-      "count": 7,
+      "count": 6,
       "classes": [
         "com.krizaka.orazaka.core.application.engine.AbstractEngine",
         "com.krizaka.orazaka.core.application.engine.Engine",
-        "com.krizaka.orazaka.core.application.pipeline.McpClientFactory",
         "com.krizaka.orazaka.core.application.routing.ProviderClassifier",
         "com.krizaka.orazaka.core.application.service.ChatMemoryStoreImpl",
         "com.krizaka.orazaka.core.infrastructure.adapter.ai.ImageGeneratorClientImpl",
@@ -20,14 +19,13 @@
       ]
     },
     "spring-in-core": {
-      "count": 37,
+      "count": 36,
       "classes": [
         "com.krizaka.orazaka.core.application.engine.AbstractEngine",
         "com.krizaka.orazaka.core.application.engine.Engine",
         "com.krizaka.orazaka.core.application.pipeline.DynamicPipelineExecutor",
         "com.krizaka.orazaka.core.application.pipeline.EnginePipelineBridge",
         "com.krizaka.orazaka.core.application.pipeline.EngineStreamBridge",
-        "com.krizaka.orazaka.core.application.pipeline.McpClientFactory",
         "com.krizaka.orazaka.core.application.pipeline.PipelineRegistry",
         "com.krizaka.orazaka.core.application.routing.PolicyStepRouter",
         "com.krizaka.orazaka.core.application.routing.ProviderClassifier",

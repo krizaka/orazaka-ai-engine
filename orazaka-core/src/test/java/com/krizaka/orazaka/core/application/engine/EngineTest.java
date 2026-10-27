@@ -109,9 +109,8 @@ class EngineTest {
     pipelineBridge =
         new EnginePipelineBridge(
             modelCatalogProvider,
-            platformMcpServerProvider,
-            userMcpServerProvider,
-            toolRegistry,
+            request ->
+                com.krizaka.orazaka.core.domain.ports.outbound.ToolResolution.ResolvedTools.none(),
             new com.krizaka.orazaka.core.application.TestPromptAssembly());
     streamBridge =
         new EngineStreamBridge(

@@ -8,12 +8,9 @@ import com.krizaka.orazaka.core.domain.model.PromptContext;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
 import com.krizaka.orazaka.core.domain.model.chat.PromptDraft;
 import com.krizaka.orazaka.core.domain.ports.outbound.ModelCatalogProvider;
-import com.krizaka.orazaka.core.domain.ports.outbound.PlatformMcpServerProvider;
 import com.krizaka.orazaka.core.domain.ports.outbound.PromptAssembly;
-import com.krizaka.orazaka.core.domain.ports.outbound.ToolRegistry;
-import com.krizaka.orazaka.core.domain.ports.outbound.UserMcpServerProvider;
+import com.krizaka.orazaka.core.domain.ports.outbound.ToolResolution;
 import com.krizaka.orazaka.core.infrastructure.support.CoreException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -27,7 +24,7 @@ import org.springframework.stereotype.Component;
  * <ul>
  *   <li>{@link DynamicPipelineExecutor} — refiner → router → context resolvers
  *   <li>{@link ChatOptionsResolver} — provider-specific options mapping
- *   <li>{@link McpClientFactory} — MCP tool callback resolution
+ *   <li>{@link ToolResolution} — the tools of the turn (local and MCP)
  *   <li>{@link MessageCompiler} — chat message history compilation
  * </ul>
  *
@@ -38,31 +35,23 @@ import org.springframework.stereotype.Component;
 public final class EnginePipelineBridge {
 
   private final ModelCatalogProvider modelCatalogProvider;
-  private final PlatformMcpServerProvider platformMcpServerProvider;
-  private final UserMcpServerProvider userMcpServerProvider;
-  private final ToolRegistry toolRegistry;
+  private final ToolResolution toolResolution;
   private final PromptAssembly promptAssembly;
 
   /**
    * Constructs the bridge.
    *
    * @param modelCatalogProvider The outbound model catalog provider.
-   * @param platformMcpServerProvider The platform-wide MCP provider.
-   * @param userMcpServerProvider The user private MCP provider.
-   * @param toolRegistry The local tools registry.
+   * @param toolResolution The port that resolves the tools of a turn.
    * @param promptAssembly The port that compiles the prompt in the provider library's types.
    */
   public EnginePipelineBridge(
       ModelCatalogProvider modelCatalogProvider,
-      PlatformMcpServerProvider platformMcpServerProvider,
-      UserMcpServerProvider userMcpServerProvider,
-      ToolRegistry toolRegistry,
+      ToolResolution toolResolution,
       PromptAssembly promptAssembly) {
     this.modelCatalogProvider =
         Objects.requireNonNull(modelCatalogProvider, "ModelCatalogProvider must not be null");
-    this.platformMcpServerProvider = platformMcpServerProvider;
-    this.userMcpServerProvider = userMcpServerProvider;
-    this.toolRegistry = toolRegistry;
+    this.toolResolution = Objects.requireNonNull(toolResolution, "ToolResolution must not be null");
     this.promptAssembly = Objects.requireNonNull(promptAssembly, "PromptAssembly must not be null");
   }
 
@@ -140,12 +129,9 @@ public final class EnginePipelineBridge {
                     interceptor.preProcess(request, promptText, engineMessages, opts),
                 (o1, o2) -> o1);
 
-    // Assemble MCP tool callbacks via McpClientFactory
-    List<AutoCloseable> closeables = new ArrayList<>();
-    var tools =
-        McpClientFactory.resolveToolCallbacks(
-            request, platformMcpServerProvider, userMcpServerProvider, toolRegistry, closeables);
-    var prompt = promptAssembly.assemble(engineMessages, engineOptions, provider, tools);
+    // The turn's tools, resolved behind the port (roles and denials audit are checked at the tool)
+    var tools = toolResolution.resolve(request);
+    var prompt = promptAssembly.assemble(engineMessages, engineOptions, provider, tools.handles());
     String conversationId = request.context().conversationId();
 
     return new EnginePipelineContext(
@@ -153,7 +139,7 @@ public final class EnginePipelineBridge {
         conversationId,
         promptText,
         prompt,
-        closeables,
+        tools.closeables(),
         resolveHoldId(pipelineContext),
         null,
         pipelineContext);

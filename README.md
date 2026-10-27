@@ -74,8 +74,21 @@ answer, `HumanEscalation` refuses the turn (`PipelineShortCircuitException`, rea
 Tier B (`sandbox-enabled`) rejects an unclosed code fence or an invalid `json` block, and a wired
 `CodeSandboxPort` crash-tests each block. Adjustments and escalations are persisted as
 `(runId, driftReason, humanActorId, timestamp, actionTaken)` through the outbox
-(`ControlVerdictRecorder`, routing key `evt.control.verdict`). Streamed answers are not screened yet
-(orazaka-ai-engine#114).
+(`ControlVerdictRecorder`, routing key `evt.control.verdict`).
+
+**It fails closed (#125).** A streamed answer is screened: closed code blocks are checked on the chunks
+as they arrive (`screenChunk`, a refusal stops the stream before the chunk is emitted), every tier on
+the assembled answer before the final event (`screenStreamed`: the chunks have left, so it accepts or
+refuses, never adjusts). Each chunk's metadata says `control.verdict=PENDING` (« en vérification »);
+the final stream event (empty `content`) carries the verdict (`VALIDATED`, `DEGRADED`, `NOT_CHECKED`)
+and, when degraded, `control.badge=verification_unavailable`. The semantic judge (Tier C and D) runs
+behind a timeout (`judge-timeout`, 20 s) and a circuit breaker (`judge-breaker-threshold` 3 failures,
+open `judge-breaker-open-for` 30 s, then one probe). A timeout, an outage, an unreadable score, a
+`TestShaperPort` that throws or an open breaker is a judge outage, never a pass. The policy is admin
+data, `onJudgeOutage` in the step's `configurationPayload` (fallback `on-judge-outage`):
+`ESCALATE` (default) refuses the turn with reason `control_verification_unavailable`;
+`DETERMINISTIC_ONLY` checks tiers A and B alone, serves with the badge and audits a `DEGRADED` verdict.
+An unknown value escalates. Other output screens are not yet applied to streams.
 
 ### Route a step by policy
 

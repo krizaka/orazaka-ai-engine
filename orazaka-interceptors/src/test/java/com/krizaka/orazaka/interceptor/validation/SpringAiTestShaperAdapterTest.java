@@ -71,59 +71,59 @@ class SpringAiTestShaperAdapterTest {
   }
 
   @Test
-  @DisplayName("Returns empty contract when model returns null response")
+  @DisplayName("Throws (an outage, never a pass) when the model returns a null response")
   void generateAssertions_nullResponse() {
     when(chatModel.call(any(Prompt.class))).thenReturn(null);
 
     var adapter = new SpringAiTestShaperAdapter(chatModel);
-    AssertionContract contract = adapter.generateAssertions("prompt", "response");
 
-    assertThat(contract).isEqualTo(AssertionContract.empty());
+    assertThatThrownBy(() -> adapter.generateAssertions("prompt", "response"))
+        .isInstanceOf(RuntimeException.class);
   }
 
   @Test
-  @DisplayName("Returns empty contract when model returns empty text")
+  @DisplayName("Throws when the model returns empty text")
   void generateAssertions_emptyText() {
     when(chatModel.call(any(Prompt.class))).thenReturn(mockResponse(""));
 
     var adapter = new SpringAiTestShaperAdapter(chatModel);
-    AssertionContract contract = adapter.generateAssertions("prompt", "response");
 
-    assertThat(contract).isEqualTo(AssertionContract.empty());
+    assertThatThrownBy(() -> adapter.generateAssertions("prompt", "response"))
+        .isInstanceOf(RuntimeException.class);
   }
 
   @Test
-  @DisplayName("Returns empty contract when model returns invalid JSON")
+  @DisplayName("Throws when the model returns invalid JSON")
   void generateAssertions_invalidJson() {
     when(chatModel.call(any(Prompt.class))).thenReturn(mockResponse("{invalid json"));
 
     var adapter = new SpringAiTestShaperAdapter(chatModel);
-    AssertionContract contract = adapter.generateAssertions("prompt", "response");
 
-    assertThat(contract.hasAssertions()).isFalse();
+    assertThatThrownBy(() -> adapter.generateAssertions("prompt", "response"))
+        .isInstanceOf(RuntimeException.class);
   }
 
   @Test
-  @DisplayName("Returns empty contract when model returns plain text (no JSON)")
+  @DisplayName("Throws when the model returns plain text (no JSON)")
   void generateAssertions_plainText() {
     when(chatModel.call(any(Prompt.class)))
         .thenReturn(mockResponse("I cannot generate assertions for this request."));
 
     var adapter = new SpringAiTestShaperAdapter(chatModel);
-    AssertionContract contract = adapter.generateAssertions("prompt", "response");
 
-    assertThat(contract.hasAssertions()).isFalse();
+    assertThatThrownBy(() -> adapter.generateAssertions("prompt", "response"))
+        .isInstanceOf(RuntimeException.class);
   }
 
   @Test
-  @DisplayName("Gracefully degrades when model call throws RuntimeException")
+  @DisplayName("Lets a model failure through: the control loop treats it as an outage")
   void generateAssertions_runtimeException() {
     when(chatModel.call(any(Prompt.class))).thenThrow(new RuntimeException("Model unavailable"));
 
     var adapter = new SpringAiTestShaperAdapter(chatModel);
-    AssertionContract contract = adapter.generateAssertions("prompt", "response");
 
-    assertThat(contract).isEqualTo(AssertionContract.empty());
+    assertThatThrownBy(() -> adapter.generateAssertions("prompt", "response"))
+        .isInstanceOf(RuntimeException.class);
   }
 
   @Test

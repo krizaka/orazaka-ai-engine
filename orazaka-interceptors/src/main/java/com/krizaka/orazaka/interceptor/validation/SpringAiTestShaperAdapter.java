@@ -69,48 +69,43 @@ public class SpringAiTestShaperAdapter implements TestShaperPort {
 
   @Override
   public AssertionContract generateAssertions(String userPrompt, String responseText) {
-    try {
-      String userContent = "User Prompt:\n" + userPrompt + "\n\nAI Response:\n" + responseText;
+    String userContent = "User Prompt:\n" + userPrompt + "\n\nAI Response:\n" + responseText;
 
-      ChatOptions options = ChatOptions.builder().temperature(0.0).build();
-      ChatResponse response =
-          chatModel.call(
-              new Prompt(
-                  List.of(new SystemMessage(TDR_SYSTEM_PROMPT), new UserMessage(userContent)),
-                  options));
+    ChatOptions options = ChatOptions.builder().temperature(0.0).build();
+    ChatResponse response =
+        chatModel.call(
+            new Prompt(
+                List.of(new SystemMessage(TDR_SYSTEM_PROMPT), new UserMessage(userContent)),
+                options));
 
-      String text =
-          java.util.Optional.ofNullable(response)
-              .map(ChatResponse::getResult)
-              .map(Generation::getOutput)
-              .map(org.springframework.ai.chat.messages.AssistantMessage::getText)
-              .orElse(null);
+    String text =
+        java.util.Optional.ofNullable(response)
+            .map(ChatResponse::getResult)
+            .map(Generation::getOutput)
+            .map(org.springframework.ai.chat.messages.AssistantMessage::getText)
+            .orElse(null);
 
-      if (text == null || text.isBlank()) {
-        logger.warn("Tier D — TDR model returned empty response. Returning empty contract.");
-        return AssertionContract.empty();
-      }
-
-      return parseContract(text);
-    } catch (RuntimeException e) {
-      logger.error("Tier D — TDR assertion generation failed. Gracefully degrading.", e);
-      return AssertionContract.empty();
+    if (text == null || text.isBlank()) {
+      throw new IllegalStateException("Tier D — the TDR model returned an empty response.");
     }
+
+    return parseContract(text);
   }
 
   /**
    * Parses the model's JSON response into an AssertionContract.
    *
    * @param text The raw model output.
-   * @return Parsed contract, or empty on parse failure.
+   * @return Parsed contract.
+   * @throws IllegalStateException when the answer is not a readable contract — the judge gave
+   *     nothing usable, which the control loop treats as an outage, never as a pass
    */
   private AssertionContract parseContract(String text) {
+    String json = extractJsonBlock(text);
+    if (json == null) {
+      throw new IllegalStateException("Tier D — no JSON in the TDR response.");
+    }
     try {
-      String json = extractJsonBlock(text);
-      if (json == null) {
-        logger.warn("Tier D — Could not extract JSON from TDR response.");
-        return AssertionContract.empty();
-      }
 
       var node = MAPPER.readTree(json);
       String schemaName = node.has("schemaName") ? node.get("schemaName").asString("tdr") : "tdr";
@@ -121,8 +116,7 @@ public class SpringAiTestShaperAdapter implements TestShaperPort {
 
       return new AssertionContract(schemaName, assertions, Instant.now().toString());
     } catch (Exception e) {
-      logger.warn("Tier D — Failed to parse TDR assertion JSON.", e);
-      return AssertionContract.empty();
+      throw new IllegalStateException("Tier D — the TDR assertion JSON is not readable.", e);
     }
   }
 

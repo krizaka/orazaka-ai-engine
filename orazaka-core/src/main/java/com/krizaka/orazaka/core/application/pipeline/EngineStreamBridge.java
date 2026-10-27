@@ -9,6 +9,7 @@ import com.krizaka.orazaka.core.domain.model.CachedResponse;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatResponse;
 import com.krizaka.orazaka.core.domain.model.chat.TokenUsage;
+import com.krizaka.orazaka.core.domain.model.control.ControlMetadata;
 import com.krizaka.orazaka.core.domain.ports.outbound.UserCredentialsProvider;
 import java.util.HashMap;
 import java.util.List;
@@ -124,27 +125,62 @@ public final class EngineStreamBridge {
                     if (chunk != null) {
                       responseBuilder.append(chunk);
                     }
+                    // The deterministic screens read what is assembled before the chunk leaves: a
+                    // refusal stops the stream here, the chunk is never emitted (#125).
+                    ResponseScreen.screenChunk(
+                        interceptors, context.promptContext(), responseBuilder.toString());
                     captureTokenUsage(chatResponse, tokenUsage);
                     return new InternalChatResponse(
-                        chunk, context.conversationId(), Map.of("provider", context.provider()));
+                        chunk,
+                        context.conversationId(),
+                        Map.of(
+                            "provider",
+                            context.provider(),
+                            ControlMetadata.VERDICT,
+                            ControlMetadata.PENDING));
                   })
-              .doOnComplete(
-                  () -> {
-                    String fullText = responseBuilder.toString();
-                    interceptors.forEach(
-                        i -> i.postProcess(request, context.promptText(), fullText));
-                    Map<String, Object> metadata = buildCompletionMetadata(context, startTime);
-                    var out =
-                        new InternalChatResponse(
-                            fullText,
-                            context.conversationId(),
-                            tokenUsage.get(),
-                            Map.copyOf(metadata));
-                    eventPublisher.publishEvent(
-                        new ChatCompletedEvent(request, out, context.holdId()));
-                  })
+              .concatWith(
+                  Flux.defer(
+                      () ->
+                          Flux.just(
+                              finish(
+                                  request,
+                                  context,
+                                  interceptors,
+                                  eventPublisher,
+                                  responseBuilder.toString(),
+                                  tokenUsage.get(),
+                                  startTime))))
               .doFinally(signalType -> closeResources(context));
         });
+  }
+
+  /**
+   * The end of a streamed turn: the semantic tiers screen the assembled answer, then — only if it
+   * is accepted — the completion event is published and the final stream event carries the verdict.
+   * A refusal here errors the stream before any final event (orazaka-ai-engine#125).
+   */
+  private static InternalChatResponse finish(
+      InternalChatRequest request,
+      EnginePipelineContext context,
+      List<PromptContextInterceptor> interceptors,
+      ApplicationEventPublisher eventPublisher,
+      String fullText,
+      TokenUsage usage,
+      long startTime) {
+    var screened = ResponseScreen.screenStreamed(interceptors, context.promptContext(), fullText);
+    interceptors.forEach(i -> i.postProcess(request, context.promptText(), fullText));
+    Map<String, Object> metadata = buildCompletionMetadata(context, startTime);
+    metadata.putAll(screened.notes());
+    metadata.putIfAbsent(ControlMetadata.VERDICT, ControlMetadata.NOT_CHECKED);
+    eventPublisher.publishEvent(
+        new ChatCompletedEvent(
+            request,
+            new InternalChatResponse(
+                fullText, context.conversationId(), usage, Map.copyOf(metadata)),
+            context.holdId()));
+    // The text already left in the chunks: the final event repeats none of it.
+    return new InternalChatResponse("", context.conversationId(), Map.copyOf(metadata));
   }
 
   /** A cached answer as a stream of one screened chunk, then the completion event (no usage). */

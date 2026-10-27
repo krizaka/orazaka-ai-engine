@@ -2,15 +2,12 @@ package com.krizaka.orazaka.interceptor.validation;
 
 import com.krizaka.orazaka.core.application.interceptor.PromptContextInterceptor;
 import com.krizaka.orazaka.core.application.pipeline.PipelineShortCircuitException;
+import com.krizaka.orazaka.core.application.pipeline.ScreenedResponse;
 import com.krizaka.orazaka.core.domain.model.AssertionContract;
 import com.krizaka.orazaka.core.domain.model.PromptContext;
 import com.krizaka.orazaka.core.domain.model.ValidationPipelineConfiguration;
 import com.krizaka.orazaka.core.domain.model.ValidationStepType;
-import com.krizaka.orazaka.core.domain.model.control.ControlVerdict;
-import com.krizaka.orazaka.core.domain.model.control.ControlVerdictRecord;
-import com.krizaka.orazaka.core.domain.model.control.DriftAdjustment;
-import com.krizaka.orazaka.core.domain.model.control.HumanEscalation;
-import com.krizaka.orazaka.core.domain.model.control.Validated;
+import com.krizaka.orazaka.core.domain.model.control.*;
 import com.krizaka.orazaka.core.domain.ports.outbound.CodeSandboxPort;
 import com.krizaka.orazaka.core.domain.ports.outbound.ControlVerdictRecorder;
 import com.krizaka.orazaka.core.domain.ports.outbound.TestShaperPort;
@@ -18,8 +15,16 @@ import com.krizaka.orazaka.core.domain.ports.outbound.ValidationPipelineReposito
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.slf4j.Logger;
@@ -62,8 +67,16 @@ import tools.jackson.databind.ObjectMapper;
  * did); once the retries are spent, or when nothing can adjust, {@link HumanEscalation} refuses the
  * turn with a {@link PipelineShortCircuitException} — an output that did not pass is never served.
  * Every adjustment and escalation is recorded through the {@link ControlVerdictRecorder} (the
- * outbox). Streamed answers leave chunk by chunk before the end and are not screened here (see
- * orazaka-ai-engine#114).
+ * outbox).
+ *
+ * <p><strong>Fail closed (orazaka-ai-engine#125)</strong>: a streamed answer is screened too — the
+ * deterministic checks on the chunks as they arrive ({@link #screenChunk}), every tier on the
+ * assembled answer before the final event ({@link #screenStreamed}; the chunks have left, so it
+ * accepts or refuses, never adjusts). The semantic judge (Tier C / D) is behind a timeout and a
+ * circuit breaker; when it is unavailable the policy decides ({@link JudgeOutagePolicy}, admin data
+ * on the step's payload): escalate with the typed {@value #UNAVAILABLE_REASON}, or serve on the
+ * deterministic tiers alone with a visible badge and a {@link Degraded} audit record. A judge
+ * outage is never a {@link Validated}.
  *
  * <p>Tier execution order and enabled state are loaded dynamically from the {@link
  * ValidationPipelineRepository} database configuration. If the repository is unavailable, falls
@@ -92,6 +105,14 @@ public class ClosedLoopValidationInterceptor implements PromptContextInterceptor
   /** The machine-readable refusal code of a {@link HumanEscalation}. */
   public static final String ESCALATION_REASON = "control_escalation";
 
+  /**
+   * The machine-readable refusal code when the judge is unavailable (« vérification indisponible
+   * »).
+   */
+  public static final String UNAVAILABLE_REASON = "control_verification_unavailable";
+
+  private static final ExecutorService JUDGE_CALLS = Executors.newVirtualThreadPerTaskExecutor();
+
   private static final Pattern CODE_FENCE =
       Pattern.compile("```([\\w+#.-]*)[ \\t]*\\R(.*?)```", Pattern.DOTALL);
   private static final int MAX_REASON_LENGTH = 500;
@@ -107,6 +128,7 @@ public class ClosedLoopValidationInterceptor implements PromptContextInterceptor
   private final ControlVerdictRecorder verdictRecorder;
   private final CodeSandboxPort sandbox;
   private final Clock clock;
+  private final JudgeCircuitBreaker judgeBreaker;
 
   /**
    * Constructs a ClosedLoopValidationInterceptor with full 4-tier support and no audit recorder.
@@ -161,6 +183,9 @@ public class ClosedLoopValidationInterceptor implements PromptContextInterceptor
     this.verdictRecorder = verdictRecorder;
     this.sandbox = sandbox;
     this.clock = Objects.requireNonNull(clock, "clock must not be null");
+    this.judgeBreaker =
+        new JudgeCircuitBreaker(
+            properties.judgeBreakerThreshold(), properties.judgeBreakerOpenFor(), clock);
   }
 
   /** A control: whatever it did not anticipate stops the turn instead of serving it unchecked. */
@@ -177,14 +202,50 @@ public class ClosedLoopValidationInterceptor implements PromptContextInterceptor
 
   @Override
   public String screenResponse(PromptContext context, String responseText) {
+    return screen(context, responseText).text();
+  }
+
+  @Override
+  public ScreenedResponse screen(PromptContext context, String responseText) {
+    return control(context, responseText, true);
+  }
+
+  /**
+   * The chunks have left: the assembled answer is accepted or refused, never adjusted. Every active
+   * tier runs, the semantic ones included, before the final event.
+   */
+  @Override
+  public ScreenedResponse screenStreamed(PromptContext context, String assembled) {
+    return control(context, assembled, false);
+  }
+
+  /**
+   * The deterministic checks that can already be made on a partial answer: a code block that is
+   * closed must be valid. (Whole-answer checks — an unterminated fence, Tier A — wait for the
+   * assembled text, and the sandbox and the judge for {@link #screenStreamed}.)
+   */
+  @Override
+  public void screenChunk(PromptContext context, String textSoFar) {
+    if (!properties.enabled()
+        || textSoFar == null
+        || !(properties.sandboxEnabled() || properties.schemaStrict())) {
+      return;
+    }
+    Optional<String> issue = codeBlockFailure(textSoFar, false);
+    if (issue.isPresent()) {
+      throw escalate(runIdOf(context), new Failure(ValidationStepType.SANDBOX_B, issue.get()), 1);
+    }
+  }
+
+  private ScreenedResponse control(PromptContext context, String responseText, boolean adjustable) {
     if (!properties.enabled() || responseText == null || responseText.isBlank()) {
-      return responseText;
+      return ScreenedResponse.plain(responseText);
     }
 
     List<ValidationStepType> activeSteps = resolveActiveSteps();
     if (activeSteps.isEmpty()) {
       logger.debug("Closed-loop validation — No active tiers resolved. Skipping validation.");
-      return responseText;
+      return ScreenedResponse.plain(responseText);
     }
 
     String userPrompt = userPromptOf(context);
@@ -192,11 +253,20 @@ public class ClosedLoopValidationInterceptor implements PromptContextInterceptor
     String current = responseText;
 
     for (int attempt = 0; ; attempt++) {
-      Failure failure = firstFailure(userPrompt, current, activeSteps);
+      Failure failure;
+      try {
+        failure = firstFailure(userPrompt, current, activeSteps);
+      } catch (JudgeUnavailableException outage) {
+        failure = onJudgeOutage(runId, outage, userPrompt, current, activeSteps, attempt);
+        if (failure == null) {
+          return degraded(current, outage);
+        }
+      }
       if (failure == null) {
         ControlVerdict validated = new Validated(activeSteps);
         logger.debug("Closed-loop validation — {} on attempt {}.", validated.reason(), attempt + 1);
-        return current;
+        return new ScreenedResponse(
+            current, Map.of(ControlMetadata.VERDICT, ControlMetadata.VALIDATED));
       }
       logger.warn(
           "Tier {} — attempt {}/{}: {}",
@@ -206,22 +276,148 @@ public class ClosedLoopValidationInterceptor implements PromptContextInterceptor
           failure.issue());
 
       String adjusted = null;
-      if (attempt < properties.maxRetries()) {
+      if (adjustable && attempt < properties.maxRetries()) {
         adjusted = adjust(userPrompt, current, failure);
       }
       if (adjusted == null) {
-        ControlVerdict escalation =
-            new HumanEscalation(failure.step(), failure.summary(), failure.issue(), attempt + 1);
-        record(runId, escalation);
-        throw new PipelineShortCircuitException(
-            getId(),
-            ESCALATION_REASON,
-            "The answer could not be validated (" + failure.step().name() + ") and was not served.",
-            null);
+        throw escalate(runId, failure, attempt + 1);
       }
       record(
           runId, new DriftAdjustment(failure.step(), failure.summary(), failure.issue(), attempt));
       current = adjusted;
+    }
+  }
+
+  /**
+   * The judge is unavailable. The policy (admin data) decides: escalate with the typed refusal, or
+   * check the deterministic tiers alone.
+   *
+   * @return a deterministic failure to handle as any other, or {@code null} when the deterministic
+   *     tiers pass and the answer is served degraded (audited)
+   */
+  private Failure onJudgeOutage(
+      String runId,
+      JudgeUnavailableException outage,
+      String userPrompt,
+      String candidate,
+      List<ValidationStepType> activeSteps,
+      int attempt) {
+    logger.error(
+        "Closed-loop validation — {} unavailable ({}).", outage.step().name(), outage.getMessage());
+    if (outagePolicy(outage.step()) == JudgeOutagePolicy.ESCALATE) {
+      ControlVerdict escalation =
+          new HumanEscalation(
+              outage.step(),
+              outage.step().name() + " unavailable: " + outage.getMessage(),
+              outage.getMessage(),
+              attempt + 1);
+      record(runId, escalation);
+      throw new PipelineShortCircuitException(
+          getId(),
+          UNAVAILABLE_REASON,
+          "Verification unavailable (" + outage.step().name() + "): the answer was not served.",
+          outage);
+    }
+    List<ValidationStepType> deterministic =
+        activeSteps.stream().filter(ClosedLoopValidationInterceptor::isDeterministic).toList();
+    Failure failure = firstFailure(userPrompt, candidate, deterministic);
+    if (failure == null) {
+      record(runId, new Degraded(deterministic, outage.step(), outage.getMessage()));
+    }
+    return failure;
+  }
+
+  private static ScreenedResponse degraded(String text, JudgeUnavailableException outage) {
+    logger.warn("Closed-loop validation — served degraded: {} unavailable.", outage.step().name());
+    return new ScreenedResponse(
+        text,
+        Map.of(
+            ControlMetadata.VERDICT,
+            ControlMetadata.DEGRADED,
+            ControlMetadata.BADGE,
+            ControlMetadata.BADGE_VERIFICATION_UNAVAILABLE));
+  }
+
+  private static boolean isDeterministic(ValidationStepType step) {
+    return step == ValidationStepType.STRUCTURAL_A || step == ValidationStepType.SANDBOX_B;
+  }
+
+  /** Records the escalation and builds the refusal that stops the turn. */
+  private PipelineShortCircuitException escalate(String runId, Failure failure, int attempts) {
+    record(
+        runId, new HumanEscalation(failure.step(), failure.summary(), failure.issue(), attempts));
+    return new PipelineShortCircuitException(
+        getId(),
+        ESCALATION_REASON,
+        "The answer could not be validated (" + failure.step().name() + ") and was not served.",
+        null);
+  }
+
+  /**
+   * The outage policy of a judge tier: the admin's value on the step's payload, else the static
+   * fallback of the properties.
+   */
+  private JudgeOutagePolicy outagePolicy(ValidationStepType step) {
+    JudgeOutagePolicy fallback = properties.onJudgeOutage();
+    if (validationPipelineRepository == null) {
+      return fallback;
+    }
+    try {
+      return validationPipelineRepository.findAllOrderedByExecution().stream()
+          .filter(config -> config.stepType() == step)
+          .findFirst()
+          .map(
+              config ->
+                  JudgeOutagePolicy.parse(
+                      config.configurationPayload().get(JudgeOutagePolicy.PAYLOAD_KEY), fallback))
+          .orElse(fallback);
+    } catch (RuntimeException e) {
+      logger.warn("Failed to read the judge outage policy — using the static one.", e);
+      return fallback;
+    }
+  }
+
+  /**
+   * One call to the semantic judge, behind the circuit breaker and a timeout. Anything but a usable
+   * answer is an outage ({@link JudgeUnavailableException}), never a pass.
+   */
+  private <T> T judge(ValidationStepType tier, Supplier<T> call) {
+    if (!judgeBreaker.tryAcquire()) {
+      throw new JudgeUnavailableException(tier, "circuit breaker open", null);
+    }
+    CompletableFuture<T> pending = CompletableFuture.supplyAsync(call, JUDGE_CALLS);
+    try {
+      T result = pending.get(properties.judgeTimeout().toMillis(), TimeUnit.MILLISECONDS);
+      judgeBreaker.onSuccess();
+      return result;
+    } catch (TimeoutException e) {
+      pending.cancel(true);
+      judgeBreaker.onFailure();
+      throw new JudgeUnavailableException(tier, "timeout after " + properties.judgeTimeout(), e);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      pending.cancel(true);
+      judgeBreaker.onFailure();
+      throw new JudgeUnavailableException(tier, "interrupted", e);
+    } catch (ExecutionException e) {
+      judgeBreaker.onFailure();
+      throw new JudgeUnavailableException(tier, String.valueOf(e.getCause()), e.getCause());
+    }
+  }
+
+  /** The semantic judge could not give a usable answer: a timeout, an outage, an open breaker. */
+  private static final class JudgeUnavailableException extends RuntimeException {
+    private static final long serialVersionUID = 1L;
+
+    private final transient ValidationStepType step;
+
+    JudgeUnavailableException(ValidationStepType step, String cause, Throwable origin) {
+      super(cause, origin);
+      this.step = step;
+    }
+
+    ValidationStepType step() {
+      return step;
     }
   }
 
@@ -373,10 +569,20 @@ public class ClosedLoopValidationInterceptor implements PromptContextInterceptor
    * @return Empty if every block passes; the first failure otherwise.
    */
   private Optional<String> executeTierB(String responseText) {
-    if (responseText.split("```", -1).length % 2 == 0) {
+    return codeBlockFailure(responseText, true);
+  }
+
+  /**
+   * The code-block checks. On a partial (streamed) answer only the in-process ones apply, to the
+   * blocks already closed: an open fence is not yet a failure and the sandbox waits for the whole.
+   *
+   * @param complete whether {@code text} is the whole answer
+   */
+  private Optional<String> codeBlockFailure(String text, boolean complete) {
+    if (complete && text.split("```", -1).length % 2 == 0) {
       return Optional.of("Unterminated code block: a ``` fence is never closed.");
     }
-    Matcher blocks = CODE_FENCE.matcher(responseText);
+    Matcher blocks = CODE_FENCE.matcher(text);
     while (blocks.find()) {
       String language = blocks.group(1).toLowerCase(java.util.Locale.ROOT);
       String code = blocks.group(2);
@@ -387,7 +593,7 @@ public class ClosedLoopValidationInterceptor implements PromptContextInterceptor
           return Optional.of("Invalid JSON in a json code block: " + e.getMessage());
         }
       }
-      if (sandbox != null) {
+      if (complete && sandbox != null) {
         try {
           Optional<String> failure = sandbox.crashTest(language, code);
           if (failure.isPresent()) {
@@ -444,49 +650,46 @@ public class ClosedLoopValidationInterceptor implements PromptContextInterceptor
       return Optional.empty();
     }
 
-    try {
-      String debateContext =
-          "Original user request: " + userPrompt + "\n\nAI Response:\n" + responseText;
+    String debateContext =
+        "Original user request: " + userPrompt + "\n\nAI Response:\n" + responseText;
+    ChatOptions debateOptions = ChatOptions.builder().temperature(0.0).build();
 
-      ChatOptions debateOptions = ChatOptions.builder().temperature(0.0).build();
+    // Critic and Advocate are one judge pass: one timeout, one breaker event.
+    ChatResponse[] verdicts =
+        judge(
+            ValidationStepType.SEMANTIC_C,
+            () ->
+                new ChatResponse[] {
+                  chatModel.call(
+                      new Prompt(
+                          List.of(new SystemMessage(CRITIC_SYSTEM), new UserMessage(debateContext)),
+                          debateOptions)),
+                  chatModel.call(
+                      new Prompt(
+                          List.of(
+                              new SystemMessage(ADVOCATE_SYSTEM), new UserMessage(debateContext)),
+                          debateOptions))
+                });
+    ChatResponse criticResponse = verdicts[0];
+    int criticScore = extractScore(criticResponse);
+    int advocateScore = extractScore(verdicts[1]);
 
-      // Critic evaluation
-      ChatResponse criticResponse =
-          chatModel.call(
-              new Prompt(
-                  List.of(new SystemMessage(CRITIC_SYSTEM), new UserMessage(debateContext)),
-                  debateOptions));
+    logger.debug(
+        "Tier C Debate — Critic: {}, Advocate: {} (Critic wins if Critic > Advocate)",
+        criticScore,
+        advocateScore);
 
-      // Advocate evaluation
-      ChatResponse advocateResponse =
-          chatModel.call(
-              new Prompt(
-                  List.of(new SystemMessage(ADVOCATE_SYSTEM), new UserMessage(debateContext)),
-                  debateOptions));
-
-      int criticScore = extractScore(criticResponse);
-      int advocateScore = extractScore(advocateResponse);
-
-      logger.debug(
-          "Tier C Debate — Critic: {}, Advocate: {} (Critic wins if Critic > Advocate)",
-          criticScore,
-          advocateScore);
-
-      if (criticScore > advocateScore) {
-        String criticText =
-            Optional.ofNullable(criticResponse)
-                .map(ChatResponse::getResult)
-                .map(Generation::getOutput)
-                .map(AssistantMessage::getText)
-                .orElse("Critic prevailed with no detailed feedback.");
-        return Optional.of(criticText);
-      }
-
-      return Optional.empty();
-    } catch (RuntimeException e) {
-      logger.error("Tier C debate failed — gracefully degrading.", e);
-      return Optional.empty();
+    if (criticScore > advocateScore) {
+      String criticText =
+          Optional.ofNullable(criticResponse)
+              .map(ChatResponse::getResult)
+              .map(Generation::getOutput)
+              .map(AssistantMessage::getText)
+              .orElse("Critic prevailed with no detailed feedback.");
+      return Optional.of(criticText);
     }
+
+    return Optional.empty();
   }
 
   /**
@@ -500,7 +703,8 @@ public class ClosedLoopValidationInterceptor implements PromptContextInterceptor
    * @param responseText The LLM response to validate.
    * @param tierAPass Whether Tier A (structural) passed.
    * @param tierBPass Whether Tier B (sandbox) passed.
-   * @return Empty if assertions pass or TDR is unavailable; description of failures otherwise.
+   * @return Empty if assertions pass; description of failures otherwise.
+   * @throws JudgeUnavailableException when the assertion generator is unavailable (never a pass)
    */
   private Optional<String> executeTierD(
       String userPrompt, String responseText, boolean tierAPass, boolean tierBPass) {
@@ -508,47 +712,48 @@ public class ClosedLoopValidationInterceptor implements PromptContextInterceptor
       return Optional.empty();
     }
 
-    try {
-      AssertionContract contract = testShaperPort.generateAssertions(userPrompt, responseText);
-      if (!contract.hasAssertions()) {
-        logger.debug("Tier D — No assertions generated. Passing by default.");
-        return Optional.empty();
-      }
-
-      // Evaluate assertions against the response
-      List<String> failures =
-          contract.assertions().stream()
-              .filter(assertion -> !evaluateAssertion(assertion, responseText))
-              .toList();
-
-      if (failures.isEmpty()) {
-        logger.debug(
-            "Tier D — All {} assertions passed for schema '{}'.",
-            contract.assertions().size(),
-            contract.schemaName());
-        return Optional.empty();
-      }
-
-      // Graceful degradation: if A and B passed but D failed, delegate to C
-      if (tierAPass && tierBPass && properties.debateEnabled() && chatModel != null) {
-        logger.info(
-            "Tier D — {} assertion(s) failed but Tiers A+B passed. "
-                + "Delegating to Tier C for final arbitration.",
-            failures.size());
-        Optional<String> tierCResult = executeTierC(userPrompt, responseText);
-        if (tierCResult.isEmpty()) {
-          logger.info("Tier D → C delegation: Advocate prevailed. Accepting response.");
-          return Optional.empty();
-        }
-        return tierCResult;
-      }
-
-      return Optional.of(
-          "TDR assertion failures [" + contract.schemaName() + "]: " + String.join("; ", failures));
-    } catch (RuntimeException e) {
-      logger.error("Tier D — TDR validation failed. Gracefully degrading.", e);
+    AssertionContract contract =
+        judge(
+            ValidationStepType.TDR_D,
+            () -> testShaperPort.generateAssertions(userPrompt, responseText));
+    if (contract == null) {
+      throw new JudgeUnavailableException(ValidationStepType.TDR_D, "no assertion contract", null);
+    }
+    if (!contract.hasAssertions()) {
+      logger.debug("Tier D — No assertions generated. Passing by default.");
       return Optional.empty();
     }
+
+    // Evaluate assertions against the response
+    List<String> failures =
+        contract.assertions().stream()
+            .filter(assertion -> !evaluateAssertion(assertion, responseText))
+            .toList();
+
+    if (failures.isEmpty()) {
+      logger.debug(
+          "Tier D — All {} assertions passed for schema '{}'.",
+          contract.assertions().size(),
+          contract.schemaName());
+      return Optional.empty();
+    }
+
+    // Graceful degradation: if A and B passed but D failed, delegate to C
+    if (tierAPass && tierBPass && properties.debateEnabled() && chatModel != null) {
+      logger.info(
+          "Tier D — {} assertion(s) failed but Tiers A+B passed. "
+              + "Delegating to Tier C for final arbitration.",
+          failures.size());
+      Optional<String> tierCResult = executeTierC(userPrompt, responseText);
+      if (tierCResult.isEmpty()) {
+        logger.info("Tier D → C delegation: Advocate prevailed. Accepting response.");
+        return Optional.empty();
+      }
+      return tierCResult;
+    }
+
+    return Optional.of(
+        "TDR assertion failures [" + contract.schemaName() + "]: " + String.join("; ", failures));
   }
 
   /**
@@ -606,29 +811,29 @@ public class ClosedLoopValidationInterceptor implements PromptContextInterceptor
    * Extracts the numeric "score" field from a debate response JSON.
    *
    * @param response The ChatResponse from a Critic or Advocate call.
-   * @return The score value, or 5 (neutral) if extraction fails.
+   * @return The score value.
+   * @throws JudgeUnavailableException when the judge answered nothing usable — an unreadable score
+   *     is an outage of the judge, not a neutral vote
    */
   private int extractScore(ChatResponse response) {
-    try {
-      String text =
-          Optional.ofNullable(response)
-              .map(ChatResponse::getResult)
-              .map(Generation::getOutput)
-              .map(AssistantMessage::getText)
-              .orElse(null);
-      if (text == null) {
-        return 5;
+    String text =
+        Optional.ofNullable(response)
+            .map(ChatResponse::getResult)
+            .map(Generation::getOutput)
+            .map(AssistantMessage::getText)
+            .orElse(null);
+    String json = text == null ? null : extractJsonBlock(text);
+    if (json != null) {
+      try {
+        JsonNode node = MAPPER.readTree(json);
+        if (node.path("score").isNumber()) {
+          return node.get("score").asInt();
+        }
+      } catch (Exception e) {
+        logger.debug("Tier C — the judge's score is not readable.", e);
       }
-
-      String json = extractJsonBlock(text);
-      if (json == null) {
-        return 5;
-      }
-
-      JsonNode node = MAPPER.readTree(json);
-      return node.has("score") ? node.get("score").asInt(5) : 5;
-    } catch (Exception e) {
-      return 5;
     }
+    throw new JudgeUnavailableException(
+        ValidationStepType.SEMANTIC_C, "the judge returned no readable score", null);
   }
 }

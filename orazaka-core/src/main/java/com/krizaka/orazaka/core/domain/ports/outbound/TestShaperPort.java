@@ -19,12 +19,14 @@ public interface TestShaperPort {
    * Generates a set of test assertions based on the user's original prompt and the LLM response.
    *
    * <p>The implementation should analyze the prompt intent and produce machine-evaluable assertion
-   * rules that the response must satisfy. If assertion generation fails, implementations must
-   * return {@link AssertionContract#empty()} rather than throwing.
+   * rules that the response must satisfy. If assertion generation fails (the model is down, times
+   * out, or answers nothing readable) implementations must <b>throw</b>: the control loop reads it
+   * as a judge outage and applies its outage policy. Returning {@link AssertionContract#empty()}
+   * would pass the answer unchecked (orazaka-ai-engine#125).
    *
    * @param userPrompt The original user prompt providing intent context.
    * @param responseText The LLM-generated response to validate.
-   * @return A structured assertion contract, or {@link AssertionContract#empty()} on failure.
+   * @return A structured assertion contract.
    */
   AssertionContract generateAssertions(String userPrompt, String responseText);
 }

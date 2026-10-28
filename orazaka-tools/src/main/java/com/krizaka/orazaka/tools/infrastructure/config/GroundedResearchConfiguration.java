@@ -20,7 +20,7 @@ import org.springframework.context.annotation.Configuration;
 
 /**
  * Wires the {@code research.grounded} capability (ADR-087 slice 5) on top of {@link
- * LawCorpusConfiguration}. Off by default: {@code orazaka.research.grounded.enabled=true} registers
+ * LawCorpusConfiguration}. Off by default: {@code orazaka.law.grounded.enabled=true} registers
  * {@link GroundedResearchService}, which the job service's executor for the handler key {@code
  * research.grounded} calls. Even then every call is refused while {@code research.enabled}, {@code
  * law.corpus.enabled} or the {@code law-corpus} source is off, and a call with a document while
@@ -29,7 +29,7 @@ import org.springframework.context.annotation.Configuration;
  * <p>It fails closed: without a metering bean a call is refused before anything is asked.
  */
 @Configuration(proxyBeanMethods = false)
-@ConditionalOnProperty(prefix = "orazaka.research.grounded", name = "enabled", havingValue = "true")
+@ConditionalOnProperty(prefix = "orazaka.law.grounded", name = "enabled", havingValue = "true")
 public class GroundedResearchConfiguration {
 
   @Bean

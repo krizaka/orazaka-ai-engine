@@ -7,6 +7,7 @@ import com.krizaka.orazaka.adapter.springai.remote.LocalAiSemanticClassifierAdap
 import com.krizaka.orazaka.adapter.springai.remote.OllamaModelCatalogProvider;
 import com.krizaka.orazaka.adapter.springai.remote.WhisperTranscriptionClient;
 import com.krizaka.orazaka.adapter.springai.routing.CatalogModelEndpointResolver;
+import com.krizaka.orazaka.adapter.springai.spend.SpendGuard;
 import com.krizaka.orazaka.core.application.engine.Engine;
 import com.krizaka.orazaka.core.application.engine.EngineInfrastructure;
 import com.krizaka.orazaka.core.application.interceptor.PromptContextInterceptor;
@@ -371,6 +372,25 @@ public class CoreServicesAutoConfiguration {
       @Value("${orazaka.core.video.generation.probe-port:8188}") int videoProbePort,
       @Value("${orazaka.core.image.generation.probe-port:8086}") int imageProbePort) {
     return new InfrastructureProber(properties, videoProbePort, imageProbePort);
+  }
+
+  /**
+   * The daily budget breaker of paid providers; a negative budget switches it off.
+   *
+   * @param budgetUsd the daily ceiling in USD
+   * @param chatUsd estimated cost of a chat call
+   * @param embeddingUsd estimated cost of an embedding call
+   * @param videoUsd estimated cost of a video call
+   * @return the guard
+   */
+  @Bean
+  @ConditionalOnMissingBean
+  public SpendGuard spendGuard(
+      @Value("${orazaka.spend.daily-budget-usd:${AI_SPEND_DAILY_BUDGET_USD:5.0}}") double budgetUsd,
+      @Value("${orazaka.spend.cost-usd.chat:0.01}") double chatUsd,
+      @Value("${orazaka.spend.cost-usd.embedding:0.0002}") double embeddingUsd,
+      @Value("${orazaka.spend.cost-usd.video:0.60}") double videoUsd) {
+    return new SpendGuard(budgetUsd, chatUsd, embeddingUsd, videoUsd, java.time.Clock.systemUTC());
   }
 
   /**

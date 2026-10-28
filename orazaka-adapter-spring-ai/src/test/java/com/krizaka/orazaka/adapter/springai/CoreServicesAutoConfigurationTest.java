@@ -117,6 +117,8 @@ class CoreServicesAutoConfigurationTest {
               .getBean(
                   com.krizaka.orazaka.core.domain.ports.outbound.InfrastructureStatusProvider.class)
               .isInstanceOf(com.krizaka.orazaka.adapter.springai.remote.InfrastructureProber.class);
+          assertThat(context)
+              .hasSingleBean(com.krizaka.orazaka.adapter.springai.spend.SpendGuard.class);
           assertThat(context).hasSingleBean(StepRouteProvider.class);
           assertThat(context).hasSingleBean(SemanticRoutingEngine.class);
           assertThat(context).hasSingleBean(HostCapabilityDetector.class);

@@ -1,4 +1,4 @@
-package com.krizaka.orazaka.core.infrastructure.spend;
+package com.krizaka.orazaka.adapter.springai.spend;
 
 import java.io.Serial;
 import org.springframework.http.HttpStatus;

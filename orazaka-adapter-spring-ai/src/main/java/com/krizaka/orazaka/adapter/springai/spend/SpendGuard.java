@@ -1,4 +1,4 @@
-package com.krizaka.orazaka.core.infrastructure.spend;
+package com.krizaka.orazaka.adapter.springai.spend;
 
 import com.krizaka.orazaka.core.domain.model.ModelEndpoint;
 import java.net.URI;
@@ -9,9 +9,6 @@ import java.util.Locale;
 import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
 
 /**
  * Global daily budget circuit breaker for <b>paid</b> providers (hosted chat, embeddings, remote
@@ -27,7 +24,6 @@ import org.springframework.stereotype.Component;
  * AI_SPEND_DAILY_BUDGET_USD}, default 5) is the ceiling; a negative value switches the guard off
  * (production, where billing is the control).
  */
-@Component
 public class SpendGuard {
 
   private static final Logger logger = LoggerFactory.getLogger(SpendGuard.class);
@@ -53,16 +49,12 @@ public class SpendGuard {
   private double spentUsd;
   private boolean alerted;
 
-  @Autowired
-  public SpendGuard(
-      @Value("${orazaka.spend.daily-budget-usd:${AI_SPEND_DAILY_BUDGET_USD:5.0}}") double budgetUsd,
-      @Value("${orazaka.spend.cost-usd.chat:0.01}") double chatUsd,
-      @Value("${orazaka.spend.cost-usd.embedding:0.0002}") double embeddingUsd,
-      @Value("${orazaka.spend.cost-usd.video:0.60}") double videoUsd) {
+  public SpendGuard(double budgetUsd, double chatUsd, double embeddingUsd, double videoUsd) {
     this(budgetUsd, chatUsd, embeddingUsd, videoUsd, Clock.systemUTC());
   }
 
-  SpendGuard(double budgetUsd, double chatUsd, double embeddingUsd, double videoUsd, Clock clock) {
+  public SpendGuard(
+      double budgetUsd, double chatUsd, double embeddingUsd, double videoUsd, Clock clock) {
     this.budgetUsd = budgetUsd;
     this.chatUsd = chatUsd;
     this.embeddingUsd = embeddingUsd;

@@ -56,79 +56,77 @@ public class CoreInfrastructureAutoConfiguration {
    */
   @Bean
   public CoreProperties coreProperties(Environment env) {
-    CoreProperties temp = null;
-    try {
-      temp = Binder.get(env).bind("orazaka.core", CoreProperties.class).orElse(null);
-    } catch (RuntimeException e) {
-      logger.debug("Could not bind 'orazaka.core' properties, using defaults.", e);
-    }
-
-    String defaultProvider =
-        temp != null && temp.defaultProvider() != null ? temp.defaultProvider() : DEFAULT_PROVIDER;
-
-    CoreProperties.RagConfig rag =
-        temp != null && temp.rag() != null
-            ? temp.rag()
-            : new CoreProperties.RagConfig(true, "pgvector", 3);
-
-    CoreProperties.McpConfig mcp =
-        temp != null && temp.mcp() != null ? temp.mcp() : new CoreProperties.McpConfig(List.of());
+    CoreProperties bound = bindCore(env);
 
     // Master pipeline switch + routing come from yaml; per-interceptor enable is DB-driven
     // (pipeline_interceptor_config). The refiner/router model wiring is sourced from defaults
     // here, not yaml — keeping orchestration's refiner()/router() non-null for the AI stages.
-    boolean orchestrationEnabled =
-        (temp == null || temp.orchestration() == null) || temp.orchestration().enabled();
-    CoreProperties.RoutingConfig routing =
-        temp != null && temp.orchestration() != null && temp.orchestration().routing() != null
-            ? temp.orchestration().routing()
-            : new CoreProperties.RoutingConfig(null, null);
+    CoreProperties.OrchestrationConfig boundOrchestration = bound.orchestration();
     CoreProperties.OrchestrationConfig orchestration =
         new CoreProperties.OrchestrationConfig(
-            orchestrationEnabled,
+            boundOrchestration == null || boundOrchestration.enabled(),
             new CoreProperties.InterceptorConfig(DEFAULT_PROVIDER, DEFAULT_REFINER_MODEL, 0.7),
             new CoreProperties.InterceptorConfig(DEFAULT_PROVIDER, DEFAULT_REFINER_MODEL, 0.0),
-            routing);
+            boundOrchestration == null
+                ? new CoreProperties.RoutingConfig(null, null)
+                : orDefault(
+                    boundOrchestration.routing(), new CoreProperties.RoutingConfig(null, null)));
 
-    CoreProperties.VideoGenerationConfig videoGen =
-        new CoreProperties.VideoGenerationConfig(
-            "localai-video", "http://" + "local" + "host:8188");
-    CoreProperties.VideoAnalysisConfig videoAnalysis = new CoreProperties.VideoAnalysisConfig(8, 5);
     CoreProperties.VideoConfig videoConfig =
-        new CoreProperties.VideoConfig(videoAnalysis, videoGen);
-
-    // Default ImageConfig with defaults
-    // Bound values first, the literals only where the yaml says nothing (ADR-062). This block used
-    // to
-    // be literals alone and never read temp.image(): `steps` — what IMAGE_STEP prices a generation
-    // on
-    // — was 20 whatever IMAGE_GEN_STEPS said, so a 10-step deployment billed double what it did.
-    // That was cause 2 of 2; cause 1 was a second constructor that stopped the binder building
-    // this.
-    CoreProperties.ImageGenerationConfig bound =
-        temp != null && temp.image() != null ? temp.image().generation() : null;
-    CoreProperties.ImageGenerationConfig imageGen =
-        new CoreProperties.ImageGenerationConfig(
-            orDefault(bound == null ? null : bound.provider(), "localai-image"),
-            orDefault(bound == null ? null : bound.baseUrl(), "http://" + "local" + "host:8086"),
-            orDefault(bound == null ? null : bound.apiKey(), "not-required"),
-            orDefault(bound == null ? null : bound.model(), "stable-diffusion"),
-            orDefault(bound == null ? null : bound.width(), 512),
-            orDefault(bound == null ? null : bound.height(), 512),
-            orDefault(bound == null ? null : bound.n(), 1),
-            // stable-diffusion.cpp's own default; the deployment states it via IMAGE_GEN_STEPS.
-            orDefault(bound == null ? null : bound.steps(), 20),
-            orDefault(bound == null ? null : bound.connectTimeoutMs(), 180000),
-            orDefault(bound == null ? null : bound.readTimeoutMs(), 180000));
-    CoreProperties.ImageConfig imageConfig = new CoreProperties.ImageConfig(imageGen);
-
-    CoreProperties.VisionConfig vision =
-        new CoreProperties.VisionConfig(DEFAULT_PROVIDER, "llama3.2-vision:latest");
-    CoreProperties.AudioConfig audio =
-        new CoreProperties.AudioConfig(DEFAULT_PROVIDER, DEFAULT_REFINER_MODEL, "whisper-1");
+        new CoreProperties.VideoConfig(
+            new CoreProperties.VideoAnalysisConfig(8, 5),
+            new CoreProperties.VideoGenerationConfig(
+                "localai-video", "http://" + "local" + "host:8188"));
 
     return new CoreProperties(
-        defaultProvider, rag, mcp, orchestration, videoConfig, imageConfig, vision, audio);
+        orDefault(bound.defaultProvider(), DEFAULT_PROVIDER),
+        orDefault(bound.rag(), new CoreProperties.RagConfig(true, "pgvector", 3)),
+        orDefault(bound.mcp(), new CoreProperties.McpConfig(List.of())),
+        orchestration,
+        videoConfig,
+        imageConfig(bound),
+        new CoreProperties.VisionConfig(DEFAULT_PROVIDER, "llama3.2-vision:latest"),
+        new CoreProperties.AudioConfig(DEFAULT_PROVIDER, DEFAULT_REFINER_MODEL, "whisper-1"));
+  }
+
+  /** What the yaml says under {@code orazaka.core}; all-null when it says nothing. */
+  private static CoreProperties bindCore(Environment env) {
+    try {
+      return Binder.get(env)
+          .bind("orazaka.core", CoreProperties.class)
+          .orElseGet(CoreInfrastructureAutoConfiguration::unbound);
+    } catch (RuntimeException e) {
+      logger.debug("Could not bind 'orazaka.core' properties, using defaults.", e);
+      return unbound();
+    }
+  }
+
+  private static CoreProperties unbound() {
+    return new CoreProperties(null, null, null, null, null, null, null, null);
+  }
+
+  /**
+   * Bound values first, the literals only where the yaml says nothing (ADR-062). This block used to
+   * be literals alone and never read the bound image config: {@code steps} — what IMAGE_STEP prices
+   * a generation on — was 20 whatever IMAGE_GEN_STEPS said, so a 10-step deployment billed double
+   * what it did.
+   */
+  private static CoreProperties.ImageConfig imageConfig(CoreProperties bound) {
+    CoreProperties.ImageGenerationConfig yaml =
+        bound.image() == null ? null : bound.image().generation();
+    return new CoreProperties.ImageConfig(
+        new CoreProperties.ImageGenerationConfig(
+            orDefault(yaml == null ? null : yaml.provider(), "localai-image"),
+            orDefault(yaml == null ? null : yaml.baseUrl(), "http://" + "local" + "host:8086"),
+            orDefault(yaml == null ? null : yaml.apiKey(), "not-required"),
+            orDefault(yaml == null ? null : yaml.model(), "stable-diffusion"),
+            orDefault(yaml == null ? null : yaml.width(), 512),
+            orDefault(yaml == null ? null : yaml.height(), 512),
+            orDefault(yaml == null ? null : yaml.n(), 1),
+            // stable-diffusion.cpp's own default; the deployment states it via IMAGE_GEN_STEPS.
+            orDefault(yaml == null ? null : yaml.steps(), 20),
+            orDefault(yaml == null ? null : yaml.connectTimeoutMs(), 180000),
+            orDefault(yaml == null ? null : yaml.readTimeoutMs(), 180000)));
   }
 
   /**

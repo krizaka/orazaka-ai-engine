@@ -22,6 +22,7 @@ import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatResponse;
 import com.krizaka.orazaka.core.domain.model.chat.PreparedPrompt;
 import com.krizaka.orazaka.core.domain.ports.outbound.ChatInvocation;
+import com.krizaka.orazaka.core.domain.ports.outbound.DomainEventPublisher;
 import com.krizaka.orazaka.core.domain.ports.outbound.ProviderChatClient;
 import com.krizaka.orazaka.core.domain.ports.outbound.TestShaperPort;
 import com.krizaka.orazaka.core.domain.ports.outbound.UserCredentialsProvider;
@@ -30,7 +31,6 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.context.ApplicationEventPublisher;
 import reactor.core.publisher.Flux;
 
 /**
@@ -45,7 +45,7 @@ class ClosedLoopFailClosedGuardTest {
 
   private final ChatInvocation invocation = mock(ChatInvocation.class);
   private final EnginePipelineBridge pipelineBridge = mock(EnginePipelineBridge.class);
-  private final ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
+  private final DomainEventPublisher events = mock(DomainEventPublisher.class);
   private final DynamicPipelineExecutor pipeline = mock(DynamicPipelineExecutor.class);
 
   private static ChatCompletion chunk(String text) {
@@ -85,7 +85,7 @@ class ClosedLoopFailClosedGuardTest {
 
     assertThatThrownBy(() -> stream.collectList().block())
         .isInstanceOf(PipelineShortCircuitException.class);
-    verify(events, never()).publishEvent(any(ChatCompletedEvent.class));
+    verify(events, never()).publish(any(ChatCompletedEvent.class));
   }
 
   @Test
@@ -96,7 +96,7 @@ class ClosedLoopFailClosedGuardTest {
 
     assertThatThrownBy(() -> stream.collectList().block())
         .isInstanceOf(PipelineShortCircuitException.class);
-    verify(events, never()).publishEvent(any(ChatCompletedEvent.class));
+    verify(events, never()).publish(any(ChatCompletedEvent.class));
   }
 
   @Test

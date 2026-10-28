@@ -18,6 +18,7 @@ import com.krizaka.orazaka.core.domain.model.CachedResponse;
 import com.krizaka.orazaka.core.domain.model.PromptContext;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatResponse;
+import com.krizaka.orazaka.core.domain.ports.outbound.DomainEventPublisher;
 import com.krizaka.orazaka.core.domain.ports.outbound.ModelCatalogProvider;
 import com.krizaka.orazaka.core.domain.ports.outbound.PlatformMcpServerProvider;
 import com.krizaka.orazaka.core.domain.ports.outbound.ToolRegistry;
@@ -39,7 +40,6 @@ import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.prompt.Prompt;
-import org.springframework.context.ApplicationEventPublisher;
 
 /**
  * A turn answered by a cache: the model is not called, the hold is not billed, and the answer still
@@ -49,7 +49,7 @@ import org.springframework.context.ApplicationEventPublisher;
 class EngineCachedResponseTest {
 
   @Mock private ChatModel chatModel;
-  @Mock private ApplicationEventPublisher eventPublisher;
+  @Mock private DomainEventPublisher eventPublisher;
   @Mock private ModelCatalogProvider modelCatalogProvider;
   @Mock private UserCredentialsProvider credentialsProvider;
   @Mock private DynamicChatModelFactory<ChatModel> modelFactory;
@@ -170,7 +170,7 @@ class EngineCachedResponseTest {
     engine().chat(InternalChatRequest.simple("hello"));
 
     var event = ArgumentCaptor.forClass(Object.class);
-    verify(eventPublisher).publishEvent(event.capture());
+    verify(eventPublisher).publish(event.capture());
     var completed = (ChatCompletedEvent) event.getValue();
     assertThat(completed.holdId()).isEqualTo("hold-7");
     assertThat(completed.response().tokenUsage().reported()).isFalse();
@@ -193,7 +193,7 @@ class EngineCachedResponseTest {
     assertThrows(
         PipelineShortCircuitException.class,
         () -> engine.chat(InternalChatRequest.simple("hello")));
-    verify(eventPublisher, never()).publishEvent(any(Object.class));
+    verify(eventPublisher, never()).publish(any(Object.class));
   }
 
   @Test
@@ -238,7 +238,7 @@ class EngineCachedResponseTest {
     assertThat(chunks.getFirst().content()).isEqualTo("streamed from cache");
     assertThat(screened).containsExactly("streamed from cache");
     verifyNoInteractions(chatModel);
-    verify(eventPublisher, times(1)).publishEvent(any(ChatCompletedEvent.class));
+    verify(eventPublisher, times(1)).publish(any(ChatCompletedEvent.class));
   }
 
   @Test

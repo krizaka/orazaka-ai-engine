@@ -11,6 +11,7 @@ import com.krizaka.orazaka.core.application.interceptor.PromptContextInterceptor
 import com.krizaka.orazaka.core.domain.event.ChatCompletedEvent;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatResponse;
+import com.krizaka.orazaka.core.domain.ports.outbound.DomainEventPublisher;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -27,7 +28,6 @@ import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
 import org.springframework.ai.ollama.api.OllamaChatOptions;
 import org.springframework.ai.openai.OpenAiChatOptions;
-import org.springframework.context.ApplicationEventPublisher;
 import reactor.core.publisher.Flux;
 
 @ExtendWith(MockitoExtension.class)
@@ -35,7 +35,7 @@ class EngineStreamBridgeTest {
 
   @Mock private ChatModel chatModel;
   @Mock private EnginePipelineBridge pipelineBridge;
-  @Mock private ApplicationEventPublisher eventPublisher;
+  @Mock private DomainEventPublisher eventPublisher;
   @Mock private DynamicPipelineExecutor orchestrationPipeline;
   @Mock private PromptContextInterceptor interceptor;
 
@@ -102,7 +102,7 @@ class EngineStreamBridgeTest {
     assertThat(results.get(2).content()).isEmpty();
     assertThat(results.get(2).metadata()).containsEntry("control.verdict", "NOT_CHECKED");
 
-    verify(eventPublisher, times(1)).publishEvent(any(ChatCompletedEvent.class));
+    verify(eventPublisher, times(1)).publish(any(ChatCompletedEvent.class));
     verify(interceptor, times(1)).postProcess(request, PROMPT_HELLO, "chunk 1chunk 2");
   }
 
@@ -142,7 +142,7 @@ class EngineStreamBridgeTest {
     assertThat(results).isNotNull().hasSize(2);
     assertThat(results.getFirst().content()).isEqualTo("fallback chunk");
 
-    verify(eventPublisher, times(1)).publishEvent(any(ChatCompletedEvent.class));
+    verify(eventPublisher, times(1)).publish(any(ChatCompletedEvent.class));
   }
 
   @Test
@@ -182,7 +182,7 @@ class EngineStreamBridgeTest {
     assertThat(results).isNotNull().hasSize(2);
     assertThat(results.getFirst().content()).isEqualTo("fallback chunk async");
 
-    verify(eventPublisher, times(1)).publishEvent(any(ChatCompletedEvent.class));
+    verify(eventPublisher, times(1)).publish(any(ChatCompletedEvent.class));
   }
 
   @Test

@@ -4,6 +4,7 @@ import com.krizaka.orazaka.core.application.interceptor.PromptContextInterceptor
 import com.krizaka.orazaka.core.application.routing.SemanticRoutingEngine;
 import com.krizaka.orazaka.core.domain.event.PipelineStageEvent;
 import com.krizaka.orazaka.core.domain.model.*;
+import com.krizaka.orazaka.core.domain.ports.outbound.DomainEventPublisher;
 import com.krizaka.orazaka.core.infrastructure.config.CoreProperties;
 import com.krizaka.orazaka.core.infrastructure.config.SecurityProperties;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -16,8 +17,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.stereotype.Component;
 
 /**
  * Two-phase dynamic pipeline executor with semantic routing, Micrometer telemetry, and thread-safe
@@ -50,7 +49,6 @@ import org.springframework.stereotype.Component;
  * @see PipelineRegistry
  * @see SemanticRoutingEngine
  */
-@Component
 public final class DynamicPipelineExecutor {
 
   private static final Logger logger = LoggerFactory.getLogger(DynamicPipelineExecutor.class);
@@ -63,7 +61,7 @@ public final class DynamicPipelineExecutor {
   private final CoreProperties properties;
   private final Timer routingLatencyTimer;
   private final AtomicInteger activeInterceptorGauge;
-  private final ApplicationEventPublisher eventPublisher;
+  private final DomainEventPublisher eventPublisher;
 
   /**
    * Constructs the two-phase pipeline executor.
@@ -75,8 +73,7 @@ public final class DynamicPipelineExecutor {
    * @param securityProperties Security governance configuration.
    * @param properties Core configuration properties.
    * @param meterRegistry Micrometer meter registry for telemetry.
-   * @param eventPublisher Spring publisher used to emit per-interceptor {@link
-   *     PipelineStageEvent}s.
+   * @param eventPublisher Publisher used to emit per-interceptor {@link PipelineStageEvent}s.
    */
   public DynamicPipelineExecutor(
       List<PromptContextInterceptor> interceptors,
@@ -85,7 +82,7 @@ public final class DynamicPipelineExecutor {
       SecurityProperties securityProperties,
       CoreProperties properties,
       MeterRegistry meterRegistry,
-      ApplicationEventPublisher eventPublisher) {
+      DomainEventPublisher eventPublisher) {
 
     this.eventPublisher = eventPublisher;
     List<PromptContextInterceptor> all =
@@ -394,7 +391,7 @@ public final class DynamicPipelineExecutor {
     if (eventPublisher == null || context == null || context.conversationId() == null) {
       return;
     }
-    eventPublisher.publishEvent(
+    eventPublisher.publish(
         new PipelineStageEvent(context.conversationId(), interceptor.getClass().getSimpleName()));
   }
 

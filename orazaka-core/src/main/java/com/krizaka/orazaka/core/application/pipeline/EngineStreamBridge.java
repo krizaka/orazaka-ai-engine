@@ -13,6 +13,7 @@ import com.krizaka.orazaka.core.domain.model.chat.ToolCall;
 import com.krizaka.orazaka.core.domain.model.control.ControlMetadata;
 import com.krizaka.orazaka.core.domain.model.control.ControlState;
 import com.krizaka.orazaka.core.domain.ports.outbound.ChatInvocation;
+import com.krizaka.orazaka.core.domain.ports.outbound.DomainEventPublisher;
 import com.krizaka.orazaka.core.domain.ports.outbound.UserCredentialsProvider;
 import java.util.HashMap;
 import java.util.List;
@@ -21,8 +22,6 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
 /**
@@ -44,7 +43,6 @@ import reactor.core.publisher.Flux;
  * @see AbstractEngine#stream(InternalChatRequest)
  * @see EnginePipelineBridge
  */
-@Component
 public final class EngineStreamBridge {
 
   private static final Logger logger = LoggerFactory.getLogger(EngineStreamBridge.class);
@@ -76,7 +74,7 @@ public final class EngineStreamBridge {
    * @param pipeline The orchestration pipeline (nullable — bypassed if null).
    * @param defaultProvider The default provider name.
    * @param interceptors Ordered interceptors for pre/post-processing.
-   * @param eventPublisher Spring event publisher for {@link ChatCompletedEvent}.
+   * @param eventPublisher Event publisher for {@link ChatCompletedEvent}.
    * @return A {@link Flux} emitting incremental {@link InternalChatResponse} chunks.
    */
   public Flux<InternalChatResponse> createStream(
@@ -84,7 +82,7 @@ public final class EngineStreamBridge {
       DynamicPipelineExecutor pipeline,
       String defaultProvider,
       List<PromptContextInterceptor> interceptors,
-      ApplicationEventPublisher eventPublisher) {
+      DomainEventPublisher eventPublisher) {
 
     return Flux.defer(
         () -> {
@@ -176,7 +174,7 @@ public final class EngineStreamBridge {
       InternalChatRequest request,
       EnginePipelineContext context,
       List<PromptContextInterceptor> interceptors,
-      ApplicationEventPublisher eventPublisher,
+      DomainEventPublisher eventPublisher,
       Streamed streamed,
       long startTime) {
     var screened =
@@ -185,7 +183,7 @@ public final class EngineStreamBridge {
     Map<String, Object> metadata = buildCompletionMetadata(context, startTime);
     metadata.putAll(screened.notes());
     metadata.putIfAbsent(ControlMetadata.VERDICT.key(), ControlState.NOT_CHECKED.name());
-    eventPublisher.publishEvent(
+    eventPublisher.publish(
         new ChatCompletedEvent(
             request,
             new InternalChatResponse(
@@ -204,7 +202,7 @@ public final class EngineStreamBridge {
       InternalChatRequest request,
       EnginePipelineContext context,
       List<PromptContextInterceptor> interceptors,
-      ApplicationEventPublisher eventPublisher) {
+      DomainEventPublisher eventPublisher) {
     var cached = context.cachedResponse();
     var screened = ResponseScreen.screen(interceptors, context.promptContext(), cached.text());
     String text = screened.text();
@@ -216,7 +214,7 @@ public final class EngineStreamBridge {
     return Flux.just(chunk)
         .doOnComplete(
             () ->
-                eventPublisher.publishEvent(
+                eventPublisher.publish(
                     new ChatCompletedEvent(
                         request,
                         new InternalChatResponse(

@@ -15,7 +15,6 @@ import com.krizaka.orazaka.core.infrastructure.support.CoreException;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import org.springframework.stereotype.Component;
 
 /**
  * Component bridge that compiles a complete inference context from a raw chat request.
@@ -32,7 +31,6 @@ import org.springframework.stereotype.Component;
  * @see EnginePipelineContext
  * @see AbstractEngine
  */
-@Component
 public final class EnginePipelineBridge {
 
   private final ModelCatalogProvider modelCatalogProvider;

@@ -21,6 +21,7 @@ import com.krizaka.orazaka.adapter.springai.routing.UniversalProxyChatProvider;
 import com.krizaka.orazaka.adapter.springai.structured.SpringAiStructuredOutputClient;
 import com.krizaka.orazaka.adapter.springai.tool.SpringAiToolOptions;
 import com.krizaka.orazaka.adapter.springai.tool.SpringAiToolRegistry;
+import com.krizaka.orazaka.adapter.springai.tool.SpringAiToolResolution;
 import com.krizaka.orazaka.core.application.engine.Engine;
 import com.krizaka.orazaka.core.application.routing.DynamicChatModelFactory;
 import com.krizaka.orazaka.core.domain.ports.outbound.*;
@@ -272,6 +273,25 @@ public class SpringAiAdapterAutoConfiguration {
   @ConditionalOnMissingBean(PromptAssembly.class)
   public PromptAssembly promptAssembly() {
     return new SpringAiPromptAssembly();
+  }
+
+  /**
+   * The port that resolves the tools of a turn: the registry's, the platform's MCP servers and the
+   * user's own (#121). Roles and the denials audit stay at the tool (ADR-091).
+   *
+   * @param platform the platform's MCP servers (optional)
+   * @param user the user's own MCP servers (optional)
+   * @param registry the local tools (optional)
+   * @return the resolution
+   */
+  @Bean
+  @ConditionalOnMissingBean(ToolResolution.class)
+  public SpringAiToolResolution toolResolution(
+      ObjectProvider<PlatformMcpServerProvider> platform,
+      ObjectProvider<UserMcpServerProvider> user,
+      ObjectProvider<ToolRegistry> registry) {
+    return new SpringAiToolResolution(
+        platform.getIfAvailable(), user.getIfAvailable(), registry.getIfAvailable());
   }
 
   /** The Ollama options strategy. */

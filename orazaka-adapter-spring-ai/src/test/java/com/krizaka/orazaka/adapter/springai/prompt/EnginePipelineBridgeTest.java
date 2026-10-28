@@ -4,6 +4,7 @@ import static com.krizaka.orazaka.test.TestConstants.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+import com.krizaka.orazaka.adapter.springai.tool.SpringAiToolResolution;
 import com.krizaka.orazaka.core.application.interceptor.PromptContextInterceptor;
 import com.krizaka.orazaka.core.application.pipeline.*;
 import com.krizaka.orazaka.core.domain.model.Context;
@@ -60,9 +61,8 @@ class EnginePipelineBridgeTest {
     enginePipelineBridge =
         new EnginePipelineBridge(
             modelCatalogProvider,
-            platformMcpServerProvider,
-            userMcpServerProvider,
-            toolRegistry,
+            new SpringAiToolResolution(
+                platformMcpServerProvider, userMcpServerProvider, toolRegistry),
             new SpringAiPromptAssembly());
   }
 

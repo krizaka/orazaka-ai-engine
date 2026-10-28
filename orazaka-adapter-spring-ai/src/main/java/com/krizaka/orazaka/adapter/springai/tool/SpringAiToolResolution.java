@@ -1,10 +1,11 @@
-package com.krizaka.orazaka.core.application.pipeline;
+package com.krizaka.orazaka.adapter.springai.tool;
 
 import com.krizaka.orazaka.core.domain.model.chat.EngineTool;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
 import com.krizaka.orazaka.core.domain.model.security.Actor;
 import com.krizaka.orazaka.core.domain.ports.outbound.PlatformMcpServerProvider;
 import com.krizaka.orazaka.core.domain.ports.outbound.ToolRegistry;
+import com.krizaka.orazaka.core.domain.ports.outbound.ToolResolution;
 import com.krizaka.orazaka.core.domain.ports.outbound.UserMcpServerProvider;
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
@@ -16,6 +17,7 @@ import io.modelcontextprotocol.json.jackson3.JacksonMcpJsonMapper;
 import io.modelcontextprotocol.spec.McpClientTransport;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.mcp.SyncMcpToolCallbackProvider;
@@ -24,18 +26,41 @@ import org.springframework.ai.tool.definition.ToolDefinition;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Factory responsible for building MCP client connections and resolving tool callbacks from
- * platform, user, and local tool registry sources.
+ * {@link ToolResolution} on Spring AI: builds the MCP client connections and resolves the tool
+ * callbacks from the platform's servers, the user's own and the local tool registry (#121).
  *
- * <p>Extracted from {@link EnginePipelineBridge} to enforce single-responsibility and keep the
- * bridge focused on prompt compilation orchestration. Follows ERR-107 (Mapper Isolation Invariant
- * applied to factory patterns).
+ * <p>Follows ERR-107 (Mapper Isolation Invariant applied to factory patterns).
  */
-final class McpClientFactory {
+public final class SpringAiToolResolution implements ToolResolution {
 
-  private static final Logger logger = LoggerFactory.getLogger(McpClientFactory.class);
+  private static final Logger logger = LoggerFactory.getLogger(SpringAiToolResolution.class);
 
-  private McpClientFactory() {}
+  private final PlatformMcpServerProvider platformMcpServerProvider;
+  private final UserMcpServerProvider userMcpServerProvider;
+  private final ToolRegistry toolRegistry;
+
+  /**
+   * Constructs the resolution.
+   *
+   * @param platformMcpServerProvider The platform-wide MCP provider (nullable).
+   * @param userMcpServerProvider The user private MCP provider (nullable).
+   * @param toolRegistry The local tools registry (nullable).
+   */
+  public SpringAiToolResolution(
+      PlatformMcpServerProvider platformMcpServerProvider,
+      UserMcpServerProvider userMcpServerProvider,
+      ToolRegistry toolRegistry) {
+    this.platformMcpServerProvider = platformMcpServerProvider;
+    this.userMcpServerProvider = userMcpServerProvider;
+    this.toolRegistry = toolRegistry;
+  }
+
+  @Override
+  public ResolvedTools resolve(InternalChatRequest request) {
+    List<AutoCloseable> closeables = new ArrayList<>();
+    List<ToolCallback> callbacks = resolveToolCallbacks(request, closeables);
+    return new ResolvedTools(callbacks, closeables);
+  }
 
   /** Describes an MCP server connection for client initialization. */
   record McpServerDescriptor(
@@ -66,18 +91,11 @@ final class McpClientFactory {
    * Resolves all MCP tool callbacks from platform servers, user servers, and local registry.
    *
    * @param request The chat request (used to extract user context for user MCP servers).
-   * @param platformMcpServerProvider The platform-wide MCP provider (nullable).
-   * @param userMcpServerProvider The user private MCP provider (nullable).
-   * @param toolRegistry The local tools registry (nullable).
    * @param closeables Mutable list to track closeable MCP clients for cleanup.
    * @return Combined list of all tool callbacks.
    */
-  static List<ToolCallback> resolveToolCallbacks(
-      InternalChatRequest request,
-      PlatformMcpServerProvider platformMcpServerProvider,
-      UserMcpServerProvider userMcpServerProvider,
-      ToolRegistry toolRegistry,
-      List<AutoCloseable> closeables) {
+  private List<ToolCallback> resolveToolCallbacks(
+      InternalChatRequest request, List<AutoCloseable> closeables) {
 
     List<ToolCallback> allToolCallbacks = new ArrayList<>();
 
@@ -85,32 +103,44 @@ final class McpClientFactory {
     Actor actor = Actor.from(request.context()).orElse(null);
     if (toolRegistry != null) {
       toolRegistry.getRegisteredTools(actor).stream()
-          .map(McpClientFactory::toCallback)
+          .map(SpringAiToolResolution::toCallback)
           .forEach(allToolCallbacks::add);
     }
 
-    // Platform MCP servers: an administrator configured them for the signed-in users of the
-    // platform. A turn with no verified actor gets none, and a user's own servers are theirs alone.
-    if (platformMcpServerProvider != null && actor != null) {
-      for (PlatformMcpServerProvider.PlatformMcpServer server :
-          platformMcpServerProvider.getActivePlatformMcpServers()) {
-        if (Boolean.TRUE.equals(server.enabled())) {
-          buildClientSafely(McpServerDescriptor.fromPlatform(server), closeables, allToolCallbacks);
-        }
-      }
-    }
-
-    // User private MCP servers
-    String currentUserId = request.context().userId();
-    if (userMcpServerProvider != null && actor != null) {
-      for (UserMcpServerProvider.UserMcpServer server :
-          userMcpServerProvider.getActiveUserMcpServers(currentUserId)) {
-        if (Boolean.TRUE.equals(server.enabled())) {
-          buildClientSafely(McpServerDescriptor.fromUser(server), closeables, allToolCallbacks);
-        }
-      }
+    // A turn with no verified actor gets no MCP server: the platform's were configured for the
+    // signed-in users, and a user's own servers are theirs alone.
+    if (actor != null) {
+      connectEnabled(
+          platformServers().map(McpServerDescriptor::fromPlatform), closeables, allToolCallbacks);
+      connectEnabled(
+          userServers(request.context().userId()).map(McpServerDescriptor::fromUser),
+          closeables,
+          allToolCallbacks);
     }
     return allToolCallbacks;
+  }
+
+  private Stream<PlatformMcpServerProvider.PlatformMcpServer> platformServers() {
+    if (platformMcpServerProvider == null) {
+      return Stream.empty();
+    }
+    return platformMcpServerProvider.getActivePlatformMcpServers().stream()
+        .filter(server -> Boolean.TRUE.equals(server.enabled()));
+  }
+
+  private Stream<UserMcpServerProvider.UserMcpServer> userServers(String userId) {
+    if (userMcpServerProvider == null) {
+      return Stream.empty();
+    }
+    return userMcpServerProvider.getActiveUserMcpServers(userId).stream()
+        .filter(server -> Boolean.TRUE.equals(server.enabled()));
+  }
+
+  private static void connectEnabled(
+      Stream<McpServerDescriptor> descriptors,
+      List<AutoCloseable> closeables,
+      List<ToolCallback> callbacks) {
+    descriptors.forEach(d -> buildClientSafely(d, closeables, callbacks));
   }
 
   /** The library tool of a registered one: the original where there is one, else built from it. */

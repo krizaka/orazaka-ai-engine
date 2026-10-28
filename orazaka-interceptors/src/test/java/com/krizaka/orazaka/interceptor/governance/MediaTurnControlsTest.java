@@ -25,10 +25,7 @@ import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
 import com.krizaka.orazaka.core.domain.model.chat.PreparedPrompt;
 import com.krizaka.orazaka.core.domain.ports.outbound.ChatInvocation;
 import com.krizaka.orazaka.core.domain.ports.outbound.ModelCatalogProvider;
-import com.krizaka.orazaka.core.domain.ports.outbound.PlatformMcpServerProvider;
-import com.krizaka.orazaka.core.domain.ports.outbound.ToolRegistry;
 import com.krizaka.orazaka.core.domain.ports.outbound.UserCredentialsProvider;
-import com.krizaka.orazaka.core.domain.ports.outbound.UserMcpServerProvider;
 import com.krizaka.orazaka.core.infrastructure.config.CoreProperties;
 import com.krizaka.orazaka.core.infrastructure.config.SecurityProperties;
 import com.krizaka.orazaka.interceptor.reformulation.RefinerInterceptor;
@@ -233,9 +230,8 @@ class MediaTurnControlsTest {
     EnginePipelineBridge bridge =
         new EnginePipelineBridge(
             catalog,
-            mock(PlatformMcpServerProvider.class),
-            mock(UserMcpServerProvider.class),
-            mock(ToolRegistry.class),
+            request ->
+                com.krizaka.orazaka.core.domain.ports.outbound.ToolResolution.ResolvedTools.none(),
             new com.krizaka.orazaka.adapter.springai.prompt.SpringAiPromptAssembly());
     UserCredentialsProvider userCredentials = mock(UserCredentialsProvider.class);
     return new Engine(

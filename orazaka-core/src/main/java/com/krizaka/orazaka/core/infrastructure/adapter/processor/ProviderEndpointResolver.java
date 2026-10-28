@@ -7,7 +7,8 @@ import com.krizaka.orazaka.persistence.domain.ports.inbound.CatalogModelManager;
  *
  * <p>Replaces the former static {@code LocalProcessorUtil.resolveBaseUrl(CatalogModelManager)}: the
  * catalog dependency is held as a field, never passed as a method parameter [ERR-127]. Registered
- * as a bean in {@code CoreConfiguration} and shared by the local audio/video processors.
+ * as a bean in {@code CoreInfrastructureAutoConfiguration} and shared by the local audio/video
+ * processors.
  */
 public final class ProviderEndpointResolver {
 

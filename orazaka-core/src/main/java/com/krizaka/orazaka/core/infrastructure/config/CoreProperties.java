@@ -2,7 +2,6 @@ package com.krizaka.orazaka.core.infrastructure.config;
 
 import com.krizaka.orazaka.core.domain.model.RoutingMode;
 import java.util.List;
-import org.springframework.boot.context.properties.bind.ConstructorBinding;
 
 /**
  * Configuration properties for Orazaka CORS (Cognitive Orchestration and Retrieval System). Maps to
@@ -32,26 +31,6 @@ public record CoreProperties(
     VisionConfig vision,
     AudioConfig audio) {
 
-  @ConstructorBinding
-  public CoreProperties(
-      String defaultProvider,
-      RagConfig rag,
-      McpConfig mcp,
-      OrchestrationConfig orchestration,
-      VideoConfig video,
-      ImageConfig image,
-      VisionConfig vision,
-      AudioConfig audio) {
-    this.defaultProvider = defaultProvider;
-    this.rag = rag;
-    this.mcp = mcp;
-    this.orchestration = orchestration;
-    this.video = video;
-    this.image = image;
-    this.vision = vision;
-    this.audio = audio;
-  }
-
   /**
    * RAG (Retrieval-Augmented Generation) configuration.
    *
@@ -80,7 +59,8 @@ public record CoreProperties(
       boolean enabled, InterceptorConfig refiner, InterceptorConfig router, RoutingConfig routing) {
     // ONE constructor, deliberately — the SecurityProperties defect a second time (ADR-062). A
     // three-argument convenience constructor lived here, used only by tests. With two constructors
-    // and no @ConstructorBinding the binder built no OrchestrationConfig at all, CoreConfiguration
+    // and no @ConstructorBinding the binder built no OrchestrationConfig at all,
+    // CoreInfrastructureAutoConfiguration
     // fell back to "enabled", and `orazaka.core.orchestration.enabled: false` was read by nothing.
     // [CFG-001] now fails the build on that shape.
   }
@@ -153,6 +133,7 @@ public record CoreProperties(
     // ONE constructor ([CFG-001] found this third instance: a two-argument convenience
     // constructor made the binder drop `orazaka.core.audio`. Its values are still built from
     // literals
-    // in CoreConfiguration, which masks the loss — recorded in ADR-062, not changed here.)
+    // in CoreInfrastructureAutoConfiguration, which masks the loss — recorded in ADR-062, not
+    // changed here.)
   }
 }

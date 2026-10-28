@@ -1,4 +1,4 @@
-package com.krizaka.orazaka.core.application.service;
+package com.krizaka.orazaka.adapter.springai.memory;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
@@ -22,12 +22,13 @@ import org.mockito.ArgumentCaptor;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.QueryTimeoutException;
 
-class ChatMemoryStoreImplTest {
+class PersistedChatMemoryStoreTest {
 
   private final ChatMemoryPersistenceProvider provider = mock(ChatMemoryPersistenceProvider.class);
-  private final ChatMemoryStoreImpl store = new ChatMemoryStoreImpl(provider, new MarkerCodec());
+  private final PersistedChatMemoryStore store =
+      new PersistedChatMemoryStore(provider, new MarkerCodec());
   private final ListAppender<ILoggingEvent> logs = new ListAppender<>();
-  private final Logger logger = (Logger) LoggerFactory.getLogger(ChatMemoryStoreImpl.class);
+  private final Logger logger = (Logger) LoggerFactory.getLogger(PersistedChatMemoryStore.class);
 
   @BeforeEach
   void attach() {

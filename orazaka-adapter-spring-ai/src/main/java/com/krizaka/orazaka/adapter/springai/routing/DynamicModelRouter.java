@@ -66,6 +66,20 @@ public class DynamicModelRouter {
                         "No default model endpoint resolved for category: " + category)));
   }
 
+  /**
+   * Builds (or returns a cached) {@link ChatModel} for a feature key's routing rows (ADR-029), the
+   * category default when the feature has none.
+   */
+  public ChatModel featureChatModel(String featureKey, String fallbackCategory) {
+    return chatModelFor(
+        resolver
+            .resolveForFeature(featureKey, fallbackCategory)
+            .orElseThrow(
+                () ->
+                    new StepModelUnavailableException(
+                        "No endpoint resolved for feature: " + featureKey)));
+  }
+
   /** The name of a category's default model (catalogue {@code is_default}). */
   public String defaultModelName(String category) {
     return resolver

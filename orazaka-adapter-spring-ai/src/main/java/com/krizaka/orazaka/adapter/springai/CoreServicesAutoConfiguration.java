@@ -17,10 +17,12 @@ import com.krizaka.orazaka.core.application.routing.SemanticRoutingEngine;
 import com.krizaka.orazaka.core.application.service.DefaultAiClient;
 import com.krizaka.orazaka.core.application.service.DefaultCatalogModelService;
 import com.krizaka.orazaka.core.application.service.DefaultChatSessionService;
+import com.krizaka.orazaka.core.application.service.DefaultJobService;
 import com.krizaka.orazaka.core.application.service.DefaultMcpService;
 import com.krizaka.orazaka.core.domain.ports.inbound.AiClient;
 import com.krizaka.orazaka.core.domain.ports.inbound.CatalogModelService;
 import com.krizaka.orazaka.core.domain.ports.inbound.ChatSessionService;
+import com.krizaka.orazaka.core.domain.ports.inbound.JobService;
 import com.krizaka.orazaka.core.domain.ports.inbound.McpService;
 import com.krizaka.orazaka.core.domain.ports.inbound.StepRouter;
 import com.krizaka.orazaka.core.domain.ports.outbound.AccessAudit;
@@ -50,6 +52,7 @@ import com.krizaka.orazaka.core.infrastructure.config.SecurityProperties;
 import com.krizaka.orazaka.core.infrastructure.host.HostCapabilityDetector;
 import com.krizaka.orazaka.persistence.domain.ports.inbound.CatalogModelManager;
 import com.krizaka.orazaka.persistence.domain.ports.inbound.ChatSessionPersistenceProvider;
+import com.krizaka.orazaka.persistence.domain.ports.inbound.JobPersistenceProvider;
 import com.krizaka.orazaka.persistence.domain.ports.inbound.RuntimeConfigProvider;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.List;
@@ -318,6 +321,20 @@ public class CoreServicesAutoConfiguration {
   @ConditionalOnMissingBean(ChatSessionService.class)
   public DefaultChatSessionService chatSessionService(ChatSessionPersistenceProvider provider) {
     return new DefaultChatSessionService(provider);
+  }
+
+  /**
+   * The asynchronous jobs service: persists the job, then announces its new state.
+   *
+   * @param provider the job persistence provider
+   * @param events where the status change is announced
+   * @return the service
+   */
+  @Bean
+  @ConditionalOnMissingBean(JobService.class)
+  public DefaultJobService jobService(
+      JobPersistenceProvider provider, DomainEventPublisher events) {
+    return new DefaultJobService(provider, events);
   }
 
   /**

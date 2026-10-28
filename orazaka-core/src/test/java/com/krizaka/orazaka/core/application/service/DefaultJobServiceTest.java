@@ -8,7 +8,9 @@ import static org.mockito.Mockito.*;
 import com.krizaka.orazaka.core.domain.event.JobStatusChangedEvent;
 import com.krizaka.orazaka.core.domain.model.job.JobInfo;
 import com.krizaka.orazaka.core.domain.model.job.JobStatus;
+import com.krizaka.orazaka.core.domain.ports.outbound.DomainEventPublisher;
 import com.krizaka.orazaka.jobs.domain.model.DataClass;
+import com.krizaka.orazaka.jobs.domain.model.PageResult;
 import com.krizaka.orazaka.persistence.domain.model.JobDto;
 import com.krizaka.orazaka.persistence.domain.ports.inbound.JobPersistenceProvider;
 import java.time.Instant;
@@ -19,33 +21,29 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
-import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 
-class JobServiceImplTest {
+class DefaultJobServiceTest {
   private static final java.time.Clock FIXED_CLOCK =
       java.time.Clock.fixed(
           java.time.Instant.parse("2026-01-01T00:00:00Z"), java.time.ZoneOffset.UTC);
 
   private JobPersistenceProvider persistenceProvider;
-  private ApplicationEventPublisher eventPublisher;
-  private JobServiceImpl jobService;
+  private DomainEventPublisher eventPublisher;
+  private DefaultJobService jobService;
 
   @BeforeEach
   void setUp() {
     persistenceProvider = mock(JobPersistenceProvider.class);
-    eventPublisher = mock(ApplicationEventPublisher.class);
-    jobService = new JobServiceImpl(persistenceProvider, eventPublisher);
+    eventPublisher = mock(DomainEventPublisher.class);
+    jobService = new DefaultJobService(persistenceProvider, eventPublisher);
   }
 
   @Test
   @DisplayName("constructor rejects null dependencies")
   void constructorValidation() {
-    assertThrows(NullPointerException.class, () -> new JobServiceImpl(null, eventPublisher));
-    assertThrows(NullPointerException.class, () -> new JobServiceImpl(persistenceProvider, null));
+    assertThrows(NullPointerException.class, () -> new DefaultJobService(null, eventPublisher));
+    assertThrows(
+        NullPointerException.class, () -> new DefaultJobService(persistenceProvider, null));
   }
 
   @Test
@@ -70,7 +68,7 @@ class JobServiceImplTest {
 
     ArgumentCaptor<JobStatusChangedEvent> eventCaptor =
         ArgumentCaptor.forClass(JobStatusChangedEvent.class);
-    verify(eventPublisher).publishEvent(eventCaptor.capture());
+    verify(eventPublisher).publish(eventCaptor.capture());
     assertEquals(jobId, eventCaptor.getValue().job().id());
   }
 
@@ -112,7 +110,7 @@ class JobServiceImplTest {
     jobService.updateJobStatus(jobId, status, result, error);
 
     verify(persistenceProvider).updateJobStatus(jobId, status.name(), result, error);
-    verify(eventPublisher).publishEvent(any(JobStatusChangedEvent.class));
+    verify(eventPublisher).publish(any(JobStatusChangedEvent.class));
   }
 
   @Test
@@ -136,33 +134,31 @@ class JobServiceImplTest {
   @DisplayName("get jobs by user ID returns mapped page")
   void getJobsByUserId() {
     String userId = USER_DASH_1;
-    Pageable pageable = PageRequest.of(0, 10);
     Instant now = Instant.now(FIXED_CLOCK);
     JobDto dto =
         new JobDto(JOB_1, userId, FEAT, STATUS_PENDING, Map.of(), Map.of(), null, now, now);
-    Page<JobDto> page = new PageImpl<>(List.of(dto), pageable, 1);
-    when(persistenceProvider.getJobsByUserId(userId, pageable)).thenReturn(page);
+    PageResult<JobDto> page = new PageResult<>(List.of(dto), 0, 10, 1);
+    when(persistenceProvider.pageJobsByUserId(userId, 0, 10)).thenReturn(page);
 
-    Page<JobInfo> result = jobService.getJobsByUserId(userId, pageable);
+    PageResult<JobInfo> result = jobService.getJobsByUserId(userId, 0, 10);
     assertNotNull(result);
-    assertEquals(1, result.getTotalElements());
-    assertEquals(JOB_1, result.getContent().getFirst().id());
+    assertEquals(1, result.totalElements());
+    assertEquals(JOB_1, result.content().getFirst().id());
   }
 
   @Test
   @DisplayName("get all jobs returns mapped page")
   void getAllJobs() {
-    Pageable pageable = PageRequest.of(0, 10);
     Instant now = Instant.now(FIXED_CLOCK);
     JobDto dto =
         new JobDto(JOB_1, USER_DASH_1, FEAT, STATUS_PENDING, Map.of(), Map.of(), null, now, now);
-    Page<JobDto> page = new PageImpl<>(List.of(dto), pageable, 1);
-    when(persistenceProvider.getAllJobs(pageable)).thenReturn(page);
+    PageResult<JobDto> page = new PageResult<>(List.of(dto), 0, 10, 1);
+    when(persistenceProvider.pageAllJobs(0, 10)).thenReturn(page);
 
-    Page<JobInfo> result = jobService.getAllJobs(pageable);
+    PageResult<JobInfo> result = jobService.getAllJobs(0, 10);
     assertNotNull(result);
-    assertEquals(1, result.getTotalElements());
-    assertEquals(JOB_1, result.getContent().getFirst().id());
+    assertEquals(1, result.totalElements());
+    assertEquals(JOB_1, result.content().getFirst().id());
   }
 
   @Test

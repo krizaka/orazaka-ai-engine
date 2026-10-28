@@ -13,11 +13,9 @@
       ]
     },
     "spring-in-core": {
-      "count": 12,
+      "count": 10,
       "classes": [
         "com.krizaka.orazaka.core.application.service.ChatMemoryStoreImpl",
-        "com.krizaka.orazaka.core.application.service.JobServiceImpl",
-        "com.krizaka.orazaka.core.domain.ports.inbound.JobService",
         "com.krizaka.orazaka.core.infrastructure.adapter.processor.WhisperTranscriptionClient",
         "com.krizaka.orazaka.core.infrastructure.config.CoreConfiguration",
         "com.krizaka.orazaka.core.infrastructure.config.CoreProperties",

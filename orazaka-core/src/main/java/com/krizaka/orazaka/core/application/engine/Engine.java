@@ -5,13 +5,12 @@ import com.krizaka.orazaka.core.application.pipeline.DynamicPipelineExecutor;
 import com.krizaka.orazaka.core.application.pipeline.EnginePipelineBridge;
 import com.krizaka.orazaka.core.application.pipeline.EngineStreamBridge;
 import com.krizaka.orazaka.core.domain.ports.outbound.ChatInvocation;
+import com.krizaka.orazaka.core.domain.ports.outbound.DomainEventPublisher;
 import com.krizaka.orazaka.core.domain.ports.outbound.ModelCatalogProvider;
 import com.krizaka.orazaka.core.domain.ports.outbound.SpeechSynthesis;
 import com.krizaka.orazaka.core.domain.ports.outbound.UserCredentialsProvider;
 import com.krizaka.orazaka.core.infrastructure.config.CoreProperties;
 import java.util.List;
-import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.stereotype.Component;
 
 /**
  * Concrete, final implementation of {@link AbstractEngine}.
@@ -20,7 +19,6 @@ import org.springframework.stereotype.Component;
  * delegates all orchestration logic to the abstract parent and serves as the default production
  * engine.
  */
-@Component
 public final class Engine extends AbstractEngine {
 
   /**
@@ -31,7 +29,7 @@ public final class Engine extends AbstractEngine {
    * @param properties Core engine configuration properties.
    * @param interceptors Ordered list of context interceptors.
    * @param orchestrationPipeline The orchestration pipeline (nullable).
-   * @param eventPublisher Spring event publisher for domain events.
+   * @param eventPublisher Event publisher for domain events.
    * @param modelCatalogProvider The model catalog provider to resolve active models dynamically.
    * @param pipelineBridge The pipeline compilation bridge component.
    * @param streamBridge The reactive streaming bridge component.
@@ -43,11 +41,41 @@ public final class Engine extends AbstractEngine {
       CoreProperties properties,
       List<PromptContextInterceptor> interceptors,
       DynamicPipelineExecutor pipelineExecutor,
-      ApplicationEventPublisher eventPublisher,
+      DomainEventPublisher eventPublisher,
       ModelCatalogProvider modelCatalogProvider,
       EnginePipelineBridge pipelineBridge,
       EngineStreamBridge streamBridge,
       UserCredentialsProvider credentialsProvider) {
+    this(
+        chatInvocation,
+        speech,
+        properties,
+        interceptors,
+        pipelineExecutor,
+        eventPublisher,
+        new EngineInfrastructure(
+            modelCatalogProvider, pipelineBridge, streamBridge, credentialsProvider));
+  }
+
+  /**
+   * Constructor with the infrastructure already grouped.
+   *
+   * @param chatInvocation The port that sends a prepared prompt to a model.
+   * @param speech The port that turns text into speech audio.
+   * @param properties Core engine configuration properties.
+   * @param interceptors Ordered list of context interceptors.
+   * @param pipelineExecutor The orchestration pipeline (nullable).
+   * @param eventPublisher Publisher for domain events.
+   * @param infra The grouped infrastructure dependencies.
+   */
+  public Engine(
+      ChatInvocation chatInvocation,
+      SpeechSynthesis speech,
+      CoreProperties properties,
+      List<PromptContextInterceptor> interceptors,
+      DynamicPipelineExecutor pipelineExecutor,
+      DomainEventPublisher eventPublisher,
+      EngineInfrastructure infra) {
     super(
         chatInvocation,
         speech,
@@ -55,7 +83,6 @@ public final class Engine extends AbstractEngine {
         interceptors,
         pipelineExecutor,
         eventPublisher,
-        new EngineInfrastructure(
-            modelCatalogProvider, pipelineBridge, streamBridge, credentialsProvider));
+        infra);
   }
 }

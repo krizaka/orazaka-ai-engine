@@ -11,7 +11,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Component;
 
 /**
  * Thread-safe, hot-reloadable registry for pipeline configurations.
@@ -31,7 +30,6 @@ import org.springframework.stereotype.Component;
  *   <li>No {@code synchronized} blocks, no locks over I/O — fully Virtual Thread safe.
  * </ul>
  */
-@Component
 public final class PipelineRegistry {
 
   private static final Logger logger = LoggerFactory.getLogger(PipelineRegistry.class);

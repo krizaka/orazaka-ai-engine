@@ -13,18 +13,11 @@
       ]
     },
     "spring-in-core": {
-      "count": 24,
+      "count": 17,
       "classes": [
-        "com.krizaka.orazaka.core.application.engine.AbstractEngine",
-        "com.krizaka.orazaka.core.application.engine.Engine",
-        "com.krizaka.orazaka.core.application.pipeline.DynamicPipelineExecutor",
-        "com.krizaka.orazaka.core.application.pipeline.EnginePipelineBridge",
-        "com.krizaka.orazaka.core.application.pipeline.EngineStreamBridge",
-        "com.krizaka.orazaka.core.application.pipeline.PipelineRegistry",
         "com.krizaka.orazaka.core.application.service.ChatMemoryStoreImpl",
         "com.krizaka.orazaka.core.application.service.JobServiceImpl",
         "com.krizaka.orazaka.core.domain.ports.inbound.JobService",
-        "com.krizaka.orazaka.core.domain.ports.outbound.MemoryResolver",
         "com.krizaka.orazaka.core.infrastructure.adapter.ai.LocalAiSemanticClassifierAdapter",
         "com.krizaka.orazaka.core.infrastructure.adapter.ai.OllamaModelCatalogProvider",
         "com.krizaka.orazaka.core.infrastructure.adapter.knowledge.HttpKnowledgeAdapter",

@@ -22,6 +22,7 @@ import com.krizaka.orazaka.core.domain.model.chat.ToolCall;
 import com.krizaka.orazaka.core.domain.model.security.Actor;
 import com.krizaka.orazaka.core.domain.ports.outbound.AccessAudit;
 import com.krizaka.orazaka.core.domain.ports.outbound.ChatInvocation;
+import com.krizaka.orazaka.core.domain.ports.outbound.DomainEventPublisher;
 import com.krizaka.orazaka.core.domain.ports.outbound.ModelCatalogProvider;
 import com.krizaka.orazaka.core.domain.ports.outbound.SpeechSynthesis;
 import com.krizaka.orazaka.core.domain.ports.outbound.ToolPermissionProvider;
@@ -36,7 +37,6 @@ import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.context.ApplicationEventPublisher;
 import reactor.core.publisher.Flux;
 
 /**
@@ -124,7 +124,7 @@ class ClientExecutedModeTest {
             properties,
             List.of(),
             null,
-            mock(ApplicationEventPublisher.class),
+            mock(DomainEventPublisher.class),
             catalog,
             bridge,
             new EngineStreamBridge(model, bridge, credentials),

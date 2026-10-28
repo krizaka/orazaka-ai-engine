@@ -5,9 +5,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
 
 /**
  * Thread-safe resolver for session-scoped {@link ConversationMemory} instances.
@@ -22,7 +19,6 @@ import org.springframework.stereotype.Component;
  *
  * @see ConversationMemory
  */
-@Component
 public class MemoryResolver {
 
   private final Map<String, ConversationMemory> sessionMemories = new ConcurrentHashMap<>();
@@ -38,10 +34,13 @@ public class MemoryResolver {
     this.store = null;
   }
 
-  /** Spring constructor: binds the durable {@link ChatMemoryStore} when one is on the classpath. */
-  @Autowired
-  public MemoryResolver(ObjectProvider<ChatMemoryStore> storeProvider) {
-    this.store = storeProvider.getIfAvailable();
+  /**
+   * Binds the durable {@link ChatMemoryStore} when the host has one.
+   *
+   * @param store the durable store, or {@code null} to keep history in the process
+   */
+  public MemoryResolver(ChatMemoryStore store) {
+    this.store = store;
   }
 
   /**

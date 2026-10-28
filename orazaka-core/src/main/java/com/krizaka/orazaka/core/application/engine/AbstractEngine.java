@@ -17,6 +17,7 @@ import com.krizaka.orazaka.core.domain.model.chat.InternalChatResponse;
 import com.krizaka.orazaka.core.domain.model.chat.TokenUsage;
 import com.krizaka.orazaka.core.domain.model.chat.ToolCall;
 import com.krizaka.orazaka.core.domain.ports.outbound.ChatInvocation;
+import com.krizaka.orazaka.core.domain.ports.outbound.DomainEventPublisher;
 import com.krizaka.orazaka.core.domain.ports.outbound.SpeechSynthesis;
 import com.krizaka.orazaka.core.infrastructure.support.CoreException;
 import java.util.HashMap;
@@ -24,7 +25,6 @@ import java.util.List;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.context.ApplicationEventPublisher;
 import reactor.core.publisher.Flux;
 
 /**
@@ -70,7 +70,7 @@ public abstract sealed class AbstractEngine permits Engine {
   final DynamicPipelineExecutor pipeline;
 
   /** Spring application event publisher for domain events. */
-  final ApplicationEventPublisher eventPublisher;
+  final DomainEventPublisher eventPublisher;
 
   /** Grouped infrastructure dependencies (pipeline bridge, stream bridge, credentials, etc.). */
   protected final EngineInfrastructure infra;
@@ -83,7 +83,7 @@ public abstract sealed class AbstractEngine permits Engine {
    * @param defaultProvider Default provider name.
    * @param interceptors Ordered list of context interceptors (nullable — defaults to empty).
    * @param pipeline The orchestration pipeline (nullable — bypassed if null).
-   * @param publisher Spring event publisher for {@link ChatCompletedEvent}.
+   * @param publisher Event publisher for {@link ChatCompletedEvent}.
    * @param infra Grouped infrastructure dependencies.
    */
   protected AbstractEngine(
@@ -92,7 +92,7 @@ public abstract sealed class AbstractEngine permits Engine {
       String defaultProvider,
       List<PromptContextInterceptor> interceptors,
       DynamicPipelineExecutor pipeline,
-      ApplicationEventPublisher publisher,
+      DomainEventPublisher publisher,
       EngineInfrastructure infra) {
     this.chatInvocation = chatInvocation;
     this.speech = speech;
@@ -178,7 +178,7 @@ public abstract sealed class AbstractEngine permits Engine {
             extractUsage(response),
             Map.copyOf(metadata),
             clientCalls(request, response));
-    eventPublisher.publishEvent(new ChatCompletedEvent(request, out, context.holdId()));
+    eventPublisher.publish(new ChatCompletedEvent(request, out, context.holdId()));
     return out;
   }
 
@@ -203,7 +203,7 @@ public abstract sealed class AbstractEngine permits Engine {
     var out =
         new InternalChatResponse(
             text, context.conversationId(), TokenUsage.none(), Map.copyOf(metadata));
-    eventPublisher.publishEvent(new ChatCompletedEvent(request, out, context.holdId()));
+    eventPublisher.publish(new ChatCompletedEvent(request, out, context.holdId()));
     return out;
   }
 

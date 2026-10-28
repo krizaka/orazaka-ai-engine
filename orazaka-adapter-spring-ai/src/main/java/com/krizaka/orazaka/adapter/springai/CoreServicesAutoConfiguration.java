@@ -1,6 +1,12 @@
 package com.krizaka.orazaka.adapter.springai;
 
 import com.krizaka.orazaka.core.application.engine.Engine;
+import com.krizaka.orazaka.core.application.engine.EngineInfrastructure;
+import com.krizaka.orazaka.core.application.interceptor.PromptContextInterceptor;
+import com.krizaka.orazaka.core.application.pipeline.DynamicPipelineExecutor;
+import com.krizaka.orazaka.core.application.pipeline.EnginePipelineBridge;
+import com.krizaka.orazaka.core.application.pipeline.EngineStreamBridge;
+import com.krizaka.orazaka.core.application.pipeline.PipelineRegistry;
 import com.krizaka.orazaka.core.application.routing.PolicyStepRouter;
 import com.krizaka.orazaka.core.application.routing.SemanticRoutingEngine;
 import com.krizaka.orazaka.core.application.service.DefaultAiClient;
@@ -15,18 +21,34 @@ import com.krizaka.orazaka.core.domain.ports.inbound.StepRouter;
 import com.krizaka.orazaka.core.domain.ports.outbound.AccessAudit;
 import com.krizaka.orazaka.core.domain.ports.outbound.AudioGeneratorClient;
 import com.krizaka.orazaka.core.domain.ports.outbound.ChatGeneratorClient;
+import com.krizaka.orazaka.core.domain.ports.outbound.ChatInvocation;
+import com.krizaka.orazaka.core.domain.ports.outbound.ChatMemoryStore;
+import com.krizaka.orazaka.core.domain.ports.outbound.DomainEventPublisher;
 import com.krizaka.orazaka.core.domain.ports.outbound.ImageGeneratorClient;
+import com.krizaka.orazaka.core.domain.ports.outbound.MemoryResolver;
+import com.krizaka.orazaka.core.domain.ports.outbound.ModelCatalogProvider;
+import com.krizaka.orazaka.core.domain.ports.outbound.PipelineConfigProvider;
+import com.krizaka.orazaka.core.domain.ports.outbound.PromptAssembly;
 import com.krizaka.orazaka.core.domain.ports.outbound.SemanticClassifierPort;
+import com.krizaka.orazaka.core.domain.ports.outbound.SpeechSynthesis;
 import com.krizaka.orazaka.core.domain.ports.outbound.StepRouteProvider;
 import com.krizaka.orazaka.core.domain.ports.outbound.ToolRegistry;
+import com.krizaka.orazaka.core.domain.ports.outbound.ToolResolution;
+import com.krizaka.orazaka.core.domain.ports.outbound.UserCredentialsProvider;
 import com.krizaka.orazaka.core.infrastructure.adapter.ai.DefaultAudioGeneratorClient;
 import com.krizaka.orazaka.core.infrastructure.adapter.routing.RuntimeStepRouteProvider;
+import com.krizaka.orazaka.core.infrastructure.config.CoreProperties;
+import com.krizaka.orazaka.core.infrastructure.config.SecurityProperties;
 import com.krizaka.orazaka.core.infrastructure.host.HostCapabilityDetector;
 import com.krizaka.orazaka.persistence.domain.ports.inbound.CatalogModelManager;
 import com.krizaka.orazaka.persistence.domain.ports.inbound.ChatSessionPersistenceProvider;
 import com.krizaka.orazaka.persistence.domain.ports.inbound.RuntimeConfigProvider;
+import io.micrometer.core.instrument.MeterRegistry;
+import java.util.List;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import tools.jackson.databind.ObjectMapper;
 
@@ -36,6 +58,146 @@ import tools.jackson.databind.ObjectMapper;
  */
 @AutoConfiguration(after = SpringAiAdapterAutoConfiguration.class)
 public class CoreServicesAutoConfiguration {
+
+  /**
+   * The port through which the core announces its domain events: Spring's own publisher, so
+   * listeners such as the settlement of a chat keep working.
+   *
+   * @param publisher Spring's event publisher
+   * @return the port
+   */
+  @Bean
+  @ConditionalOnMissingBean(DomainEventPublisher.class)
+  public DomainEventPublisher domainEventPublisher(ApplicationEventPublisher publisher) {
+    return publisher::publishEvent;
+  }
+
+  /**
+   * The conversation memories, durable when the host brings a store.
+   *
+   * @param store the durable store, if any
+   * @return the resolver
+   */
+  @Bean
+  @ConditionalOnMissingBean
+  public MemoryResolver memoryResolver(ObjectProvider<ChatMemoryStore> store) {
+    return new MemoryResolver(store.getIfAvailable());
+  }
+
+  /**
+   * The pipeline configuration, reloadable at run time.
+   *
+   * @param config the persisted configuration
+   * @return the registry
+   */
+  @Bean
+  @ConditionalOnMissingBean
+  public PipelineRegistry pipelineRegistry(PipelineConfigProvider config) {
+    return new PipelineRegistry(config);
+  }
+
+  /**
+   * The two-phase pipeline executor.
+   *
+   * @param interceptors the interceptors of the host
+   * @param registry the pipeline configuration
+   * @param routing the semantic routing engine
+   * @param security the security properties
+   * @param properties the core properties
+   * @param meters the meter registry
+   * @param events where stage events go
+   * @return the executor
+   */
+  @Bean
+  @ConditionalOnMissingBean
+  public DynamicPipelineExecutor dynamicPipelineExecutor(
+      List<PromptContextInterceptor> interceptors,
+      PipelineRegistry registry,
+      SemanticRoutingEngine routing,
+      SecurityProperties security,
+      CoreProperties properties,
+      MeterRegistry meters,
+      DomainEventPublisher events) {
+    return new DynamicPipelineExecutor(
+        interceptors, registry, routing, security, properties, meters, events);
+  }
+
+  /**
+   * Compiles the context of a turn.
+   *
+   * @param catalog the model catalogue
+   * @param tools the tool resolution port
+   * @param prompt the prompt assembly port
+   * @return the bridge
+   */
+  @Bean
+  @ConditionalOnMissingBean
+  public EnginePipelineBridge enginePipelineBridge(
+      ModelCatalogProvider catalog, ToolResolution tools, PromptAssembly prompt) {
+    return new EnginePipelineBridge(catalog, tools, prompt);
+  }
+
+  /**
+   * Streams a turn chunk by chunk.
+   *
+   * @param invocation the chat invocation port
+   * @param pipeline the pipeline bridge
+   * @param credentials the user credentials port
+   * @return the bridge
+   */
+  @Bean
+  @ConditionalOnMissingBean
+  public EngineStreamBridge engineStreamBridge(
+      ChatInvocation invocation,
+      EnginePipelineBridge pipeline,
+      UserCredentialsProvider credentials) {
+    return new EngineStreamBridge(invocation, pipeline, credentials);
+  }
+
+  /**
+   * What the engine needs around a turn: catalogue, bridges and credentials.
+   *
+   * @param catalog the model catalogue
+   * @param pipelineBridge the pipeline bridge
+   * @param streamBridge the stream bridge
+   * @param credentials the user credentials port
+   * @return the grouped infrastructure
+   */
+  @Bean
+  @ConditionalOnMissingBean
+  public EngineInfrastructure engineInfrastructure(
+      ModelCatalogProvider catalog,
+      EnginePipelineBridge pipelineBridge,
+      EngineStreamBridge streamBridge,
+      UserCredentialsProvider credentials) {
+    return new EngineInfrastructure(catalog, pipelineBridge, streamBridge, credentials);
+  }
+
+  /**
+   * The engine: one turn from request to response.
+   *
+   * @param invocation the chat invocation port
+   * @param speech the speech port
+   * @param properties the core properties
+   * @param interceptors the interceptors of the host
+   * @param executor the pipeline executor
+   * @param events where domain events go
+   * @param infrastructure the infrastructure around a turn
+   * @return the engine
+   */
+  @Bean
+  @ConditionalOnMissingBean
+  public Engine engine(
+      ChatInvocation invocation,
+      SpeechSynthesis speech,
+      CoreProperties properties,
+      List<PromptContextInterceptor> interceptors,
+      DynamicPipelineExecutor executor,
+      DomainEventPublisher events,
+      EngineInfrastructure infrastructure) {
+    return new Engine(
+        invocation, speech, properties, interceptors, executor, events, infrastructure);
+  }
 
   /**
    * The client of the platform: chat, audio and image behind one port.

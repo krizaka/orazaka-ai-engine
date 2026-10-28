@@ -21,6 +21,7 @@ import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatResponse;
 import com.krizaka.orazaka.core.domain.model.security.Actor;
 import com.krizaka.orazaka.core.domain.ports.outbound.*;
+import com.krizaka.orazaka.core.domain.ports.outbound.DomainEventPublisher;
 import com.krizaka.orazaka.core.infrastructure.config.CoreProperties;
 import com.krizaka.orazaka.core.infrastructure.support.CoreException;
 import java.util.List;
@@ -46,7 +47,6 @@ import org.springframework.ai.ollama.api.OllamaChatOptions;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.definition.ToolDefinition;
-import org.springframework.context.ApplicationEventPublisher;
 
 /**
  * Comprehensive unit tests for {@link Engine} covering chat, tool attachment, RAG injection, MCP
@@ -64,7 +64,7 @@ class EngineTest {
   @Mock private KnowledgeService knowledgeService;
   @Mock private McpOrchestrator mcpOrchestrator;
   @Mock private ConversationMemory mockChatMemory;
-  @Mock private ApplicationEventPublisher eventPublisher;
+  @Mock private DomainEventPublisher eventPublisher;
   @Mock private ModelCatalogProvider modelCatalogProvider;
   @Mock private UserCredentialsProvider credentialsProvider;
   @Mock private DynamicChatModelFactory<ChatModel> modelFactory;
@@ -143,7 +143,7 @@ class EngineTest {
     assertThat(response.content()).isEqualTo("Hi there!");
     assertThat(response.metadata()).containsEntry("provider", PROVIDER_OLLAMA);
     verify(chatModel).call(any(Prompt.class));
-    verify(eventPublisher).publishEvent(any(Object.class));
+    verify(eventPublisher).publish(any(Object.class));
   }
 
   @Test

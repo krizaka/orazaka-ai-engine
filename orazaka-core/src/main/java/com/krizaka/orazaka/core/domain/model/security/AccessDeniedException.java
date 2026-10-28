@@ -15,7 +15,9 @@ public class AccessDeniedException extends RuntimeException {
     /** The call acts for nobody: no verified identity. */
     NO_ACTOR,
     /** The actor holds none of the roles the resource requires. */
-    MISSING_ROLE
+    MISSING_ROLE,
+    /** The model called a tool this turn did not offer (ADR-093 §4). */
+    NOT_OFFERED
   }
 
   private final Reason reason;

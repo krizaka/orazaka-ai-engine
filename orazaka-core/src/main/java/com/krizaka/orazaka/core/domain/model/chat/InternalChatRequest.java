@@ -18,6 +18,11 @@ import java.util.function.Function;
  * @param messages The conversation history (defensively copied to unmodifiable list).
  * @param options the call's settings in the engine's own type (nullable — uses defaults if null).
  * @param context The execution context carrying user and session metadata.
+ * @param streaming whether the answer is streamed.
+ * @param clientTools the tools the client runs (ADR-093 §4), or {@code null} for the usual mode,
+ *     where the engine runs its own tools. Present (even empty), the turn is in <b>client-executed
+ *     mode</b>: the engine offers only these tools, the ones the actor may use, and returns the
+ *     model's calls instead of running them.
  * @see InternalChatResponse
  */
 public record InternalChatRequest(
@@ -25,11 +30,34 @@ public record InternalChatRequest(
     List<ChatMessage> messages,
     EngineChatOptions options,
     Context context,
-    boolean streaming) {
+    boolean streaming,
+    List<ClientTool> clientTools) {
 
-  /** Compact constructor — defensively copies the message list. */
+  /** Compact constructor — defensively copies the message list and the client tools. */
   public InternalChatRequest {
     messages = messages == null ? List.of() : List.copyOf(messages);
+    clientTools = clientTools == null ? null : List.copyOf(clientTools);
+  }
+
+  /** Server-executed tools, the usual mode. */
+  public InternalChatRequest(
+      String prompt,
+      List<ChatMessage> messages,
+      EngineChatOptions options,
+      Context context,
+      boolean streaming) {
+    this(prompt, messages, options, context, streaming, null);
+  }
+
+  /** Whether the client runs the tools of this turn (ADR-093 §4). */
+  public boolean clientToolMode() {
+    return clientTools != null;
+  }
+
+  /** The same turn in client-executed mode, offering these tools. */
+  public InternalChatRequest withClientTools(List<ClientTool> tools) {
+    return new InternalChatRequest(
+        prompt, messages, options, context, streaming, tools == null ? List.of() : tools);
   }
 
   /** Backwards compatible constructor defaulting streaming to false. */
@@ -66,8 +94,13 @@ public record InternalChatRequest(
    * @param role The message sender's role ({@code "system"}, {@code "user"}, or {@code
    *     "assistant"}).
    * @param content The text content of the message (defaults to empty string if null).
+   * @param toolCalls the calls an {@code assistant} message made (client-executed mode), else
+   *     empty.
+   * @param toolCallId on a {@code tool} message, the id of the call it answers, else empty. A tool
+   *     message is <b>data</b>: it is never compiled as an instruction.
    */
-  public record ChatMessage(String role, String content) {
+  public record ChatMessage(
+      String role, String content, List<ToolCall> toolCalls, String toolCallId) {
     /** Compact constructor — validates role and defaults null content to empty string. */
     public ChatMessage {
       if (role == null || role.isBlank()) {
@@ -76,6 +109,13 @@ public record InternalChatRequest(
       if (content == null) {
         content = "";
       }
+      toolCalls = toolCalls == null ? List.of() : List.copyOf(toolCalls);
+      toolCallId = toolCallId == null ? "" : toolCallId;
+    }
+
+    /** A message that carries no tool call and answers none. */
+    public ChatMessage(String role, String content) {
+      this(role, content, List.of(), "");
     }
   }
 

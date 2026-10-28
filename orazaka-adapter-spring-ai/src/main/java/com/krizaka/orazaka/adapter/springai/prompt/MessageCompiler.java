@@ -9,6 +9,7 @@ import java.util.Optional;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
+import org.springframework.ai.chat.messages.ToolResponseMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.content.Media;
@@ -70,9 +71,34 @@ public final class MessageCompiler {
   public static Message mapMessage(InternalChatRequest.ChatMessage msg) {
     return switch (msg.role().toLowerCase()) {
       case "system" -> new SystemMessage(msg.content());
-      case "assistant" -> new AssistantMessage(msg.content());
+      case "assistant" -> assistant(msg);
+        // A tool result is data (ADR-093 §4): a tool-role message, never a system or user line.
+      case "tool" -> toolResult(msg);
       default -> new UserMessage(msg.content());
     };
+  }
+
+  private static Message assistant(InternalChatRequest.ChatMessage msg) {
+    if (msg.toolCalls().isEmpty()) {
+      return new AssistantMessage(msg.content());
+    }
+    return AssistantMessage.builder()
+        .content(msg.content())
+        .toolCalls(
+            msg.toolCalls().stream()
+                .map(
+                    c ->
+                        new AssistantMessage.ToolCall(
+                            c.id(), "function", c.name(), c.argumentsJson()))
+                .toList())
+        .build();
+  }
+
+  private static Message toolResult(InternalChatRequest.ChatMessage msg) {
+    return ToolResponseMessage.builder()
+        .responses(
+            List.of(new ToolResponseMessage.ToolResponse(msg.toolCallId(), "", msg.content())))
+        .build();
   }
 
   /**

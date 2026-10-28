@@ -27,6 +27,7 @@ import com.krizaka.orazaka.adapter.springai.tool.SpringAiToolRegistry;
 import com.krizaka.orazaka.adapter.springai.tool.SpringAiToolResolution;
 import com.krizaka.orazaka.core.application.engine.Engine;
 import com.krizaka.orazaka.core.application.routing.DynamicChatModelFactory;
+import com.krizaka.orazaka.core.application.security.ClientToolGate;
 import com.krizaka.orazaka.core.domain.ports.outbound.*;
 import com.krizaka.orazaka.core.infrastructure.adapter.security.LoggingAccessAudit;
 import com.krizaka.orazaka.core.infrastructure.config.CoreProperties;
@@ -333,9 +334,15 @@ public class SpringAiAdapterAutoConfiguration {
   public SpringAiToolResolution toolResolution(
       ObjectProvider<PlatformMcpServerProvider> platform,
       ObjectProvider<UserMcpServerProvider> user,
-      ObjectProvider<ToolRegistry> registry) {
+      ObjectProvider<ToolRegistry> registry,
+      ObjectProvider<ToolPermissionProvider> permissions,
+      AccessAudit audit) {
+    // The tools the client runs (ADR-093 §4) are checked the way the engine's own are (ADR-091).
     return new SpringAiToolResolution(
-        platform.getIfAvailable(), user.getIfAvailable(), registry.getIfAvailable());
+        platform.getIfAvailable(),
+        user.getIfAvailable(),
+        registry.getIfAvailable(),
+        new ClientToolGate(permissions.getIfAvailable(), audit));
   }
 
   /** The Ollama options strategy. */

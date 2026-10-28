@@ -15,6 +15,7 @@ import com.krizaka.orazaka.core.domain.model.chat.ChatRoute;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatResponse;
 import com.krizaka.orazaka.core.domain.model.chat.TokenUsage;
+import com.krizaka.orazaka.core.domain.model.chat.ToolCall;
 import com.krizaka.orazaka.core.domain.ports.outbound.ChatInvocation;
 import com.krizaka.orazaka.core.domain.ports.outbound.SpeechSynthesis;
 import com.krizaka.orazaka.core.infrastructure.support.CoreException;
@@ -144,6 +145,11 @@ public abstract sealed class AbstractEngine permits Engine {
       response = chatInvocation.call(context.toPrompt(), route);
       logger.info("Engine chat model call returned for conversation {}", context.conversationId());
     } catch (RuntimeException e) {
+      if (request.clientToolMode()) {
+        // A turn that cannot offer its tools is a failed turn: answering in text without them would
+        // tell the client the model had nothing to call.
+        throw e;
+      }
       logger.warn(
           "Model '{}' failed tool execution activation, falling back to non-tool text inference.",
           context.provider(),
@@ -165,7 +171,11 @@ public abstract sealed class AbstractEngine permits Engine {
     Map<String, Object> metadata = buildChatMetadata(context, durationMs);
     var out =
         new InternalChatResponse(
-            text, context.conversationId(), extractUsage(response), Map.copyOf(metadata));
+            text,
+            context.conversationId(),
+            extractUsage(response),
+            Map.copyOf(metadata),
+            clientCalls(request, response));
     eventPublisher.publishEvent(new ChatCompletedEvent(request, out, context.holdId()));
     return out;
   }
@@ -192,6 +202,14 @@ public abstract sealed class AbstractEngine permits Engine {
             text, context.conversationId(), TokenUsage.none(), Map.copyOf(metadata));
     eventPublisher.publishEvent(new ChatCompletedEvent(request, out, context.holdId()));
     return out;
+  }
+
+  /** The calls of the model that go back to the client; none outside client-executed mode. */
+  private List<ToolCall> clientCalls(InternalChatRequest request, ChatCompletion response) {
+    if (!request.clientToolMode() || response == null) {
+      return List.of();
+    }
+    return infra.pipelineBridge().screenClientCalls(request, response.toolCalls());
   }
 
   /** Extracts the text of a completion, returning empty string when there is none. */

@@ -1,4 +1,4 @@
-package com.krizaka.orazaka.core.infrastructure.config;
+package com.krizaka.orazaka.adapter.springai.image;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;

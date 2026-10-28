@@ -1,4 +1,4 @@
-package com.krizaka.orazaka.core.infrastructure.adapter.ai;
+package com.krizaka.orazaka.adapter.springai.image;
 
 import com.krizaka.orazaka.core.domain.model.MediaCategory;
 import com.krizaka.orazaka.core.domain.model.image.ImageDirection;
@@ -7,7 +7,6 @@ import com.krizaka.orazaka.core.domain.model.image.ImageResponse;
 import com.krizaka.orazaka.core.domain.model.image.ImageUsage;
 import com.krizaka.orazaka.core.domain.ports.outbound.ImageGeneratorClient;
 import com.krizaka.orazaka.core.infrastructure.config.CoreProperties;
-import com.krizaka.orazaka.core.infrastructure.config.SafeImageModel;
 import com.krizaka.orazaka.core.infrastructure.support.CoreException;
 import com.krizaka.orazaka.persistence.domain.model.CatalogModelDto;
 import com.krizaka.orazaka.persistence.domain.ports.inbound.CatalogModelManager;
@@ -24,7 +23,6 @@ import org.springframework.ai.image.ImageModel;
 import org.springframework.ai.image.ImagePrompt;
 import org.springframework.ai.openai.OpenAiImageModel;
 import org.springframework.ai.openai.OpenAiImageOptions;
-import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -37,10 +35,9 @@ import tools.jackson.databind.json.JsonMapper;
  * sampler are the model's recipe and are stated by the server at launch ({@code orazaka models
  * image}), never per request.
  */
-@Component
-class ImageGeneratorClientImpl implements ImageGeneratorClient {
+public class SpringAiImageGeneratorClient implements ImageGeneratorClient {
 
-  private static final Logger logger = LoggerFactory.getLogger(ImageGeneratorClientImpl.class);
+  private static final Logger logger = LoggerFactory.getLogger(SpringAiImageGeneratorClient.class);
   private static final int DEFAULT_TIMEOUT_MS = 180_000;
 
   /** The adapter always asks for one image ({@code n(1)} below); the meter reports the same. */
@@ -60,7 +57,7 @@ class ImageGeneratorClientImpl implements ImageGeneratorClient {
    * @param properties Core configuration properties.
    * @param catalogModelManager The catalog model manager.
    */
-  public ImageGeneratorClientImpl(
+  public SpringAiImageGeneratorClient(
       CoreProperties properties, CatalogModelManager catalogModelManager) {
     this.properties = Objects.requireNonNull(properties, "CoreProperties must not be null");
     this.catalogModelManager =
@@ -81,7 +78,7 @@ class ImageGeneratorClientImpl implements ImageGeneratorClient {
     boolean diffusionCpp = takesDiffusionArgs(request.direction(), entry);
 
     logger.info(
-        "ImageGeneratorClientImpl: model {} at {}x{}, {} steps, via {}",
+        "SpringAiImageGeneratorClient: model {} at {}x{}, {} steps, via {}",
         activeModel,
         width,
         height,

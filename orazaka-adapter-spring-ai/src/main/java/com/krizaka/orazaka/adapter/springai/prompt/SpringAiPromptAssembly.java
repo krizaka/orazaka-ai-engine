@@ -21,7 +21,7 @@ public final class SpringAiPromptAssembly implements PromptAssembly {
 
   @Override
   public String providerOf(EngineChatOptions options) {
-    return ProviderClassifier.resolveFromOptions(MessageCompiler.toSpring(options));
+    return SpringAiChatOptionsInfo.providerOf(MessageCompiler.toSpring(options));
   }
 
   @Override

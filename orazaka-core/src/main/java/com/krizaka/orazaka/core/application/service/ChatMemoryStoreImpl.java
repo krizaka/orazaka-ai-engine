@@ -2,6 +2,7 @@ package com.krizaka.orazaka.core.application.service;
 
 import com.krizaka.orazaka.core.domain.model.chat.EngineMessage;
 import com.krizaka.orazaka.core.domain.ports.outbound.ChatMemoryStore;
+import com.krizaka.orazaka.core.domain.ports.outbound.ToolAnswerCodec;
 import com.krizaka.orazaka.persistence.domain.model.ChatMessageDto;
 import com.krizaka.orazaka.persistence.domain.ports.inbound.ChatMemoryPersistenceProvider;
 import java.util.List;
@@ -9,10 +10,8 @@ import java.util.Locale;
 import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.chat.messages.ToolResponseMessage;
 import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
-import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Package-private adapter binding the core {@link ChatMemoryStore} port to the persistence module's
@@ -28,21 +27,19 @@ class ChatMemoryStoreImpl implements ChatMemoryStore {
 
   private static final Logger logger = LoggerFactory.getLogger(ChatMemoryStoreImpl.class);
 
-  private static final JsonMapper TOOL_JSON = new JsonMapper();
-
   private final ChatMemoryPersistenceProvider provider;
+  private final ToolAnswerCodec toolAnswers;
 
-  ChatMemoryStoreImpl(ChatMemoryPersistenceProvider provider) {
+  ChatMemoryStoreImpl(ChatMemoryPersistenceProvider provider, ToolAnswerCodec toolAnswers) {
     this.provider =
         Objects.requireNonNull(provider, "ChatMemoryPersistenceProvider cannot be null");
+    this.toolAnswers = Objects.requireNonNull(toolAnswers, "ToolAnswerCodec cannot be null");
   }
 
   @Override
   public List<EngineMessage> findRecent(String conversationId, int limit) {
     try {
-      return provider.findRecent(conversationId, limit).stream()
-          .map(ChatMemoryStoreImpl::toMessage)
-          .toList();
+      return provider.findRecent(conversationId, limit).stream().map(this::toMessage).toList();
     } catch (DataAccessException e) {
       logger.warn(
           "Conversation memory unavailable (read) for {} — continuing without history",
@@ -74,14 +71,11 @@ class ChatMemoryStoreImpl implements ChatMemoryStore {
     }
   }
 
-  private static EngineMessage toMessage(ChatMessageDto dto) {
+  private EngineMessage toMessage(ChatMessageDto dto) {
     return switch (dto.role().toLowerCase(Locale.ROOT)) {
       case "assistant" -> EngineMessage.assistant(dto.content());
       case "system" -> EngineMessage.system(dto.content());
-      case "tool" -> {
-        ToolResponseMessage tool = toolMessage(dto.content());
-        yield new EngineMessage(EngineMessage.Role.TOOL, tool.getText(), tool);
-      }
+      case "tool" -> toolAnswers.decode(dto.content());
       default -> EngineMessage.user(dto.content());
     };
   }
@@ -91,32 +85,7 @@ class ChatMemoryStoreImpl implements ChatMemoryStore {
     return message.role().name().toLowerCase(Locale.ROOT);
   }
 
-  private static String contentOf(EngineMessage message) {
-    if (message.nativeMessage() instanceof ToolResponseMessage tool) {
-      return TOOL_JSON.writeValueAsString(
-          tool.getResponses().stream()
-              .map(r -> new StoredToolResponse(r.id(), r.name(), r.responseData()))
-              .toList());
-    }
-    return message.text();
+  private String contentOf(EngineMessage message) {
+    return toolAnswers.encode(message).orElseGet(message::text);
   }
-
-  private static ToolResponseMessage toolMessage(String stored) {
-    List<StoredToolResponse> responses;
-    try {
-      responses = TOOL_JSON.readValue(stored, new tools.jackson.core.type.TypeReference<>() {});
-    } catch (RuntimeException unreadable) {
-      // Written before tool answers were structured: keep the text as the one answer.
-      responses = List.of(new StoredToolResponse("", "", stored));
-    }
-    return ToolResponseMessage.builder()
-        .responses(
-            responses.stream()
-                .map(r -> new ToolResponseMessage.ToolResponse(r.id(), r.name(), r.responseData()))
-                .toList())
-        .build();
-  }
-
-  /** One tool answer as stored in the message content. */
-  private record StoredToolResponse(String id, String name, String responseData) {}
 }

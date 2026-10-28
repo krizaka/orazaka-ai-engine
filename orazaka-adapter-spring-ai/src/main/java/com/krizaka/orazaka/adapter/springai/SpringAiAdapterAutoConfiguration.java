@@ -3,6 +3,7 @@ package com.krizaka.orazaka.adapter.springai;
 import com.krizaka.orazaka.adapter.springai.chat.SpringAiChatInvocation;
 import com.krizaka.orazaka.adapter.springai.chat.SpringAiProviderChatClient;
 import com.krizaka.orazaka.adapter.springai.chat.SpringAiSpeechSynthesis;
+import com.krizaka.orazaka.adapter.springai.client.AgentTurnsImpl;
 import com.krizaka.orazaka.adapter.springai.client.ChatGeneratorClientImpl;
 import com.krizaka.orazaka.adapter.springai.client.EmbeddingClientImpl;
 import com.krizaka.orazaka.adapter.springai.image.SpringAiImageGeneratorClient;
@@ -28,6 +29,7 @@ import com.krizaka.orazaka.adapter.springai.tool.SpringAiToolResolution;
 import com.krizaka.orazaka.core.application.engine.Engine;
 import com.krizaka.orazaka.core.application.routing.DynamicChatModelFactory;
 import com.krizaka.orazaka.core.application.security.ClientToolGate;
+import com.krizaka.orazaka.core.domain.ports.inbound.AgentTurns;
 import com.krizaka.orazaka.core.domain.ports.outbound.*;
 import com.krizaka.orazaka.core.infrastructure.adapter.security.LoggingAccessAudit;
 import com.krizaka.orazaka.core.infrastructure.config.CoreProperties;
@@ -238,6 +240,19 @@ public class SpringAiAdapterAutoConfiguration {
   @ConditionalOnMissingBean(ChatGeneratorClient.class)
   public ChatGeneratorClientImpl chatGeneratorClientImpl(Engine engine) {
     return new ChatGeneratorClientImpl(engine);
+  }
+
+  /**
+   * The agent-turn port (ADR-093 §4): a client-run agent's model turn through the engine.
+   *
+   * @param engine the engine
+   * @param models the routing by feature key
+   * @return the port
+   */
+  @Bean
+  @ConditionalOnMissingBean(AgentTurns.class)
+  public AgentTurnsImpl agentTurns(Engine engine, ModelEndpointResolver models) {
+    return new AgentTurnsImpl(engine, models);
   }
 
   /**

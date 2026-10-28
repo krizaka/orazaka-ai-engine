@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 import com.krizaka.orazaka.core.application.processing.ProcessedAudioPayload;
+import com.krizaka.orazaka.core.domain.ports.outbound.AudioTranscriber;
 import com.krizaka.orazaka.core.infrastructure.config.CoreProperties;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -34,7 +35,7 @@ class LocalAudioProcessorTest {
   @DisplayName("Constructor throws NullPointerException when properties is null")
   void constructorThrowsWhenPropertiesNull() {
     var endpointResolver = new ProviderEndpointResolver(null);
-    var whisper = mock(WhisperTranscriptionClient.class);
+    var whisper = mock(AudioTranscriber.class);
     assertThrows(
         NullPointerException.class, () -> new LocalAudioProcessor(null, endpointResolver, whisper));
   }
@@ -52,7 +53,7 @@ class LocalAudioProcessorTest {
   @DisplayName("process throws NullPointerException when audioBytes is null")
   void processThrowsWhenBytesNull() {
     var endpointResolver = new ProviderEndpointResolver(null);
-    var whisper = mock(WhisperTranscriptionClient.class);
+    var whisper = mock(AudioTranscriber.class);
     var processor = new LocalAudioProcessor(propsWithAudio(), endpointResolver, whisper);
 
     assertThrows(NullPointerException.class, () -> processor.process(null));
@@ -62,7 +63,7 @@ class LocalAudioProcessorTest {
   @DisplayName("process returns empty payload when audioBytes is empty")
   void processReturnsEmptyWhenBytesEmpty() {
     var endpointResolver = new ProviderEndpointResolver(null);
-    var whisper = mock(WhisperTranscriptionClient.class);
+    var whisper = mock(AudioTranscriber.class);
     var processor = new LocalAudioProcessor(propsWithAudio(), endpointResolver, whisper);
 
     ProcessedAudioPayload payload = processor.process(new byte[0]);
@@ -75,7 +76,7 @@ class LocalAudioProcessorTest {
   @DisplayName("process returns empty payload when audioBytes is all zeros")
   void processReturnsEmptyWhenBytesAllZeros() {
     var endpointResolver = new ProviderEndpointResolver(null);
-    var whisper = mock(WhisperTranscriptionClient.class);
+    var whisper = mock(AudioTranscriber.class);
     var processor = new LocalAudioProcessor(propsWithAudio(), endpointResolver, whisper);
 
     ProcessedAudioPayload payload = processor.process(new byte[100]);
@@ -88,7 +89,7 @@ class LocalAudioProcessorTest {
   @DisplayName("process returns transcribed text on success")
   void processReturnsTranscriptOnSuccess() {
     var endpointResolver = new ProviderEndpointResolver(null);
-    var whisper = mock(WhisperTranscriptionClient.class);
+    var whisper = mock(AudioTranscriber.class);
     when(whisper.transcribe(any(), any(), any(), any()))
         .thenReturn(new ProcessedAudioPayload("mocked transcription"));
 
@@ -107,7 +108,7 @@ class LocalAudioProcessorTest {
       "process handles default audio model fallback when configuration lacks transcription model")
   void processUsesFallbackModel() {
     var endpointResolver = new ProviderEndpointResolver(null);
-    var whisper = mock(WhisperTranscriptionClient.class);
+    var whisper = mock(AudioTranscriber.class);
     when(whisper.transcribe(any(), any(), any(), any()))
         .thenReturn(new ProcessedAudioPayload("fallback text"));
 
@@ -125,7 +126,7 @@ class LocalAudioProcessorTest {
       "process throws UncheckedIOException when Whisper throws exception with IOException cause")
   void processThrowsUncheckedIOException() {
     var endpointResolver = new ProviderEndpointResolver(null);
-    var whisper = mock(WhisperTranscriptionClient.class);
+    var whisper = mock(AudioTranscriber.class);
     IOException ioCause = new IOException("socket closed");
     when(whisper.transcribe(any(), any(), any(), any()))
         .thenThrow(new RuntimeException("failed", ioCause));
@@ -140,7 +141,7 @@ class LocalAudioProcessorTest {
   @DisplayName("process propagates original RuntimeException when cause is not IOException")
   void processPropagatesOriginalException() {
     var endpointResolver = new ProviderEndpointResolver(null);
-    var whisper = mock(WhisperTranscriptionClient.class);
+    var whisper = mock(AudioTranscriber.class);
     when(whisper.transcribe(any(), any(), any(), any()))
         .thenThrow(new RuntimeException("custom failure"));
 

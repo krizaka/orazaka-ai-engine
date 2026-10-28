@@ -1,4 +1,4 @@
-package com.krizaka.orazaka.core.infrastructure.host;
+package com.krizaka.orazaka.adapter.springai.remote;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;

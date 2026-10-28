@@ -1,4 +1,4 @@
-package com.krizaka.orazaka.core.infrastructure.host;
+package com.krizaka.orazaka.adapter.springai.remote;
 
 import com.krizaka.orazaka.core.domain.ports.outbound.InfrastructureStatusProvider;
 import com.krizaka.orazaka.core.infrastructure.config.CoreProperties;
@@ -10,14 +10,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Component;
 
 /**
  * Asynchronous background infrastructure prober — the {@link InfrastructureStatusProvider} adapter.
  * Periodically pings critical local resources and exposes a thread-safe, non-blocking cache of
  * status indicators.
  */
-@Component
 public class InfrastructureProber implements InfrastructureStatusProvider {
 
   private static final Logger log = LoggerFactory.getLogger(InfrastructureProber.class);

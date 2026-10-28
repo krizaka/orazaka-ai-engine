@@ -1,12 +1,12 @@
 package com.krizaka.orazaka.adapter.springai.client;
 
+import com.krizaka.orazaka.adapter.springai.spend.SpendGuard;
 import com.krizaka.orazaka.core.domain.model.MediaCategory;
 import com.krizaka.orazaka.core.domain.model.ModelEndpoint;
 import com.krizaka.orazaka.core.domain.model.embedding.EmbeddingException;
 import com.krizaka.orazaka.core.domain.model.embedding.EmbeddingResult;
 import com.krizaka.orazaka.core.domain.ports.outbound.EmbeddingClient;
 import com.krizaka.orazaka.core.domain.ports.outbound.ModelEndpointResolver;
-import com.krizaka.orazaka.core.infrastructure.spend.SpendGuard;
 import java.net.http.HttpClient;
 import java.time.Duration;
 import java.util.ArrayList;

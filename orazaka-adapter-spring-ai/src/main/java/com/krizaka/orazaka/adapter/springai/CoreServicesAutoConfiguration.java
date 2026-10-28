@@ -1,10 +1,13 @@
 package com.krizaka.orazaka.adapter.springai;
 
 import com.krizaka.orazaka.adapter.springai.remote.HttpKnowledgeAdapter;
+import com.krizaka.orazaka.adapter.springai.remote.InfrastructureProber;
 import com.krizaka.orazaka.adapter.springai.remote.KnowledgeProperties;
 import com.krizaka.orazaka.adapter.springai.remote.LocalAiSemanticClassifierAdapter;
 import com.krizaka.orazaka.adapter.springai.remote.OllamaModelCatalogProvider;
+import com.krizaka.orazaka.adapter.springai.remote.WhisperTranscriptionClient;
 import com.krizaka.orazaka.adapter.springai.routing.CatalogModelEndpointResolver;
+import com.krizaka.orazaka.adapter.springai.spend.SpendGuard;
 import com.krizaka.orazaka.core.application.engine.Engine;
 import com.krizaka.orazaka.core.application.engine.EngineInfrastructure;
 import com.krizaka.orazaka.core.application.interceptor.PromptContextInterceptor;
@@ -17,20 +20,24 @@ import com.krizaka.orazaka.core.application.routing.SemanticRoutingEngine;
 import com.krizaka.orazaka.core.application.service.DefaultAiClient;
 import com.krizaka.orazaka.core.application.service.DefaultCatalogModelService;
 import com.krizaka.orazaka.core.application.service.DefaultChatSessionService;
+import com.krizaka.orazaka.core.application.service.DefaultJobService;
 import com.krizaka.orazaka.core.application.service.DefaultMcpService;
 import com.krizaka.orazaka.core.domain.ports.inbound.AiClient;
 import com.krizaka.orazaka.core.domain.ports.inbound.CatalogModelService;
 import com.krizaka.orazaka.core.domain.ports.inbound.ChatSessionService;
+import com.krizaka.orazaka.core.domain.ports.inbound.JobService;
 import com.krizaka.orazaka.core.domain.ports.inbound.McpService;
 import com.krizaka.orazaka.core.domain.ports.inbound.StepRouter;
 import com.krizaka.orazaka.core.domain.ports.outbound.AccessAudit;
 import com.krizaka.orazaka.core.domain.ports.outbound.AudioGeneratorClient;
+import com.krizaka.orazaka.core.domain.ports.outbound.AudioTranscriber;
 import com.krizaka.orazaka.core.domain.ports.outbound.ChatGeneratorClient;
 import com.krizaka.orazaka.core.domain.ports.outbound.ChatInvocation;
 import com.krizaka.orazaka.core.domain.ports.outbound.ChatMemoryStore;
 import com.krizaka.orazaka.core.domain.ports.outbound.DomainEventPublisher;
 import com.krizaka.orazaka.core.domain.ports.outbound.FeatureModelRoutes;
 import com.krizaka.orazaka.core.domain.ports.outbound.ImageGeneratorClient;
+import com.krizaka.orazaka.core.domain.ports.outbound.InfrastructureStatusProvider;
 import com.krizaka.orazaka.core.domain.ports.outbound.KnowledgeService;
 import com.krizaka.orazaka.core.domain.ports.outbound.MemoryResolver;
 import com.krizaka.orazaka.core.domain.ports.outbound.ModelCatalogProvider;
@@ -50,6 +57,7 @@ import com.krizaka.orazaka.core.infrastructure.config.SecurityProperties;
 import com.krizaka.orazaka.core.infrastructure.host.HostCapabilityDetector;
 import com.krizaka.orazaka.persistence.domain.ports.inbound.CatalogModelManager;
 import com.krizaka.orazaka.persistence.domain.ports.inbound.ChatSessionPersistenceProvider;
+import com.krizaka.orazaka.persistence.domain.ports.inbound.JobPersistenceProvider;
 import com.krizaka.orazaka.persistence.domain.ports.inbound.RuntimeConfigProvider;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.List;
@@ -318,6 +326,71 @@ public class CoreServicesAutoConfiguration {
   @ConditionalOnMissingBean(ChatSessionService.class)
   public DefaultChatSessionService chatSessionService(ChatSessionPersistenceProvider provider) {
     return new DefaultChatSessionService(provider);
+  }
+
+  /**
+   * The asynchronous jobs service: persists the job, then announces its new state.
+   *
+   * @param provider the job persistence provider
+   * @param events where the status change is announced
+   * @return the service
+   */
+  @Bean
+  @ConditionalOnMissingBean(JobService.class)
+  public DefaultJobService jobService(
+      JobPersistenceProvider provider, DomainEventPublisher events) {
+    return new DefaultJobService(provider, events);
+  }
+
+  /**
+   * The Whisper client behind the transcription port, used by the local audio and video processors.
+   *
+   * @param restClientBuilder the RestClient builder
+   * @param objectMapper the Jackson mapper
+   * @return the transcriber
+   */
+  @Bean
+  @ConditionalOnMissingBean(AudioTranscriber.class)
+  public WhisperTranscriptionClient whisperTranscriptionClient(
+      RestClient.Builder restClientBuilder, ObjectMapper objectMapper) {
+    return new WhisperTranscriptionClient(restClientBuilder, objectMapper);
+  }
+
+  /**
+   * The background prober of the video and image engines (scheduled where the host enables
+   * scheduling).
+   *
+   * @param properties the core properties
+   * @param videoProbePort the port probed for the video engine
+   * @param imageProbePort the port probed for the image engine
+   * @return the prober
+   */
+  @Bean
+  @ConditionalOnMissingBean(InfrastructureStatusProvider.class)
+  public InfrastructureProber infrastructureProber(
+      CoreProperties properties,
+      @Value("${orazaka.core.video.generation.probe-port:8188}") int videoProbePort,
+      @Value("${orazaka.core.image.generation.probe-port:8086}") int imageProbePort) {
+    return new InfrastructureProber(properties, videoProbePort, imageProbePort);
+  }
+
+  /**
+   * The daily budget breaker of paid providers; a negative budget switches it off.
+   *
+   * @param budgetUsd the daily ceiling in USD
+   * @param chatUsd estimated cost of a chat call
+   * @param embeddingUsd estimated cost of an embedding call
+   * @param videoUsd estimated cost of a video call
+   * @return the guard
+   */
+  @Bean
+  @ConditionalOnMissingBean
+  public SpendGuard spendGuard(
+      @Value("${orazaka.spend.daily-budget-usd:${AI_SPEND_DAILY_BUDGET_USD:5.0}}") double budgetUsd,
+      @Value("${orazaka.spend.cost-usd.chat:0.01}") double chatUsd,
+      @Value("${orazaka.spend.cost-usd.embedding:0.0002}") double embeddingUsd,
+      @Value("${orazaka.spend.cost-usd.video:0.60}") double videoUsd) {
+    return new SpendGuard(budgetUsd, chatUsd, embeddingUsd, videoUsd, java.time.Clock.systemUTC());
   }
 
   /**

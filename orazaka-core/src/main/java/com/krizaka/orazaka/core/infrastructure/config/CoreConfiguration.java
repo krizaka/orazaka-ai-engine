@@ -4,13 +4,13 @@ import com.krizaka.orazaka.core.application.engine.GraphEngine;
 import com.krizaka.orazaka.core.application.processing.AudioPreProcessor;
 import com.krizaka.orazaka.core.application.processing.VideoPreProcessor;
 import com.krizaka.orazaka.core.domain.ports.outbound.AdminRegistry;
+import com.krizaka.orazaka.core.domain.ports.outbound.AudioTranscriber;
 import com.krizaka.orazaka.core.domain.ports.outbound.CapabilityProvider;
 import com.krizaka.orazaka.core.domain.ports.outbound.InfrastructureStatusProvider;
 import com.krizaka.orazaka.core.domain.ports.outbound.ModelCatalogProvider;
 import com.krizaka.orazaka.core.infrastructure.adapter.processor.LocalAudioProcessor;
 import com.krizaka.orazaka.core.infrastructure.adapter.processor.LocalVideoProcessor;
 import com.krizaka.orazaka.core.infrastructure.adapter.processor.ProviderEndpointResolver;
-import com.krizaka.orazaka.core.infrastructure.adapter.processor.WhisperTranscriptionClient;
 import com.krizaka.orazaka.persistence.domain.ports.inbound.CatalogModelManager;
 import java.util.List;
 import org.slf4j.Logger;
@@ -21,7 +21,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
-import org.springframework.web.client.RestClient;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -133,22 +132,6 @@ public class CoreConfiguration {
   }
 
   /**
-   * Registers the shared {@link WhisperTranscriptionClient} bean for audio/video transcription.
-   *
-   * <p>Uses Spring {@link RestClient} with {@link org.springframework.core.io.ByteArrayResource}
-   * for multipart file uploads — zero manual boundary forging.
-   *
-   * @param restClientBuilder The auto-configured RestClient builder.
-   * @param objectMapper The auto-configured Jackson ObjectMapper.
-   * @return A configured WhisperTranscriptionClient instance.
-   */
-  @Bean
-  public WhisperTranscriptionClient whisperTranscriptionClient(
-      RestClient.Builder restClientBuilder, ObjectMapper objectMapper) {
-    return new WhisperTranscriptionClient(restClientBuilder, objectMapper);
-  }
-
-  /**
    * Registers the VideoPreProcessor bean.
    *
    * @param properties Core configuration properties.
@@ -160,7 +143,7 @@ public class CoreConfiguration {
   public VideoPreProcessor videoPreProcessor(
       CoreProperties properties,
       ProviderEndpointResolver providerEndpointResolver,
-      WhisperTranscriptionClient whisperClient) {
+      AudioTranscriber whisperClient) {
     return new LocalVideoProcessor(properties, providerEndpointResolver, whisperClient);
   }
 
@@ -176,7 +159,7 @@ public class CoreConfiguration {
   public AudioPreProcessor audioPreProcessor(
       CoreProperties properties,
       ProviderEndpointResolver providerEndpointResolver,
-      WhisperTranscriptionClient whisperClient) {
+      AudioTranscriber whisperClient) {
     return new LocalAudioProcessor(properties, providerEndpointResolver, whisperClient);
   }
 

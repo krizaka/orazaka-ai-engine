@@ -4,33 +4,31 @@ import com.krizaka.orazaka.core.domain.event.JobStatusChangedEvent;
 import com.krizaka.orazaka.core.domain.model.job.JobInfo;
 import com.krizaka.orazaka.core.domain.model.job.JobStatus;
 import com.krizaka.orazaka.core.domain.ports.inbound.JobService;
+import com.krizaka.orazaka.core.domain.ports.outbound.DomainEventPublisher;
 import com.krizaka.orazaka.jobs.domain.model.DataClass;
+import com.krizaka.orazaka.jobs.domain.model.PageResult;
 import com.krizaka.orazaka.persistence.domain.model.JobDto;
 import com.krizaka.orazaka.persistence.domain.ports.inbound.JobPersistenceProvider;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.stereotype.Service;
 
 /**
- * Package-private implementation of the JobService inbound port. Delegates to the out-of-boundary
- * persistence package. Follows ERR-105 (Interface-Driven Boundaries).
+ * Implementation of the JobService inbound port, plain Java (wired by the Spring adapter).
+ * Delegates to the out-of-boundary persistence package. Follows ERR-105 (Interface-Driven
+ * Boundaries).
  */
-@Service
-class JobServiceImpl implements JobService {
+public class DefaultJobService implements JobService {
 
   private final JobPersistenceProvider jobPersistenceProvider;
-  private final ApplicationEventPublisher eventPublisher;
+  private final DomainEventPublisher eventPublisher;
 
-  JobServiceImpl(
-      JobPersistenceProvider jobPersistenceProvider, ApplicationEventPublisher eventPublisher) {
+  public DefaultJobService(
+      JobPersistenceProvider jobPersistenceProvider, DomainEventPublisher eventPublisher) {
     this.jobPersistenceProvider =
         Objects.requireNonNull(jobPersistenceProvider, "JobPersistenceProvider cannot be null");
     this.eventPublisher =
-        Objects.requireNonNull(eventPublisher, "ApplicationEventPublisher cannot be null");
+        Objects.requireNonNull(eventPublisher, "DomainEventPublisher cannot be null");
   }
 
   @Override
@@ -63,17 +61,19 @@ class JobServiceImpl implements JobService {
 
   @Override
   public Optional<JobInfo> getJob(String id) {
-    return jobPersistenceProvider.getJob(id).map(JobServiceImpl::toInfo);
+    return jobPersistenceProvider.getJob(id).map(DefaultJobService::toInfo);
   }
 
   @Override
-  public Page<JobInfo> getJobsByUserId(String userId, Pageable pageable) {
-    return jobPersistenceProvider.getJobsByUserId(userId, pageable).map(JobServiceImpl::toInfo);
+  public PageResult<JobInfo> getJobsByUserId(String userId, int page, int size) {
+    return jobPersistenceProvider
+        .pageJobsByUserId(userId, page, size)
+        .map(DefaultJobService::toInfo);
   }
 
   @Override
-  public Page<JobInfo> getAllJobs(Pageable pageable) {
-    return jobPersistenceProvider.getAllJobs(pageable).map(JobServiceImpl::toInfo);
+  public PageResult<JobInfo> getAllJobs(int page, int size) {
+    return jobPersistenceProvider.pageAllJobs(page, size).map(DefaultJobService::toInfo);
   }
 
   @Override
@@ -82,8 +82,7 @@ class JobServiceImpl implements JobService {
   }
 
   private void publishEvent(String jobId) {
-    getJob(jobId)
-        .ifPresent(jobInfo -> eventPublisher.publishEvent(new JobStatusChangedEvent(jobInfo)));
+    getJob(jobId).ifPresent(jobInfo -> eventPublisher.publish(new JobStatusChangedEvent(jobInfo)));
   }
 
   private static JobInfo toInfo(JobDto dto) {

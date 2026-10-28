@@ -1,6 +1,7 @@
-package com.krizaka.orazaka.core.infrastructure.adapter.processor;
+package com.krizaka.orazaka.adapter.springai.remote;
 
 import com.krizaka.orazaka.core.application.processing.ProcessedAudioPayload;
+import com.krizaka.orazaka.core.domain.ports.outbound.AudioTranscriber;
 import java.math.BigDecimal;
 import java.util.Objects;
 import org.slf4j.Logger;
@@ -22,9 +23,10 @@ import tools.jackson.databind.ObjectMapper;
  * /v1/audio/transcriptions} endpoint using Spring-native {@link ByteArrayResource} — eliminating
  * all manual boundary forging.
  *
- * <p>Consumed by {@link LocalAudioProcessor} and {@link LocalVideoProcessor} via Spring DI.
+ * <p>Consumed by the core's local audio and video processors through the {@link AudioTranscriber}
+ * port.
  */
-public final class WhisperTranscriptionClient {
+public final class WhisperTranscriptionClient implements AudioTranscriber {
 
   private static final Logger logger = LoggerFactory.getLogger(WhisperTranscriptionClient.class);
   private static final int CONNECT_TIMEOUT_MS = 10_000;
@@ -50,7 +52,8 @@ public final class WhisperTranscriptionClient {
    * @return The transcript and, when the provider reports one, the duration of the source audio.
    * @throws IllegalStateException If the response is missing or unparseable.
    */
-  ProcessedAudioPayload transcribe(
+  @Override
+  public ProcessedAudioPayload transcribe(
       String baseUrl, byte[] audioBytes, String filename, String model) {
     if (filename == null || !isAudioFile(filename)) {
       throw new IllegalArgumentException(

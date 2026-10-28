@@ -1,9 +1,9 @@
-package com.krizaka.orazaka.core.infrastructure.spend;
+package com.krizaka.orazaka.adapter.springai.spend;
 
 import static org.assertj.core.api.Assertions.*;
 
+import com.krizaka.orazaka.adapter.springai.spend.SpendGuard.Kind;
 import com.krizaka.orazaka.core.domain.model.ModelEndpoint;
-import com.krizaka.orazaka.core.infrastructure.spend.SpendGuard.Kind;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;

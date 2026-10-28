@@ -75,6 +75,12 @@ class CoreServicesAutoConfigurationTest {
           .withBean(
               ChatSessionPersistenceProvider.class,
               () -> mock(ChatSessionPersistenceProvider.class))
+          .withBean(
+              com.krizaka.orazaka.persistence.domain.ports.inbound.JobPersistenceProvider.class,
+              () ->
+                  mock(
+                      com.krizaka.orazaka.persistence.domain.ports.inbound.JobPersistenceProvider
+                          .class))
           .withBean(RuntimeConfigProvider.class, () -> mock(RuntimeConfigProvider.class))
           .withBean(ToolRegistry.class, () -> mock(ToolRegistry.class))
           .withBean(AccessAudit.class, () -> mock(AccessAudit.class))
@@ -99,7 +105,20 @@ class CoreServicesAutoConfigurationTest {
               .getBean(ChatSessionService.class)
               .isInstanceOf(DefaultChatSessionService.class);
           assertThat(context).getBean(McpService.class).isInstanceOf(DefaultMcpService.class);
+          assertThat(context)
+              .getBean(com.krizaka.orazaka.core.domain.ports.inbound.JobService.class)
+              .isInstanceOf(com.krizaka.orazaka.core.application.service.DefaultJobService.class);
           assertThat(context).getBean(StepRouter.class).isInstanceOf(PolicyStepRouter.class);
+          assertThat(context)
+              .getBean(com.krizaka.orazaka.core.domain.ports.outbound.AudioTranscriber.class)
+              .isInstanceOf(
+                  com.krizaka.orazaka.adapter.springai.remote.WhisperTranscriptionClient.class);
+          assertThat(context)
+              .getBean(
+                  com.krizaka.orazaka.core.domain.ports.outbound.InfrastructureStatusProvider.class)
+              .isInstanceOf(com.krizaka.orazaka.adapter.springai.remote.InfrastructureProber.class);
+          assertThat(context)
+              .hasSingleBean(com.krizaka.orazaka.adapter.springai.spend.SpendGuard.class);
           assertThat(context).hasSingleBean(StepRouteProvider.class);
           assertThat(context).hasSingleBean(SemanticRoutingEngine.class);
           assertThat(context).hasSingleBean(HostCapabilityDetector.class);

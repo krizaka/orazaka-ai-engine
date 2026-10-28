@@ -3,10 +3,9 @@ package com.krizaka.orazaka.core.domain.ports.inbound;
 import com.krizaka.orazaka.core.domain.model.job.JobInfo;
 import com.krizaka.orazaka.core.domain.model.job.JobStatus;
 import com.krizaka.orazaka.jobs.domain.model.DataClass;
+import com.krizaka.orazaka.jobs.domain.model.PageResult;
 import java.util.Map;
 import java.util.Optional;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 
 /**
  * Public inbound port for managing asynchronous tasks/jobs in the Orazaka ecosystem. Follows
@@ -66,18 +65,20 @@ public interface JobService {
    * Retrieves a paginated list of jobs owned by a specific user.
    *
    * @param userId Owner User ID.
-   * @param pageable Paging configuration.
-   * @return Paginated job results.
+   * @param page Zero-based page index.
+   * @param size Page size.
+   * @return Paginated job results, newest first.
    */
-  Page<JobInfo> getJobsByUserId(String userId, Pageable pageable);
+  PageResult<JobInfo> getJobsByUserId(String userId, int page, int size);
 
   /**
    * Retrieves a paginated list of all jobs across all users in the platform.
    *
-   * @param pageable Paging configuration.
-   * @return Paginated job results.
+   * @param page Zero-based page index.
+   * @param size Page size.
+   * @return Paginated job results, newest first.
    */
-  Page<JobInfo> getAllJobs(Pageable pageable);
+  PageResult<JobInfo> getAllJobs(int page, int size);
 
   /**
    * Purges all job records associated with a specific user.

@@ -5,6 +5,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 import com.krizaka.orazaka.core.domain.model.AssertionContract;
+import com.krizaka.orazaka.core.domain.model.ValidationStepType;
+import com.krizaka.orazaka.core.domain.model.control.JudgeUnavailableException;
 import com.krizaka.orazaka.core.domain.ports.outbound.ProviderChatClient;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -66,60 +68,70 @@ class ModelTestShaperAdapterTest {
   }
 
   @Test
-  @DisplayName("Returns empty contract when model returns null response")
+  @DisplayName("Throws unavailable (never an empty contract) when the model returns null")
   void generateAssertions_nullResponse() {
     when(chatModel.completeWithDefault(any(), any())).thenReturn(null);
 
     var adapter = new ModelTestShaperAdapter(chatModel);
-    AssertionContract contract = adapter.generateAssertions("prompt", "response");
 
-    assertThat(contract).isEqualTo(AssertionContract.empty());
+    assertThatThrownBy(() -> adapter.generateAssertions("prompt", "response"))
+        .isInstanceOf(JudgeUnavailableException.class)
+        .extracting(e -> ((JudgeUnavailableException) e).step())
+        .isEqualTo(ValidationStepType.TDR_D);
   }
 
   @Test
-  @DisplayName("Returns empty contract when model returns empty text")
+  @DisplayName("Throws unavailable when the model returns empty text")
   void generateAssertions_emptyText() {
     when(chatModel.completeWithDefault(any(), any())).thenReturn("");
 
     var adapter = new ModelTestShaperAdapter(chatModel);
-    AssertionContract contract = adapter.generateAssertions("prompt", "response");
 
-    assertThat(contract).isEqualTo(AssertionContract.empty());
+    assertThatThrownBy(() -> adapter.generateAssertions("prompt", "response"))
+        .isInstanceOf(JudgeUnavailableException.class)
+        .extracting(e -> ((JudgeUnavailableException) e).step())
+        .isEqualTo(ValidationStepType.TDR_D);
   }
 
   @Test
-  @DisplayName("Returns empty contract when model returns invalid JSON")
+  @DisplayName("Throws unavailable when the model returns invalid JSON")
   void generateAssertions_invalidJson() {
     when(chatModel.completeWithDefault(any(), any())).thenReturn("{invalid json");
 
     var adapter = new ModelTestShaperAdapter(chatModel);
-    AssertionContract contract = adapter.generateAssertions("prompt", "response");
 
-    assertThat(contract.hasAssertions()).isFalse();
+    assertThatThrownBy(() -> adapter.generateAssertions("prompt", "response"))
+        .isInstanceOf(JudgeUnavailableException.class)
+        .extracting(e -> ((JudgeUnavailableException) e).step())
+        .isEqualTo(ValidationStepType.TDR_D);
   }
 
   @Test
-  @DisplayName("Returns empty contract when model returns plain text (no JSON)")
+  @DisplayName("Throws unavailable when the model returns plain text (no JSON)")
   void generateAssertions_plainText() {
     when(chatModel.completeWithDefault(any(), any()))
         .thenReturn("I cannot generate assertions for this request.");
 
     var adapter = new ModelTestShaperAdapter(chatModel);
-    AssertionContract contract = adapter.generateAssertions("prompt", "response");
 
-    assertThat(contract.hasAssertions()).isFalse();
+    assertThatThrownBy(() -> adapter.generateAssertions("prompt", "response"))
+        .isInstanceOf(JudgeUnavailableException.class)
+        .extracting(e -> ((JudgeUnavailableException) e).step())
+        .isEqualTo(ValidationStepType.TDR_D);
   }
 
   @Test
-  @DisplayName("Gracefully degrades when model call throws RuntimeException")
+  @DisplayName("Throws unavailable when the model call throws")
   void generateAssertions_runtimeException() {
     when(chatModel.completeWithDefault(any(), any()))
         .thenThrow(new RuntimeException("Model unavailable"));
 
     var adapter = new ModelTestShaperAdapter(chatModel);
-    AssertionContract contract = adapter.generateAssertions("prompt", "response");
 
-    assertThat(contract).isEqualTo(AssertionContract.empty());
+    assertThatThrownBy(() -> adapter.generateAssertions("prompt", "response"))
+        .isInstanceOf(JudgeUnavailableException.class)
+        .extracting(e -> ((JudgeUnavailableException) e).step())
+        .isEqualTo(ValidationStepType.TDR_D);
   }
 
   @Test

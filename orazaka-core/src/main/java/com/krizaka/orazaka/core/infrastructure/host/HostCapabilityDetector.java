@@ -3,7 +3,6 @@ package com.krizaka.orazaka.core.infrastructure.host;
 import com.krizaka.orazaka.core.domain.model.HostCapability;
 import java.util.Locale;
 import java.util.Set;
-import org.springframework.stereotype.Component;
 
 /**
  * Detects the host's inference accelerators once at startup so the model catalog can flag models
@@ -13,7 +12,6 @@ import org.springframework.stereotype.Component;
  * via {@code ORAZAKA_GPU=cuda}, since CUDA cannot be probed portably from the JVM); everything else
  * falls back to CPU-only.
  */
-@Component
 public class HostCapabilityDetector {
 
   private final HostCapability capability;

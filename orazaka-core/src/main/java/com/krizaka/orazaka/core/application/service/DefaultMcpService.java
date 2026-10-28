@@ -10,25 +10,23 @@ import com.krizaka.orazaka.core.domain.ports.outbound.ToolRegistry;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import org.springframework.stereotype.Service;
 
 /**
- * Concrete, package-private implementation of {@link McpService}. Reads the tools through the
- * {@link ToolRegistry} port.
+ * Concrete implementation of {@link McpService}. Reads the tools through the {@link ToolRegistry}
+ * port.
  *
  * <p>The permission check is the registry's ({@link ToolRegistry#authorize}); this service is the
  * one place that turns a refusal into an audit line, then lets it propagate. A tool is never run
  * without having been authorized for the actor first.
  */
-@Service
-class McpServiceImpl implements McpService {
+public class DefaultMcpService implements McpService {
 
   private static final String EXECUTE = "tool.execute";
 
   private final ToolRegistry toolRegistry;
   private final AccessAudit audit;
 
-  public McpServiceImpl(ToolRegistry toolRegistry, AccessAudit audit) {
+  public DefaultMcpService(ToolRegistry toolRegistry, AccessAudit audit) {
     this.toolRegistry = Objects.requireNonNull(toolRegistry, "ToolRegistry must not be null");
     this.audit = Objects.requireNonNull(audit, "AccessAudit must not be null");
   }

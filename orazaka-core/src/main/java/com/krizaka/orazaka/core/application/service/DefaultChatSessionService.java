@@ -7,18 +7,16 @@ import com.krizaka.orazaka.persistence.domain.ports.inbound.ChatSessionPersisten
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import org.springframework.stereotype.Service;
 
 /**
  * Package-private implementation of the ChatSessionService inbound port. Delegates to persistence.
  * Follows ERR-105.
  */
-@Service
-class ChatSessionServiceImpl implements ChatSessionService {
+public class DefaultChatSessionService implements ChatSessionService {
 
   private final ChatSessionPersistenceProvider provider;
 
-  ChatSessionServiceImpl(ChatSessionPersistenceProvider provider) {
+  public DefaultChatSessionService(ChatSessionPersistenceProvider provider) {
     this.provider =
         Objects.requireNonNull(provider, "ChatSessionPersistenceProvider cannot be null");
   }
@@ -30,12 +28,14 @@ class ChatSessionServiceImpl implements ChatSessionService {
 
   @Override
   public Optional<ChatSessionInfo> getSession(String id) {
-    return provider.findById(id).map(ChatSessionServiceImpl::toInfo);
+    return provider.findById(id).map(DefaultChatSessionService::toInfo);
   }
 
   @Override
   public List<ChatSessionInfo> getSessionsByUserId(String userId) {
-    return provider.findAllByUserId(userId).stream().map(ChatSessionServiceImpl::toInfo).toList();
+    return provider.findAllByUserId(userId).stream()
+        .map(DefaultChatSessionService::toInfo)
+        .toList();
   }
 
   @Override

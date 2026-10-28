@@ -26,17 +26,17 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import reactor.core.publisher.Flux;
 
 @ExtendWith(MockitoExtension.class)
-class AiClientImplTest {
+class DefaultAiClientTest {
 
   @Mock private ChatGeneratorClient chatGeneratorClient;
   @Mock private AudioGeneratorClient audioGeneratorClient;
   @Mock private ImageGeneratorClient imageGeneratorClient;
 
-  private AiClientImpl aiClient;
+  private DefaultAiClient aiClient;
 
   @BeforeEach
   void setUp() {
-    aiClient = new AiClientImpl(chatGeneratorClient, audioGeneratorClient, imageGeneratorClient);
+    aiClient = new DefaultAiClient(chatGeneratorClient, audioGeneratorClient, imageGeneratorClient);
   }
 
   @Test

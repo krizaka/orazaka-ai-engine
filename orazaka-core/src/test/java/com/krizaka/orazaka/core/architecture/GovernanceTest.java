@@ -79,7 +79,7 @@ class GovernanceTest {
   }
 
   @Test
-  @DisplayName("[ERR-129] application/service holds only service impls (*Impl)")
+  @DisplayName("[ERR-129] application/service holds only service impls (*Impl or Default*)")
   void applicationServiceHoldsOnlyImpls() {
     classes()
         .that()
@@ -88,9 +88,12 @@ class GovernanceTest {
         .areTopLevelClasses()
         .should()
         .haveSimpleNameEndingWith("Impl")
+        .orShould()
+        .haveSimpleNameStartingWith("Default")
         .because(
-            "application/service holds only inbound-port implementations (*ServiceImpl, plus"
-                + " stereotype impls like AiClientImpl/ChatMemoryStoreImpl). Mappers are inlined into"
+            "application/service holds only inbound-port implementations (*ServiceImpl, or"
+                + " Default* when public and registered by an adapter's auto-configuration, plus"
+                + " stereotype impls like ChatMemoryStoreImpl). Mappers are inlined into"
                 + " their impl; factories live with the concern they build (routing); never here"
                 + " [ERR-129/130].")
         .check(coreClasses);

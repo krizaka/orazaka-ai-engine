@@ -11,7 +11,6 @@ import java.util.Map;
 import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Component;
 
 /**
  * Semantic routing engine that classifies incoming prompts via LocalAI and resolves the optimal
@@ -33,7 +32,6 @@ import org.springframework.stereotype.Component;
  * <p><b>Thread Safety</b>: This component is stateless — all state is passed via method parameters.
  * Safe for concurrent invocation from Virtual Threads.
  */
-@Component
 public final class SemanticRoutingEngine {
 
   private static final Logger logger = LoggerFactory.getLogger(SemanticRoutingEngine.class);

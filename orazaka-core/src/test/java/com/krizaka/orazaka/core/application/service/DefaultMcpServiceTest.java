@@ -18,7 +18,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-class McpServiceImplTest {
+class DefaultMcpServiceTest {
 
   private static final Actor USER = Actor.of("user-1", List.of("ROLE_USER")).orElseThrow();
 
@@ -26,7 +26,7 @@ class McpServiceImplTest {
   private final AccessAudit audit = mock(AccessAudit.class);
   private final AtomicInteger runs = new AtomicInteger();
 
-  private McpServiceImpl mcpService;
+  private DefaultMcpService mcpService;
 
   private EngineTool testTool() {
     return new EngineTool(
@@ -42,7 +42,7 @@ class McpServiceImplTest {
 
   @BeforeEach
   void setUp() {
-    mcpService = new McpServiceImpl(toolRegistry, audit);
+    mcpService = new DefaultMcpService(toolRegistry, audit);
   }
 
   @Test

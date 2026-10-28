@@ -15,7 +15,7 @@ import org.springframework.stereotype.Service;
 
 /**
  * Package-private adapter binding the core {@link ChatMemoryStore} port to the persistence module's
- * {@link ChatMemoryPersistenceProvider} (Postgres). Mirrors ChatSessionServiceImpl. Follows
+ * {@link ChatMemoryPersistenceProvider} (Postgres). Mirrors DefaultChatSessionService. Follows
  * ERR-105.
  *
  * <p>Conversation memory is best-effort enrichment: a persistence failure (e.g. the table not yet

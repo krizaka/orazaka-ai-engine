@@ -19,23 +19,23 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class ChatSessionServiceImplTest {
+class DefaultChatSessionServiceTest {
   private static final java.time.Clock FIXED_CLOCK =
       java.time.Clock.fixed(
           java.time.Instant.parse("2026-01-01T00:00:00Z"), java.time.ZoneOffset.UTC);
 
   @Mock private ChatSessionPersistenceProvider provider;
 
-  private ChatSessionServiceImpl service;
+  private DefaultChatSessionService service;
 
   @BeforeEach
   void setUp() {
-    service = new ChatSessionServiceImpl(provider);
+    service = new DefaultChatSessionService(provider);
   }
 
   @Test
   void constructorShouldThrowOnNullProvider() {
-    assertThatThrownBy(() -> new ChatSessionServiceImpl(null))
+    assertThatThrownBy(() -> new DefaultChatSessionService(null))
         .isInstanceOf(NullPointerException.class)
         .hasMessageContaining("ChatSessionPersistenceProvider cannot be null");
   }

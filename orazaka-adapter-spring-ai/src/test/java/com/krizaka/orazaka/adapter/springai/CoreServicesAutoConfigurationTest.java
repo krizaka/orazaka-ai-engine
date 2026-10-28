@@ -44,6 +44,7 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.web.client.RestClient;
 import tools.jackson.databind.ObjectMapper;
 
 /** What the core services' auto-configuration wires, and that a host's own bean wins. */
@@ -52,6 +53,11 @@ class CoreServicesAutoConfigurationTest {
   private final ApplicationContextRunner runner =
       new ApplicationContextRunner()
           .withConfiguration(AutoConfigurations.of(CoreServicesAutoConfiguration.class))
+          .withPropertyValues(
+              "orazaka.core.knowledge.base-url=http://knowledge.invalid",
+              "orazaka.core.knowledge.service-secret=0123456789abcdef0123456789abcdef",
+              "spring.ai.ollama.base-url=http://ollama.invalid")
+          .withBean(RestClient.Builder.class, RestClient::builder)
           .withBean(ChatInvocation.class, () -> mock(ChatInvocation.class))
           .withBean(SpeechSynthesis.class, () -> mock(SpeechSynthesis.class))
           .withBean(CoreProperties.class, () -> mock(CoreProperties.class))
@@ -101,6 +107,11 @@ class CoreServicesAutoConfigurationTest {
           assertThat(context).hasSingleBean(DynamicPipelineExecutor.class);
           assertThat(context).hasSingleBean(MemoryResolver.class);
           assertThat(context).hasSingleBean(DomainEventPublisher.class);
+          assertThat(context)
+              .hasSingleBean(com.krizaka.orazaka.core.domain.ports.outbound.KnowledgeService.class);
+          assertThat(context)
+              .hasSingleBean(
+                  com.krizaka.orazaka.core.domain.ports.outbound.ModelEndpointResolver.class);
         });
   }
 

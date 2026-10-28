@@ -1,4 +1,4 @@
-package com.krizaka.orazaka.core.infrastructure.adapter.knowledge;
+package com.krizaka.orazaka.adapter.springai.remote;
 
 import java.net.URI;
 import java.util.Objects;

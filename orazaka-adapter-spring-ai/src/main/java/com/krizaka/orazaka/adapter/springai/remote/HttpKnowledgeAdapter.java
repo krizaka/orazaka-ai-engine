@@ -1,4 +1,4 @@
-package com.krizaka.orazaka.core.infrastructure.adapter.knowledge;
+package com.krizaka.orazaka.adapter.springai.remote;
 
 import com.krizaka.orazaka.core.domain.model.security.Actor;
 import com.krizaka.orazaka.core.domain.ports.outbound.KnowledgeService;
@@ -6,8 +6,6 @@ import java.util.HashMap;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
 /**
@@ -16,16 +14,14 @@ import org.springframework.web.client.RestClient;
  * lookup are additive concerns, so an unreachable knowledge service must never fail the calling
  * request.
  */
-@Component
-@EnableConfigurationProperties(KnowledgeProperties.class)
-class HttpKnowledgeAdapter implements KnowledgeService {
+public class HttpKnowledgeAdapter implements KnowledgeService {
 
   private static final Logger logger = LoggerFactory.getLogger(HttpKnowledgeAdapter.class);
 
   private final RestClient knowledgeClient;
   private final ActingServiceToken tokens;
 
-  HttpKnowledgeAdapter(KnowledgeProperties properties) {
+  public HttpKnowledgeAdapter(KnowledgeProperties properties) {
     this.tokens = new ActingServiceToken(properties.serviceSecret(), "orazaka-core");
     this.knowledgeClient = RestClient.builder().baseUrl(properties.baseUrl().toString()).build();
   }

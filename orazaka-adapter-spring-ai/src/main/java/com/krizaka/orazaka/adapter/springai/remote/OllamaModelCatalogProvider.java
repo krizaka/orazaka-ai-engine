@@ -1,4 +1,4 @@
-package com.krizaka.orazaka.core.infrastructure.adapter.ai;
+package com.krizaka.orazaka.adapter.springai.remote;
 
 import com.krizaka.orazaka.core.domain.model.OllamaCatalog;
 import com.krizaka.orazaka.core.domain.model.OllamaModel;
@@ -11,7 +11,6 @@ import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
@@ -19,8 +18,7 @@ import org.springframework.web.client.RestClientException;
  * Outbound adapter that queries the local Ollama instance for installed models using Spring's
  * native {@link RestClient}.
  */
-@Component
-class OllamaModelCatalogProvider implements ModelCatalogProvider {
+public class OllamaModelCatalogProvider implements ModelCatalogProvider {
 
   private static final Logger log = LoggerFactory.getLogger(OllamaModelCatalogProvider.class);
   private final RestClient restClient;

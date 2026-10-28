@@ -3,6 +3,7 @@ package com.krizaka.orazaka.core.infrastructure.adapter.processor;
 import com.krizaka.orazaka.core.application.processing.ProcessedAudioPayload;
 import com.krizaka.orazaka.core.application.processing.ProcessedVideoPayload;
 import com.krizaka.orazaka.core.application.processing.VideoPreProcessor;
+import com.krizaka.orazaka.core.domain.ports.outbound.AudioTranscriber;
 import com.krizaka.orazaka.core.infrastructure.config.CoreProperties;
 import com.krizaka.orazaka.core.infrastructure.support.PipelineExecutionException;
 import java.nio.charset.StandardCharsets;
@@ -27,18 +28,17 @@ public class LocalVideoProcessor implements VideoPreProcessor {
   private final int maxKeyframes;
   private final int frameIntervalSec;
   private final ProviderEndpointResolver providerEndpointResolver;
-  private final WhisperTranscriptionClient whisperClient;
+  private final AudioTranscriber whisperClient;
   private final String audioModel;
   private final LocalAudioExtractor audioExtractor;
 
   public LocalVideoProcessor(
       CoreProperties properties,
       ProviderEndpointResolver providerEndpointResolver,
-      WhisperTranscriptionClient whisperClient) {
+      AudioTranscriber whisperClient) {
     Objects.requireNonNull(properties, "CoreProperties must not be null");
     this.providerEndpointResolver = providerEndpointResolver;
-    this.whisperClient =
-        Objects.requireNonNull(whisperClient, "WhisperTranscriptionClient must not be null");
+    this.whisperClient = Objects.requireNonNull(whisperClient, "AudioTranscriber must not be null");
     this.audioExtractor = new LocalAudioExtractor();
     this.maxKeyframes =
         properties.video() != null

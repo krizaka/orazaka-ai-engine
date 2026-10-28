@@ -1,4 +1,4 @@
-package com.krizaka.orazaka.core.infrastructure.adapter.processor;
+package com.krizaka.orazaka.adapter.springai.remote;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;

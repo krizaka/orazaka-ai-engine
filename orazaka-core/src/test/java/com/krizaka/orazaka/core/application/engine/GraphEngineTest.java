@@ -11,8 +11,8 @@ import com.krizaka.orazaka.core.domain.model.OperationGraph;
 import com.krizaka.orazaka.core.domain.model.OperationNode;
 import com.krizaka.orazaka.core.domain.ports.outbound.AdminRegistry;
 import com.krizaka.orazaka.core.domain.ports.outbound.CapabilityProvider;
+import com.krizaka.orazaka.core.domain.ports.outbound.InfrastructureStatusProvider;
 import com.krizaka.orazaka.core.domain.ports.outbound.ModelCatalogProvider;
-import com.krizaka.orazaka.core.infrastructure.host.InfrastructureProber;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -46,11 +46,7 @@ class GraphEngineTest {
     adminRegistry.lock("orazaka.core.chat.image", "Locked by admin");
 
     GraphEngine engine =
-        new GraphEngine(
-            capabilityProvider,
-            adminRegistry,
-            new InfrastructureProber(null, 8188, 8085),
-            modelCatalogProvider);
+        new GraphEngine(capabilityProvider, adminRegistry, offlineProber(), modelCatalogProvider);
     OperationGraph graph = engine.compileGraph();
 
     assertThat(graph.nodes()).hasSize(2);
@@ -81,11 +77,7 @@ class GraphEngineTest {
     adminRegistry.lock("orazaka.core.chat.text", "Maintenance mode");
 
     GraphEngine engine =
-        new GraphEngine(
-            capabilityProvider,
-            adminRegistry,
-            new InfrastructureProber(null, 8188, 8085),
-            modelCatalogProvider);
+        new GraphEngine(capabilityProvider, adminRegistry, offlineProber(), modelCatalogProvider);
     OperationGraph graph = engine.compileGraph();
 
     assertThat(graph.nodes()).hasSize(1);
@@ -110,11 +102,7 @@ class GraphEngineTest {
     adminRegistry.lock("orazaka.core.chat.image", "Out of API credits");
 
     GraphEngine engine =
-        new GraphEngine(
-            capabilityProvider,
-            adminRegistry,
-            new InfrastructureProber(null, 8188, 8085),
-            modelCatalogProvider);
+        new GraphEngine(capabilityProvider, adminRegistry, offlineProber(), modelCatalogProvider);
     OperationGraph graph = engine.compileGraph();
 
     // Jackson 3: ObjectMapper is immutable (configure via builder); java.time support is built in.
@@ -137,7 +125,7 @@ class GraphEngineTest {
         new GraphEngine(
             capabilityProvider,
             adminRegistry,
-            Mockito.mock(InfrastructureProber.class),
+            Mockito.mock(InfrastructureStatusProvider.class),
             modelCatalogProvider);
     OperationGraph graph = engine.compileGraph();
 
@@ -151,7 +139,7 @@ class GraphEngineTest {
     CapabilityDescriptor videoFeature = new CapabilityDescriptor("orazaka.core.media.video", true);
     Mockito.when(capabilityProvider.findAll()).thenReturn(List.of(videoFeature));
 
-    InfrastructureProber mockProber = Mockito.mock(InfrastructureProber.class);
+    InfrastructureStatusProvider mockProber = Mockito.mock(InfrastructureStatusProvider.class);
     // Case 1: Both offline
     Mockito.when(mockProber.isVideoEngineOnline()).thenReturn(false);
     Mockito.when(mockProber.isImageEngineOnline()).thenReturn(false);
@@ -176,5 +164,30 @@ class GraphEngineTest {
     Mockito.when(mockProber.isImageEngineOnline()).thenReturn(true);
     OperationGraph graph3 = engine.compileGraph();
     assertThat(graph3.nodes().getFirst().state()).isInstanceOf(Active.class);
+  }
+
+  /** A prober that has seen nothing online, on the default probe ports. */
+  private static InfrastructureStatusProvider offlineProber() {
+    return new InfrastructureStatusProvider() {
+      @Override
+      public boolean isVideoEngineOnline() {
+        return false;
+      }
+
+      @Override
+      public boolean isImageEngineOnline() {
+        return false;
+      }
+
+      @Override
+      public int getVideoProbePort() {
+        return 8188;
+      }
+
+      @Override
+      public int getImageProbePort() {
+        return 8085;
+      }
+    };
   }
 }

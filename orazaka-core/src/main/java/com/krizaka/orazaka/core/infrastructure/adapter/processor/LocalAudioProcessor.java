@@ -2,6 +2,7 @@ package com.krizaka.orazaka.core.infrastructure.adapter.processor;
 
 import com.krizaka.orazaka.core.application.processing.AudioPreProcessor;
 import com.krizaka.orazaka.core.application.processing.ProcessedAudioPayload;
+import com.krizaka.orazaka.core.domain.ports.outbound.AudioTranscriber;
 import com.krizaka.orazaka.core.infrastructure.config.CoreProperties;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -18,17 +19,16 @@ public class LocalAudioProcessor implements AudioPreProcessor {
   private static final Logger logger = LoggerFactory.getLogger(LocalAudioProcessor.class);
 
   private final ProviderEndpointResolver providerEndpointResolver;
-  private final WhisperTranscriptionClient whisperClient;
+  private final AudioTranscriber whisperClient;
   private final String audioModel;
 
   public LocalAudioProcessor(
       CoreProperties properties,
       ProviderEndpointResolver providerEndpointResolver,
-      WhisperTranscriptionClient whisperClient) {
+      AudioTranscriber whisperClient) {
     Objects.requireNonNull(properties, "CoreProperties must not be null");
     this.providerEndpointResolver = providerEndpointResolver;
-    this.whisperClient =
-        Objects.requireNonNull(whisperClient, "WhisperTranscriptionClient must not be null");
+    this.whisperClient = Objects.requireNonNull(whisperClient, "AudioTranscriber must not be null");
     String audioM = null;
     if (properties.audio() != null) {
       audioM = properties.audio().transcriptionModel();

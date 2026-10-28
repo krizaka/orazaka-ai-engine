@@ -1,9 +1,11 @@
 package com.krizaka.orazaka.adapter.springai;
 
 import com.krizaka.orazaka.adapter.springai.remote.HttpKnowledgeAdapter;
+import com.krizaka.orazaka.adapter.springai.remote.InfrastructureProber;
 import com.krizaka.orazaka.adapter.springai.remote.KnowledgeProperties;
 import com.krizaka.orazaka.adapter.springai.remote.LocalAiSemanticClassifierAdapter;
 import com.krizaka.orazaka.adapter.springai.remote.OllamaModelCatalogProvider;
+import com.krizaka.orazaka.adapter.springai.remote.WhisperTranscriptionClient;
 import com.krizaka.orazaka.adapter.springai.routing.CatalogModelEndpointResolver;
 import com.krizaka.orazaka.core.application.engine.Engine;
 import com.krizaka.orazaka.core.application.engine.EngineInfrastructure;
@@ -27,12 +29,14 @@ import com.krizaka.orazaka.core.domain.ports.inbound.McpService;
 import com.krizaka.orazaka.core.domain.ports.inbound.StepRouter;
 import com.krizaka.orazaka.core.domain.ports.outbound.AccessAudit;
 import com.krizaka.orazaka.core.domain.ports.outbound.AudioGeneratorClient;
+import com.krizaka.orazaka.core.domain.ports.outbound.AudioTranscriber;
 import com.krizaka.orazaka.core.domain.ports.outbound.ChatGeneratorClient;
 import com.krizaka.orazaka.core.domain.ports.outbound.ChatInvocation;
 import com.krizaka.orazaka.core.domain.ports.outbound.ChatMemoryStore;
 import com.krizaka.orazaka.core.domain.ports.outbound.DomainEventPublisher;
 import com.krizaka.orazaka.core.domain.ports.outbound.FeatureModelRoutes;
 import com.krizaka.orazaka.core.domain.ports.outbound.ImageGeneratorClient;
+import com.krizaka.orazaka.core.domain.ports.outbound.InfrastructureStatusProvider;
 import com.krizaka.orazaka.core.domain.ports.outbound.KnowledgeService;
 import com.krizaka.orazaka.core.domain.ports.outbound.MemoryResolver;
 import com.krizaka.orazaka.core.domain.ports.outbound.ModelCatalogProvider;
@@ -335,6 +339,38 @@ public class CoreServicesAutoConfiguration {
   public DefaultJobService jobService(
       JobPersistenceProvider provider, DomainEventPublisher events) {
     return new DefaultJobService(provider, events);
+  }
+
+  /**
+   * The Whisper client behind the transcription port, used by the local audio and video processors.
+   *
+   * @param restClientBuilder the RestClient builder
+   * @param objectMapper the Jackson mapper
+   * @return the transcriber
+   */
+  @Bean
+  @ConditionalOnMissingBean(AudioTranscriber.class)
+  public WhisperTranscriptionClient whisperTranscriptionClient(
+      RestClient.Builder restClientBuilder, ObjectMapper objectMapper) {
+    return new WhisperTranscriptionClient(restClientBuilder, objectMapper);
+  }
+
+  /**
+   * The background prober of the video and image engines (scheduled where the host enables
+   * scheduling).
+   *
+   * @param properties the core properties
+   * @param videoProbePort the port probed for the video engine
+   * @param imageProbePort the port probed for the image engine
+   * @return the prober
+   */
+  @Bean
+  @ConditionalOnMissingBean(InfrastructureStatusProvider.class)
+  public InfrastructureProber infrastructureProber(
+      CoreProperties properties,
+      @Value("${orazaka.core.video.generation.probe-port:8188}") int videoProbePort,
+      @Value("${orazaka.core.image.generation.probe-port:8086}") int imageProbePort) {
+    return new InfrastructureProber(properties, videoProbePort, imageProbePort);
   }
 
   /**

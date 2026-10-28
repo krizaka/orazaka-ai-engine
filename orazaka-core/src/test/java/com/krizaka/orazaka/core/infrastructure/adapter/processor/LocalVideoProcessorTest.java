@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 import com.krizaka.orazaka.core.application.processing.ProcessedAudioPayload;
+import com.krizaka.orazaka.core.domain.ports.outbound.AudioTranscriber;
 import com.krizaka.orazaka.core.infrastructure.config.CoreProperties;
 import com.krizaka.orazaka.core.infrastructure.support.PipelineExecutionException;
 import java.io.IOException;
@@ -76,7 +77,7 @@ class LocalVideoProcessorTest {
     @Test
     @DisplayName("extracts keyframes from video bytes")
     void extractsKeyframes() {
-      var whisper = mock(WhisperTranscriptionClient.class);
+      var whisper = mock(AudioTranscriber.class);
       var processor = new LocalVideoProcessor(propsWithAnalysis(), null, whisper);
       var payload = processor.process(new byte[100]);
 
@@ -88,7 +89,7 @@ class LocalVideoProcessorTest {
     @Test
     @DisplayName("returns empty transcript for all-zeros input")
     void returnsEmptyTranscript() {
-      var whisper = mock(WhisperTranscriptionClient.class);
+      var whisper = mock(AudioTranscriber.class);
       var processor = new LocalVideoProcessor(propsWithAnalysis(), null, whisper);
       var payload = processor.process(new byte[50]);
 
@@ -98,7 +99,7 @@ class LocalVideoProcessorTest {
     @Test
     @DisplayName("throws NullPointerException for null video bytes")
     void throwsForNullBytes() {
-      var whisper = mock(WhisperTranscriptionClient.class);
+      var whisper = mock(AudioTranscriber.class);
       var processor = new LocalVideoProcessor(propsWithAnalysis(), null, whisper);
       assertThrows(NullPointerException.class, () -> processor.process(null));
     }
@@ -106,7 +107,7 @@ class LocalVideoProcessorTest {
     @Test
     @DisplayName("handles small video input gracefully")
     void handlesSmallInput() {
-      var whisper = mock(WhisperTranscriptionClient.class);
+      var whisper = mock(AudioTranscriber.class);
       var processor = new LocalVideoProcessor(propsWithAnalysis(), null, whisper);
       var payload = processor.process(new byte[3]);
 
@@ -117,7 +118,7 @@ class LocalVideoProcessorTest {
     @Test
     @DisplayName("respects maxKeyframes limit")
     void respectsMaxKeyframes() {
-      var whisper = mock(WhisperTranscriptionClient.class);
+      var whisper = mock(AudioTranscriber.class);
       var processor = new LocalVideoProcessor(propsWithAnalysis(), null, whisper);
       var payload = processor.process(new byte[1000]);
 
@@ -127,7 +128,7 @@ class LocalVideoProcessorTest {
     @Test
     @DisplayName("returns plain text transcript if input is text")
     void returnsPlainTextTranscript() {
-      var whisper = mock(WhisperTranscriptionClient.class);
+      var whisper = mock(AudioTranscriber.class);
       var processor = new LocalVideoProcessor(propsWithAnalysis(), null, whisper);
       byte[] textBytes = "hello video content".getBytes(StandardCharsets.UTF_8);
       var payload = processor.process(textBytes);
@@ -139,7 +140,7 @@ class LocalVideoProcessorTest {
     @Test
     @DisplayName("processes binary media through FFmpeg and Whisper client")
     void processesBinaryMedia() {
-      var whisper = mock(WhisperTranscriptionClient.class);
+      var whisper = mock(AudioTranscriber.class);
       var endpointResolver = new ProviderEndpointResolver(null);
       when(whisper.transcribe(any(), any(), any(), any()))
           .thenReturn(new ProcessedAudioPayload("transcribed text"));
@@ -174,7 +175,7 @@ class LocalVideoProcessorTest {
     @Test
     @DisplayName("throws PipelineExecutionException when audio extraction fails")
     void throwsOnExtractionFailure() {
-      var whisper = mock(WhisperTranscriptionClient.class);
+      var whisper = mock(AudioTranscriber.class);
       var processor = new LocalVideoProcessor(propsWithAnalysis(), null, whisper);
       byte[] binaryBytes = new byte[] {1, 2, 3, 0, 4, 5, 0, 1, 2, 3, 0, 4, 5};
 
@@ -191,7 +192,7 @@ class LocalVideoProcessorTest {
     @Test
     @DisplayName("throws PipelineExecutionException when whisper client fails")
     void throwsOnWhisperFailure() {
-      var whisper = mock(WhisperTranscriptionClient.class);
+      var whisper = mock(AudioTranscriber.class);
       var endpointResolver = new ProviderEndpointResolver(null);
       when(whisper.transcribe(any(), any(), any(), any()))
           .thenThrow(new RuntimeException("whisper error"));
@@ -228,7 +229,7 @@ class LocalVideoProcessorTest {
     @Test
     @DisplayName("falls back to defaults when video config is null")
     void fallsBackWhenNull() {
-      var whisper = mock(WhisperTranscriptionClient.class);
+      var whisper = mock(AudioTranscriber.class);
       var processor = new LocalVideoProcessor(propsWithNullVideo(), null, whisper);
       var payload = processor.process(new byte[100]);
 
@@ -239,7 +240,7 @@ class LocalVideoProcessorTest {
     @Test
     @DisplayName("throws NullPointerException when properties is null")
     void throwsWhenPropertiesNull() {
-      var whisper = mock(WhisperTranscriptionClient.class);
+      var whisper = mock(AudioTranscriber.class);
       assertThrows(NullPointerException.class, () -> new LocalVideoProcessor(null, null, whisper));
     }
   }

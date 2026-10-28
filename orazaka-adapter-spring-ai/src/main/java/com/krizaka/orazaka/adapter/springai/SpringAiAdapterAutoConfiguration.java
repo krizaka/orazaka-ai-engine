@@ -2,6 +2,7 @@ package com.krizaka.orazaka.adapter.springai;
 
 import com.krizaka.orazaka.adapter.springai.chat.SpringAiChatInvocation;
 import com.krizaka.orazaka.adapter.springai.chat.SpringAiProviderChatClient;
+import com.krizaka.orazaka.adapter.springai.chat.SpringAiSpeechSynthesis;
 import com.krizaka.orazaka.adapter.springai.client.ChatGeneratorClientImpl;
 import com.krizaka.orazaka.adapter.springai.client.EmbeddingClientImpl;
 import com.krizaka.orazaka.adapter.springai.prompt.OllamaOptionsStrategy;
@@ -29,6 +30,7 @@ import com.krizaka.orazaka.core.infrastructure.adapter.security.LoggingAccessAud
 import com.krizaka.orazaka.core.infrastructure.spend.SpendGuard;
 import java.util.List;
 import java.util.Map;
+import org.springframework.ai.audio.tts.TextToSpeechModel;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -181,6 +183,18 @@ public class SpringAiAdapterAutoConfiguration {
   public SpringAiChatInvocation chatInvocation(
       ChatModel chatModel, DynamicChatModelFactory<ChatModel> modelFactory) {
     return new SpringAiChatInvocation(chatModel, modelFactory);
+  }
+
+  /**
+   * The port that turns text into speech audio, over the primary text-to-speech model.
+   *
+   * @param model the primary model
+   * @return the port
+   */
+  @Bean
+  @ConditionalOnMissingBean(SpeechSynthesis.class)
+  public SpringAiSpeechSynthesis speechSynthesis(TextToSpeechModel model) {
+    return new SpringAiSpeechSynthesis(model);
   }
 
   /**

@@ -16,15 +16,13 @@ import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatResponse;
 import com.krizaka.orazaka.core.domain.model.chat.TokenUsage;
 import com.krizaka.orazaka.core.domain.ports.outbound.ChatInvocation;
+import com.krizaka.orazaka.core.domain.ports.outbound.SpeechSynthesis;
 import com.krizaka.orazaka.core.infrastructure.support.CoreException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.audio.tts.TextToSpeechModel;
-import org.springframework.ai.audio.tts.TextToSpeechPrompt;
-import org.springframework.ai.openai.OpenAiAudioSpeechOptions;
 import org.springframework.context.ApplicationEventPublisher;
 import reactor.core.publisher.Flux;
 
@@ -58,8 +56,8 @@ public abstract sealed class AbstractEngine permits Engine {
   /** The port that sends a prepared prompt to a model. */
   protected final ChatInvocation chatInvocation;
 
-  /** Primary Spring AI model interface for text-to-speech generation. */
-  protected final TextToSpeechModel ttsModel;
+  /** The port that turns text into speech audio. */
+  protected final SpeechSynthesis speech;
 
   /** Default provider name. */
   protected final String defaultProvider;
@@ -80,7 +78,7 @@ public abstract sealed class AbstractEngine permits Engine {
    * Constructs the engine with primary Spring AI models and pipeline components.
    *
    * @param chatInvocation The port that sends a prepared prompt to a model.
-   * @param ttsModel Primary Spring AI text-to-speech model.
+   * @param speech The port that turns text into speech audio.
    * @param defaultProvider Default provider name.
    * @param interceptors Ordered list of context interceptors (nullable — defaults to empty).
    * @param pipeline The orchestration pipeline (nullable — bypassed if null).
@@ -89,14 +87,14 @@ public abstract sealed class AbstractEngine permits Engine {
    */
   protected AbstractEngine(
       ChatInvocation chatInvocation,
-      TextToSpeechModel ttsModel,
+      SpeechSynthesis speech,
       String defaultProvider,
       List<PromptContextInterceptor> interceptors,
       DynamicPipelineExecutor pipeline,
       ApplicationEventPublisher publisher,
       EngineInfrastructure infra) {
     this.chatInvocation = chatInvocation;
-    this.ttsModel = ttsModel;
+    this.speech = speech;
     this.defaultProvider = defaultProvider;
     this.interceptors = interceptors != null ? List.copyOf(interceptors) : List.of();
     this.pipeline = pipeline;
@@ -258,15 +256,9 @@ public abstract sealed class AbstractEngine permits Engine {
    *
    * @param request The audio request containing the text and user context.
    * @return The raw audio bytes (MP3 format).
-   * @throws CoreException If no TextToSpeechModel is registered for the active provider.
+   * @throws CoreException If no SpeechSynthesis is registered for the active provider.
    */
   public byte[] generateSpeech(AudioRequest request) {
-    OpenAiAudioSpeechOptions.Builder options =
-        OpenAiAudioSpeechOptions.builder().model(request.model());
-    if (request.responseFormat() != null) {
-      options.responseFormat(request.responseFormat());
-    }
-    var response = ttsModel.call(new TextToSpeechPrompt(request.prompt(), options.build()));
-    return response.getResult().getOutput();
+    return speech.synthesize(request.prompt(), request.model(), request.responseFormat());
   }
 }

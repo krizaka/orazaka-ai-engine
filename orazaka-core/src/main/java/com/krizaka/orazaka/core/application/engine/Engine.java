@@ -6,10 +6,10 @@ import com.krizaka.orazaka.core.application.pipeline.EnginePipelineBridge;
 import com.krizaka.orazaka.core.application.pipeline.EngineStreamBridge;
 import com.krizaka.orazaka.core.domain.ports.outbound.ChatInvocation;
 import com.krizaka.orazaka.core.domain.ports.outbound.ModelCatalogProvider;
+import com.krizaka.orazaka.core.domain.ports.outbound.SpeechSynthesis;
 import com.krizaka.orazaka.core.domain.ports.outbound.UserCredentialsProvider;
 import com.krizaka.orazaka.core.infrastructure.config.CoreProperties;
 import java.util.List;
-import org.springframework.ai.audio.tts.TextToSpeechModel;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
@@ -27,7 +27,7 @@ public final class Engine extends AbstractEngine {
    * Primary constructor for Engine with direct Spring AI dependency injection.
    *
    * @param chatInvocation The port that sends a prepared prompt to a model.
-   * @param ttsModel The primary text-to-speech model bean.
+   * @param speech The port that turns text into speech audio.
    * @param properties Core engine configuration properties.
    * @param interceptors Ordered list of context interceptors.
    * @param orchestrationPipeline The orchestration pipeline (nullable).
@@ -39,7 +39,7 @@ public final class Engine extends AbstractEngine {
    */
   public Engine(
       ChatInvocation chatInvocation,
-      TextToSpeechModel ttsModel,
+      SpeechSynthesis speech,
       CoreProperties properties,
       List<PromptContextInterceptor> interceptors,
       DynamicPipelineExecutor pipelineExecutor,
@@ -50,7 +50,7 @@ public final class Engine extends AbstractEngine {
       UserCredentialsProvider credentialsProvider) {
     super(
         chatInvocation,
-        ttsModel,
+        speech,
         properties != null ? properties.defaultProvider() : null,
         interceptors,
         pipelineExecutor,

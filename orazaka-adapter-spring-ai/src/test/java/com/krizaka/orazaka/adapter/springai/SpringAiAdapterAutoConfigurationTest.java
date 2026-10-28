@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
 import com.krizaka.orazaka.adapter.springai.chat.SpringAiChatInvocation;
+import com.krizaka.orazaka.adapter.springai.chat.SpringAiSpeechSynthesis;
 import com.krizaka.orazaka.adapter.springai.client.ChatGeneratorClientImpl;
 import com.krizaka.orazaka.adapter.springai.client.EmbeddingClientImpl;
 import com.krizaka.orazaka.adapter.springai.prompt.PipelineOptionsRegistry;
@@ -18,6 +19,7 @@ import com.krizaka.orazaka.core.domain.ports.outbound.ChatGeneratorClient;
 import com.krizaka.orazaka.core.domain.ports.outbound.ChatInvocation;
 import com.krizaka.orazaka.core.domain.ports.outbound.EmbeddingClient;
 import com.krizaka.orazaka.core.domain.ports.outbound.ModelEndpointResolver;
+import com.krizaka.orazaka.core.domain.ports.outbound.SpeechSynthesis;
 import com.krizaka.orazaka.core.infrastructure.spend.SpendGuard;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.audio.tts.TextToSpeechModel;
@@ -135,6 +137,24 @@ class SpringAiAdapterAutoConfigurationTest {
           assertThat(context.getBean(ChatInvocation.class))
               .isInstanceOf(SpringAiChatInvocation.class);
         });
+  }
+
+  @Test
+  void theSpeechSynthesisPortIsWiredOverTheRoutedModel() {
+    runner.run(
+        context -> {
+          assertThat(context).hasSingleBean(SpeechSynthesis.class);
+          assertThat(context.getBean(SpeechSynthesis.class))
+              .isInstanceOf(SpringAiSpeechSynthesis.class);
+        });
+  }
+
+  @Test
+  void aHostSpeechSynthesisWins() {
+    var own = mock(SpeechSynthesis.class);
+    runner
+        .withBean(SpeechSynthesis.class, () -> own)
+        .run(context -> assertThat(context.getBean(SpeechSynthesis.class)).isSameAs(own));
   }
 
   @Test

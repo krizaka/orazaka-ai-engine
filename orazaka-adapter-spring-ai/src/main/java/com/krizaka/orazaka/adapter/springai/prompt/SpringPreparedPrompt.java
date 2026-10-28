@@ -1,6 +1,5 @@
 package com.krizaka.orazaka.adapter.springai.prompt;
 
-import com.krizaka.orazaka.core.application.routing.ProviderClassifier;
 import com.krizaka.orazaka.core.domain.model.chat.PreparedPrompt;
 import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
@@ -22,7 +21,7 @@ public record SpringPreparedPrompt(Prompt prompt) implements PreparedPrompt {
 
   @Override
   public String modelName() {
-    return ProviderClassifier.resolveModelName(prompt.getOptions());
+    return SpringAiChatOptionsInfo.modelNameOf(prompt.getOptions());
   }
 
   @Override

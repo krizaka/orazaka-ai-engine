@@ -5,10 +5,6 @@ import static org.junit.jupiter.api.Assertions.*;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.springframework.ai.anthropic.AnthropicChatOptions;
-import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
-import org.springframework.ai.ollama.api.OllamaChatOptions;
-import org.springframework.ai.openai.OpenAiChatOptions;
 
 class ProviderClassifierTest {
 
@@ -68,63 +64,5 @@ class ProviderClassifierTest {
   @Test
   void isLocal_null_returnsFalse() {
     assertFalse(ProviderClassifier.isLocal(null));
-  }
-
-  @Test
-  void resolveFromOptions_ollamaOptions_returnsOllama() {
-    assertEquals(
-        "ollama", ProviderClassifier.resolveFromOptions(OllamaChatOptions.builder().build()));
-  }
-
-  @Test
-  void resolveFromOptions_openaiOptions_returnsOpenai() {
-    assertEquals(
-        "openai", ProviderClassifier.resolveFromOptions(OpenAiChatOptions.builder().build()));
-  }
-
-  @Test
-  void resolveFromOptions_anthropicOptions_returnsAnthropic() {
-    assertEquals(
-        "anthropic", ProviderClassifier.resolveFromOptions(AnthropicChatOptions.builder().build()));
-  }
-
-  @Test
-  void resolveFromOptions_geminiOptions_returnsGemini() {
-    assertEquals(
-        "gemini", ProviderClassifier.resolveFromOptions(GoogleGenAiChatOptions.builder().build()));
-  }
-
-  @Test
-  void resolveFromOptions_null_returnsNull() {
-    assertNull(ProviderClassifier.resolveFromOptions(null));
-  }
-
-  @Test
-  void resolveModelName_openaiOptions_returnsModelName() {
-    var options = OpenAiChatOptions.builder().model("gpt-4").build();
-    assertEquals("gpt-4", ProviderClassifier.resolveModelName(options));
-  }
-
-  @Test
-  void resolveModelName_anthropicOptions_returnsModelName() {
-    var options = AnthropicChatOptions.builder().model("claude-3").build();
-    assertEquals("claude-3", ProviderClassifier.resolveModelName(options));
-  }
-
-  @Test
-  void resolveModelName_geminiOptions_returnsModelName() {
-    var options = GoogleGenAiChatOptions.builder().model("gemini-pro").build();
-    assertEquals("gemini-pro", ProviderClassifier.resolveModelName(options));
-  }
-
-  @Test
-  void resolveModelName_ollamaOptions_returnsModelName() {
-    var options = OllamaChatOptions.builder().model("llama3").build();
-    assertEquals("llama3", ProviderClassifier.resolveModelName(options));
-  }
-
-  @Test
-  void resolveModelName_null_returnsNull() {
-    assertNull(ProviderClassifier.resolveModelName(null));
   }
 }

@@ -102,25 +102,37 @@ public final class ResponseScreen {
     String text = responseText;
     Map<String, Object> notes = new HashMap<>();
     for (PromptContextInterceptor interceptor : interceptors) {
-      try {
-        ScreenedResponse screened = screen.apply(interceptor, context, text);
-        if (screened != null) {
-          text = screened.text() == null ? text : screened.text();
-          notes.putAll(screened.notes());
-        }
-      } catch (PipelineShortCircuitException refusal) {
-        throw refusal;
-      } catch (RuntimeException failure) {
-        if (interceptor.failsClosed()) {
-          throw failure;
-        }
-        logger.error(
-            "Output screen '{}' failed — serving the answer as it was.",
-            interceptor.getClass().getSimpleName(),
-            failure);
+      ScreenedResponse screened = runOne(interceptor, screen, context, text);
+      if (screened != null) {
+        text = screened.text() == null ? text : screened.text();
+        notes.putAll(screened.notes());
       }
     }
     return new ScreenedResponse(text, notes);
+  }
+
+  /**
+   * One screen of one interceptor. A refusal always propagates; any other failure follows the
+   * posture the interceptor declared: a control stops the turn, an enrichment is logged.
+   *
+   * @return the screened answer, or {@code null} when an enrichment failed and left it as it was
+   */
+  private static ScreenedResponse runOne(
+      PromptContextInterceptor interceptor, Screen screen, PromptContext context, String text) {
+    try {
+      return screen.apply(interceptor, context, text);
+    } catch (PipelineShortCircuitException refusal) {
+      throw refusal;
+    } catch (RuntimeException failure) {
+      if (interceptor.failsClosed()) {
+        throw failure;
+      }
+      logger.error(
+          "Output screen '{}' failed — serving the answer as it was.",
+          interceptor.getClass().getSimpleName(),
+          failure);
+      return null;
+    }
   }
 
   /**

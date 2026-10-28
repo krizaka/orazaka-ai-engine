@@ -10,6 +10,8 @@ import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatResponse;
 import com.krizaka.orazaka.core.domain.model.chat.TokenUsage;
 import com.krizaka.orazaka.core.domain.model.chat.ToolCall;
+import com.krizaka.orazaka.core.domain.model.control.ControlMetadata;
+import com.krizaka.orazaka.core.domain.model.control.ControlState;
 import com.krizaka.orazaka.core.domain.ports.outbound.ChatInvocation;
 import com.krizaka.orazaka.core.domain.ports.outbound.UserCredentialsProvider;
 import java.util.HashMap;
@@ -122,6 +124,10 @@ public final class EngineStreamBridge {
                     if (chunk != null) {
                       responseBuilder.append(chunk);
                     }
+                    // The deterministic screens read what is assembled before the chunk leaves: a
+                    // refusal stops the stream here and the chunk is never emitted (#125).
+                    ResponseScreen.screenChunk(
+                        interceptors, context.promptContext(), responseBuilder.toString());
                     captureTokenUsage(completion, tokenUsage);
                     // Screened once, here: what the client gets is what passed ADR-091 this turn.
                     List<ToolCall> returned =
@@ -133,27 +139,64 @@ public final class EngineStreamBridge {
                         chunk,
                         context.conversationId(),
                         TokenUsage.none(),
-                        Map.of(PROVIDER_KEY, context.provider()),
+                        Map.of(
+                            PROVIDER_KEY,
+                            context.provider(),
+                            ControlMetadata.VERDICT.key(),
+                            ControlState.PENDING.name()),
                         returned);
                   })
-              .doOnComplete(
-                  () -> {
-                    String fullText = responseBuilder.toString();
-                    interceptors.forEach(
-                        i -> i.postProcess(request, context.promptText(), fullText));
-                    Map<String, Object> metadata = buildCompletionMetadata(context, startTime);
-                    var out =
-                        new InternalChatResponse(
-                            fullText,
-                            context.conversationId(),
-                            tokenUsage.get(),
-                            Map.copyOf(metadata),
-                            List.copyOf(askedFor));
-                    eventPublisher.publishEvent(
-                        new ChatCompletedEvent(request, out, context.holdId()));
-                  })
+              .concatWith(
+                  Flux.defer(
+                      () ->
+                          Flux.just(
+                              finish(
+                                  request,
+                                  context,
+                                  interceptors,
+                                  eventPublisher,
+                                  new Streamed(
+                                      responseBuilder.toString(),
+                                      tokenUsage.get(),
+                                      List.copyOf(askedFor)),
+                                  startTime))))
               .doFinally(signalType -> closeResources(context));
         });
+  }
+
+  /** What a streamed turn assembled: the whole text, the usage and the tool calls it asked for. */
+  private record Streamed(String text, TokenUsage usage, List<ToolCall> askedFor) {}
+
+  /**
+   * The end of a streamed turn: the semantic tiers screen the assembled answer, then, only if it is
+   * accepted, the completion event is published and the final event carries the verdict. A refusal
+   * here errors the stream before any final event (orazaka-ai-engine#125).
+   */
+  private static InternalChatResponse finish(
+      InternalChatRequest request,
+      EnginePipelineContext context,
+      List<PromptContextInterceptor> interceptors,
+      ApplicationEventPublisher eventPublisher,
+      Streamed streamed,
+      long startTime) {
+    var screened =
+        ResponseScreen.screenStreamed(interceptors, context.promptContext(), streamed.text());
+    interceptors.forEach(i -> i.postProcess(request, context.promptText(), streamed.text()));
+    Map<String, Object> metadata = buildCompletionMetadata(context, startTime);
+    metadata.putAll(screened.notes());
+    metadata.putIfAbsent(ControlMetadata.VERDICT.key(), ControlState.NOT_CHECKED.name());
+    eventPublisher.publishEvent(
+        new ChatCompletedEvent(
+            request,
+            new InternalChatResponse(
+                streamed.text(),
+                context.conversationId(),
+                streamed.usage(),
+                Map.copyOf(metadata),
+                streamed.askedFor()),
+            context.holdId()));
+    // The text already left in the chunks: the final event repeats none of it.
+    return new InternalChatResponse("", context.conversationId(), Map.copyOf(metadata));
   }
 
   /** A cached answer as a stream of one screened chunk, then the completion event (no usage). */
@@ -163,15 +206,12 @@ public final class EngineStreamBridge {
       List<PromptContextInterceptor> interceptors,
       ApplicationEventPublisher eventPublisher) {
     var cached = context.cachedResponse();
-    String text = ResponseScreen.apply(interceptors, context.promptContext(), cached.text());
-    Map<String, Object> metadata =
-        Map.of(
-            PROVIDER_KEY,
-            CachedResponse.PROVIDER,
-            "cache",
-            cached.tier(),
-            "cacheSimilarity",
-            cached.similarity());
+    var screened = ResponseScreen.screen(interceptors, context.promptContext(), cached.text());
+    String text = screened.text();
+    Map<String, Object> metadata = new HashMap<>(screened.notes());
+    metadata.put(PROVIDER_KEY, CachedResponse.PROVIDER);
+    metadata.put("cache", cached.tier());
+    metadata.put("cacheSimilarity", cached.similarity());
     var chunk = new InternalChatResponse(text, context.conversationId(), metadata);
     return Flux.just(chunk)
         .doOnComplete(

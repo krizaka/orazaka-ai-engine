@@ -1,5 +1,6 @@
 package com.krizaka.orazaka.core.application.interceptor;
 
+import com.krizaka.orazaka.core.application.pipeline.ScreenedResponse;
 import com.krizaka.orazaka.core.domain.model.PromptContext;
 import com.krizaka.orazaka.core.domain.model.chat.EngineChatOptions;
 import com.krizaka.orazaka.core.domain.model.chat.EngineMessage;
@@ -99,6 +100,44 @@ public interface PromptContextInterceptor {
    */
   default String screenResponse(PromptContext context, String responseText) {
     return responseText;
+  }
+
+  /**
+   * Output screen that can also annotate the response (a verdict, a badge). Defaults to {@link
+   * #screenResponse} with no notes; a control that reports a verdict overrides this and lets {@code
+   * screenResponse} delegate to it.
+   *
+   * @param context the prompt context of the turn
+   * @param responseText the answer about to be served
+   * @return the text to serve and the notes the response carries
+   */
+  default ScreenedResponse screen(PromptContext context, String responseText) {
+    return ScreenedResponse.plain(screenResponse(context, responseText));
+  }
+
+  /**
+   * Streaming screen, deterministic and cheap, called for every chunk with the text assembled so
+   * far <b>before the chunk is emitted</b>. A control that can already tell the answer is wrong
+   * refuses with a {@link
+   * com.krizaka.orazaka.core.application.pipeline.PipelineShortCircuitException}, so the stream
+   * stops instead of finishing (orazaka-ai-engine#125). Does nothing by default.
+   *
+   * @param context the prompt context of the turn
+   * @param textSoFar everything streamed so far, the chunk being screened included
+   */
+  default void screenChunk(PromptContext context, String textSoFar) {}
+
+  /**
+   * Final screen of a streamed answer, run on the assembled text before the final event. The chunks
+   * have already left, so it can only accept (with notes) or refuse: it never rewrites. Does
+   * nothing by default.
+   *
+   * @param context the prompt context of the turn
+   * @param assembled the whole streamed answer
+   * @return the notes the final event carries
+   */
+  default ScreenedResponse screenStreamed(PromptContext context, String assembled) {
+    return ScreenedResponse.plain(assembled);
   }
 
   /**

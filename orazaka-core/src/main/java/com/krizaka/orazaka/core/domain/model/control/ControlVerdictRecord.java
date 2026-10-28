@@ -10,7 +10,7 @@ import java.util.Objects;
  * @param driftReason why the output drifted
  * @param humanActorId the person who decided, {@code null} while no person has
  * @param timestamp when the verdict was reached
- * @param actionTaken {@code VALIDATED}, {@code ADJUSTED} or {@code ESCALATED}
+ * @param actionTaken {@code VALIDATED}, {@code ADJUSTED}, {@code ESCALATED} or {@code DEGRADED}
  */
 public record ControlVerdictRecord(
     String runId, String driftReason, String humanActorId, Instant timestamp, String actionTaken) {

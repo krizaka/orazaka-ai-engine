@@ -89,7 +89,7 @@ class EngineStreamBridgeTest {
     List<InternalChatResponse> results = resultFlux.collectList().block();
 
     // Assert
-    assertThat(results).isNotNull().hasSize(2);
+    assertThat(results).isNotNull().hasSize(3);
     assertThat(results.getFirst().content()).isEqualTo("chunk 1");
     assertThat(results.getFirst().conversationId()).isEqualTo(CONV_1);
     assertThat(results.getFirst().metadata()).containsEntry("provider", PROVIDER_OLLAMA);
@@ -97,6 +97,10 @@ class EngineStreamBridgeTest {
     assertThat(results.get(1).content()).isEqualTo("chunk 2");
     assertThat(results.get(1).conversationId()).isEqualTo(CONV_1);
     assertThat(results.get(1).metadata()).containsEntry("provider", PROVIDER_OLLAMA);
+    // every chunk says the answer is still being verified; the last event carries the verdict
+    assertThat(results.getFirst().metadata()).containsEntry("control.verdict", "PENDING");
+    assertThat(results.get(2).content()).isEmpty();
+    assertThat(results.get(2).metadata()).containsEntry("control.verdict", "NOT_CHECKED");
 
     verify(eventPublisher, times(1)).publishEvent(any(ChatCompletedEvent.class));
     verify(interceptor, times(1)).postProcess(request, PROMPT_HELLO, "chunk 1chunk 2");
@@ -135,7 +139,7 @@ class EngineStreamBridgeTest {
     List<InternalChatResponse> results = resultFlux.collectList().block();
 
     // Assert
-    assertThat(results).isNotNull().hasSize(1);
+    assertThat(results).isNotNull().hasSize(2);
     assertThat(results.getFirst().content()).isEqualTo("fallback chunk");
 
     verify(eventPublisher, times(1)).publishEvent(any(ChatCompletedEvent.class));
@@ -175,7 +179,7 @@ class EngineStreamBridgeTest {
     List<InternalChatResponse> results = resultFlux.collectList().block();
 
     // Assert
-    assertThat(results).isNotNull().hasSize(1);
+    assertThat(results).isNotNull().hasSize(2);
     assertThat(results.getFirst().content()).isEqualTo("fallback chunk async");
 
     verify(eventPublisher, times(1)).publishEvent(any(ChatCompletedEvent.class));
@@ -219,7 +223,7 @@ class EngineStreamBridgeTest {
     List<InternalChatResponse> results = resultFlux.collectList().block();
 
     // Assert
-    assertThat(results).isNotNull().hasSize(1);
+    assertThat(results).isNotNull().hasSize(2);
     assertThat(results.getFirst().content()).isEqualTo("openai chunk");
     assertThat(results.getFirst().metadata()).containsEntry("provider", "openai");
   }
@@ -253,7 +257,7 @@ class EngineStreamBridgeTest {
     List<InternalChatResponse> results = resultFlux.collectList().block();
 
     // Assert
-    assertThat(results).isNotNull().hasSize(1);
+    assertThat(results).isNotNull().hasSize(2);
     assertThat(results.getFirst().content()).isEqualTo("local fallback chunk");
   }
 

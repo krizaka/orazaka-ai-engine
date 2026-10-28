@@ -14,11 +14,15 @@ import com.krizaka.orazaka.core.application.pipeline.EnginePipelineBridge;
 import com.krizaka.orazaka.core.application.pipeline.EnginePipelineContext;
 import com.krizaka.orazaka.core.application.pipeline.EngineStreamBridge;
 import com.krizaka.orazaka.core.application.pipeline.PipelineShortCircuitException;
-import com.krizaka.orazaka.core.application.routing.DynamicChatModelFactory;
 import com.krizaka.orazaka.core.domain.event.ChatCompletedEvent;
 import com.krizaka.orazaka.core.domain.model.PromptContext;
+import com.krizaka.orazaka.core.domain.model.chat.ChatCompletion;
+import com.krizaka.orazaka.core.domain.model.chat.ChatRoute;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatResponse;
+import com.krizaka.orazaka.core.domain.model.chat.PreparedPrompt;
+import com.krizaka.orazaka.core.domain.ports.outbound.ChatInvocation;
+import com.krizaka.orazaka.core.domain.ports.outbound.ProviderChatClient;
 import com.krizaka.orazaka.core.domain.ports.outbound.TestShaperPort;
 import com.krizaka.orazaka.core.domain.ports.outbound.UserCredentialsProvider;
 import java.util.Arrays;
@@ -26,11 +30,6 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.ai.chat.messages.AssistantMessage;
-import org.springframework.ai.chat.model.ChatModel;
-import org.springframework.ai.chat.model.ChatResponse;
-import org.springframework.ai.chat.model.Generation;
-import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.context.ApplicationEventPublisher;
 import reactor.core.publisher.Flux;
 
@@ -44,37 +43,33 @@ class ClosedLoopFailClosedGuardTest {
   private static final PromptContext CONTEXT =
       new PromptContext("Give me JSON", Map.of("conversationId", "run-1", "userId", "u-1"));
 
-  private final ChatModel streamModel = mock(ChatModel.class);
+  private final ChatInvocation invocation = mock(ChatInvocation.class);
   private final EnginePipelineBridge pipelineBridge = mock(EnginePipelineBridge.class);
   private final ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
   private final DynamicPipelineExecutor pipeline = mock(DynamicPipelineExecutor.class);
 
-  private static ChatResponse chunk(String text) {
-    return new ChatResponse(List.of(new Generation(new AssistantMessage(text))));
+  private static ChatCompletion chunk(String text) {
+    return new ChatCompletion(text, null);
   }
 
   private Flux<InternalChatResponse> streamOf(
       PromptContextInterceptor interceptor, String... chunks) {
     var request = InternalChatRequest.simple("Give me JSON");
-    var prompt = new Prompt("Give me JSON");
+    var prompt = mock(PreparedPrompt.class);
     var context =
         new EnginePipelineContext(
             "ollama", "run-1", "Give me JSON", prompt, List.of(), null, null, CONTEXT);
     var interceptors = List.of(interceptor);
     when(pipelineBridge.compileContext(request, pipeline, "ollama", interceptors))
         .thenReturn(context);
-    when(streamModel.stream(prompt))
+    when(invocation.stream(prompt, ChatRoute.platform()))
         .thenReturn(
             Flux.fromArray(
                 Arrays.stream(chunks)
                     .map(ClosedLoopFailClosedGuardTest::chunk)
-                    .toArray(ChatResponse[]::new)));
+                    .toArray(ChatCompletion[]::new)));
     var bridge =
-        new EngineStreamBridge(
-            streamModel,
-            pipelineBridge,
-            mock(UserCredentialsProvider.class),
-            mock(DynamicChatModelFactory.class));
+        new EngineStreamBridge(invocation, pipelineBridge, mock(UserCredentialsProvider.class));
     return bridge.createStream(request, pipeline, "ollama", interceptors, events);
   }
 
@@ -118,8 +113,9 @@ class ClosedLoopFailClosedGuardTest {
   @Test
   @DisplayName("a Tier C judge outage is never Validated: the turn stops, typed")
   void judgeOutageEscalatesTierC() {
-    ChatModel judge = mock(ChatModel.class);
-    when(judge.call(any(Prompt.class))).thenThrow(new IllegalStateException("judge timeout"));
+    ProviderChatClient judge = mock(ProviderChatClient.class);
+    when(judge.completeWithDefault(any(), any()))
+        .thenThrow(new IllegalStateException("judge timeout"));
     var props = new ClosedLoopValidationProperties(true, 0, false, false, true, false);
     var interceptor = new ClosedLoopValidationInterceptor(props, judge, null, null);
 
@@ -141,5 +137,102 @@ class ClosedLoopFailClosedGuardTest {
         .isInstanceOf(PipelineShortCircuitException.class)
         .extracting(e -> ((PipelineShortCircuitException) e).reason())
         .isEqualTo("control_verification_unavailable");
+  }
+
+  @Test
+  @DisplayName("a closed invalid code block stops the stream before its chunk is emitted")
+  void closedInvalidBlockStopsTheChunk() {
+    List<Object> seen = new java.util.ArrayList<>();
+    Flux<InternalChatResponse> stream =
+        streamOf(deterministicTiers(), "```json\n{oops\n```\n", "more").doOnNext(seen::add);
+
+    assertThatThrownBy(() -> stream.collectList().block())
+        .isInstanceOf(PipelineShortCircuitException.class);
+    assertThat(seen).isEmpty();
+  }
+
+  @Test
+  @DisplayName("a judge that answers no readable score is an outage, never a neutral 5")
+  void unreadableScoreIsAnOutage() {
+    ProviderChatClient judge = mock(ProviderChatClient.class);
+    when(judge.completeWithDefault(any(), any())).thenReturn("looks fine to me");
+    var props = new ClosedLoopValidationProperties(true, 0, false, false, true, false);
+    var interceptor = new ClosedLoopValidationInterceptor(props, judge, null, null);
+
+    assertThatThrownBy(() -> interceptor.screenResponse(CONTEXT, "an unchecked answer"))
+        .isInstanceOf(PipelineShortCircuitException.class)
+        .extracting(e -> ((PipelineShortCircuitException) e).reason())
+        .isEqualTo("control_verification_unavailable");
+  }
+
+  @Test
+  @DisplayName("a readable judge verdict still validates, and the metadata says so")
+  void readableVerdictValidates() {
+    ProviderChatClient judge = mock(ProviderChatClient.class);
+    when(judge.completeWithDefault(any(), any())).thenReturn("{\"score\": 2}");
+    var props = new ClosedLoopValidationProperties(true, 0, false, false, true, false);
+    var interceptor = new ClosedLoopValidationInterceptor(props, judge, null, null);
+
+    var screened = interceptor.screen(CONTEXT, "an answer");
+
+    assertThat(screened.text()).isEqualTo("an answer");
+    assertThat(screened.notes()).containsEntry("control.verdict", "VALIDATED");
+  }
+
+  @Test
+  @DisplayName("admin data DETERMINISTIC_ONLY serves on tiers A+B with a visible badge, audited")
+  void deterministicOnlyPolicyServesDegraded() {
+    ProviderChatClient judge = mock(ProviderChatClient.class);
+    when(judge.completeWithDefault(any(), any())).thenThrow(new IllegalStateException("down"));
+    var recorder =
+        mock(com.krizaka.orazaka.core.domain.ports.outbound.ControlVerdictRecorder.class);
+    var props =
+        new ClosedLoopValidationProperties(
+            true,
+            0,
+            true,
+            false,
+            true,
+            false,
+            null,
+            0,
+            null,
+            com.krizaka.orazaka.core.domain.model.control.JudgeOutagePolicy.DETERMINISTIC_ONLY);
+    var interceptor =
+        new ClosedLoopValidationInterceptor(
+            props, judge, null, null, recorder, null, java.time.Clock.systemUTC());
+
+    var screened = interceptor.screen(CONTEXT, "{\"ok\":true}");
+
+    assertThat(screened.notes())
+        .containsEntry("control.verdict", "DEGRADED")
+        .containsEntry("control.badge", "verification_unavailable");
+    verify(recorder)
+        .record(org.mockito.ArgumentMatchers.argThat(r -> "DEGRADED".equals(r.actionTaken())));
+  }
+
+  @Test
+  @DisplayName("DETERMINISTIC_ONLY still refuses an answer that fails a deterministic tier")
+  void deterministicOnlyStillRefusesBadStructure() {
+    ProviderChatClient judge = mock(ProviderChatClient.class);
+    when(judge.completeWithDefault(any(), any())).thenThrow(new IllegalStateException("down"));
+    var props =
+        new ClosedLoopValidationProperties(
+            true,
+            0,
+            true,
+            false,
+            true,
+            false,
+            null,
+            0,
+            null,
+            com.krizaka.orazaka.core.domain.model.control.JudgeOutagePolicy.DETERMINISTIC_ONLY);
+    var interceptor = new ClosedLoopValidationInterceptor(props, judge, null, null);
+
+    assertThatThrownBy(() -> interceptor.screenResponse(CONTEXT, "{broken"))
+        .isInstanceOf(PipelineShortCircuitException.class)
+        .extracting(e -> ((PipelineShortCircuitException) e).reason())
+        .isEqualTo("control_escalation");
   }
 }

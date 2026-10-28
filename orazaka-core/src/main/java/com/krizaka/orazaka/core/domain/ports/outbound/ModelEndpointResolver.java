@@ -16,4 +16,16 @@ public interface ModelEndpointResolver {
 
   /** Resolves the endpoint for a capability category's default model ({@code is_default}). */
   Optional<ModelEndpoint> resolveDefault(String category);
+
+  /**
+   * Resolves the endpoint a feature key routes to (ADR-029): the best-ranked model of its routing
+   * rows whose provider is reachable, else the default of the fallback category.
+   *
+   * @param featureKey the feature, e.g. {@code agent.code.issue-to-pr}
+   * @param fallbackCategory the category whose default answers when the feature has no usable row
+   * @return the endpoint
+   */
+  default Optional<ModelEndpoint> resolveForFeature(String featureKey, String fallbackCategory) {
+    return resolveDefault(fallbackCategory);
+  }
 }

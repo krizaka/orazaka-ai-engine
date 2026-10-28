@@ -1,4 +1,4 @@
-package com.krizaka.orazaka.core.infrastructure.adapter.knowledge;
+package com.krizaka.orazaka.adapter.springai.remote;
 
 import com.krizaka.orazaka.core.domain.model.security.Actor;
 import java.nio.charset.StandardCharsets;

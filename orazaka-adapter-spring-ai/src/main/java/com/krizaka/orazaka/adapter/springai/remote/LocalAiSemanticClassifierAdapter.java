@@ -1,4 +1,4 @@
-package com.krizaka.orazaka.core.infrastructure.adapter.ai;
+package com.krizaka.orazaka.adapter.springai.remote;
 
 import com.krizaka.orazaka.core.domain.model.ClassificationResponse;
 import com.krizaka.orazaka.core.domain.ports.outbound.SemanticClassifierPort;
@@ -7,7 +7,6 @@ import java.util.List;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
@@ -17,7 +16,6 @@ import org.springframework.web.client.RestClientException;
  * <p>Sends prompts to a local LocalAI instance (or any compatible endpoint) for semantic
  * classification to drive the two-phase execution pipeline.
  */
-@Component
 public class LocalAiSemanticClassifierAdapter implements SemanticClassifierPort {
 
   private static final Logger logger =

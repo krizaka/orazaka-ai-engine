@@ -1,4 +1,4 @@
-package com.krizaka.orazaka.core.infrastructure.provider.model;
+package com.krizaka.orazaka.adapter.springai.routing;
 
 import com.krizaka.orazaka.core.domain.model.ModelEndpoint;
 import com.krizaka.orazaka.core.domain.ports.outbound.FeatureModelRoutes;
@@ -9,8 +9,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
 
 /**
  * DB-backed {@link ModelEndpointResolver} adapter (ADR-030).
@@ -23,8 +21,7 @@ import org.springframework.stereotype.Component;
  * hosted OpenAI-compatible one (serverless inference). Commercial per-user keys still flow through
  * the engine's {@code ModelFactory} path.
  */
-@Component
-class CatalogModelEndpointResolver implements ModelEndpointResolver {
+public class CatalogModelEndpointResolver implements ModelEndpointResolver {
 
   private final CatalogModelManager catalog;
   private final FeatureModelRoutes routes;
@@ -33,13 +30,12 @@ class CatalogModelEndpointResolver implements ModelEndpointResolver {
    * The Spring constructor: the routing rows are optional, a deployment without an adapter for them
    * routes every feature to its category default.
    */
-  @Autowired
-  CatalogModelEndpointResolver(
+  public CatalogModelEndpointResolver(
       CatalogModelManager catalog, ObjectProvider<FeatureModelRoutes> routes) {
     this(catalog, routes.getIfAvailable(() -> feature -> List.of()));
   }
 
-  CatalogModelEndpointResolver(CatalogModelManager catalog, FeatureModelRoutes routes) {
+  public CatalogModelEndpointResolver(CatalogModelManager catalog, FeatureModelRoutes routes) {
     this.catalog = Objects.requireNonNull(catalog, "CatalogModelManager cannot be null");
     this.routes = Objects.requireNonNull(routes, "FeatureModelRoutes cannot be null");
   }

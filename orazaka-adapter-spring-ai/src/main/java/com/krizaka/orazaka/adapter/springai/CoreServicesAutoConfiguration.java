@@ -1,5 +1,10 @@
 package com.krizaka.orazaka.adapter.springai;
 
+import com.krizaka.orazaka.adapter.springai.remote.HttpKnowledgeAdapter;
+import com.krizaka.orazaka.adapter.springai.remote.KnowledgeProperties;
+import com.krizaka.orazaka.adapter.springai.remote.LocalAiSemanticClassifierAdapter;
+import com.krizaka.orazaka.adapter.springai.remote.OllamaModelCatalogProvider;
+import com.krizaka.orazaka.adapter.springai.routing.CatalogModelEndpointResolver;
 import com.krizaka.orazaka.core.application.engine.Engine;
 import com.krizaka.orazaka.core.application.engine.EngineInfrastructure;
 import com.krizaka.orazaka.core.application.interceptor.PromptContextInterceptor;
@@ -24,9 +29,12 @@ import com.krizaka.orazaka.core.domain.ports.outbound.ChatGeneratorClient;
 import com.krizaka.orazaka.core.domain.ports.outbound.ChatInvocation;
 import com.krizaka.orazaka.core.domain.ports.outbound.ChatMemoryStore;
 import com.krizaka.orazaka.core.domain.ports.outbound.DomainEventPublisher;
+import com.krizaka.orazaka.core.domain.ports.outbound.FeatureModelRoutes;
 import com.krizaka.orazaka.core.domain.ports.outbound.ImageGeneratorClient;
+import com.krizaka.orazaka.core.domain.ports.outbound.KnowledgeService;
 import com.krizaka.orazaka.core.domain.ports.outbound.MemoryResolver;
 import com.krizaka.orazaka.core.domain.ports.outbound.ModelCatalogProvider;
+import com.krizaka.orazaka.core.domain.ports.outbound.ModelEndpointResolver;
 import com.krizaka.orazaka.core.domain.ports.outbound.PipelineConfigProvider;
 import com.krizaka.orazaka.core.domain.ports.outbound.PromptAssembly;
 import com.krizaka.orazaka.core.domain.ports.outbound.SemanticClassifierPort;
@@ -46,10 +54,13 @@ import com.krizaka.orazaka.persistence.domain.ports.inbound.RuntimeConfigProvide
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.List;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
+import org.springframework.web.client.RestClient;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -57,6 +68,7 @@ import tools.jackson.databind.ObjectMapper;
  * are plain Java, registered here unless the host brings its own bean of the same type.
  */
 @AutoConfiguration(after = SpringAiAdapterAutoConfiguration.class)
+@EnableConfigurationProperties(KnowledgeProperties.class)
 public class CoreServicesAutoConfiguration {
 
   /**
@@ -197,6 +209,64 @@ public class CoreServicesAutoConfiguration {
       EngineInfrastructure infrastructure) {
     return new Engine(
         invocation, speech, properties, interceptors, executor, events, infrastructure);
+  }
+
+  /**
+   * The semantic classifier, over a LocalAI-compatible endpoint.
+   *
+   * @param builder the REST client builder
+   * @param properties the core properties
+   * @return the classifier
+   */
+  @Bean
+  @ConditionalOnMissingBean(SemanticClassifierPort.class)
+  public LocalAiSemanticClassifierAdapter semanticClassifier(
+      RestClient.Builder builder, CoreProperties properties) {
+    return new LocalAiSemanticClassifierAdapter(builder, properties);
+  }
+
+  /**
+   * The catalogue of the models the local Ollama serves.
+   *
+   * @param builder the REST client builder
+   * @param baseUrl the Ollama base URL
+   * @param activeModel the model in use, if configured
+   * @return the provider
+   */
+  @Bean
+  @ConditionalOnMissingBean(ModelCatalogProvider.class)
+  public OllamaModelCatalogProvider ollamaModelCatalogProvider(
+      RestClient.Builder builder,
+      @Value("${spring.ai.ollama.base-url}") String baseUrl,
+      @Value("${ORAZAKA_OLLAMA_MODEL:${spring.ai.ollama.chat.options.model:}}")
+          String activeModel) {
+    return new OllamaModelCatalogProvider(builder, baseUrl, activeModel);
+  }
+
+  /**
+   * The knowledge service (RAG), over its internal HTTP API.
+   *
+   * @param properties where the knowledge service is
+   * @return the adapter
+   */
+  @Bean
+  @ConditionalOnMissingBean(KnowledgeService.class)
+  public HttpKnowledgeAdapter knowledgeService(KnowledgeProperties properties) {
+    return new HttpKnowledgeAdapter(properties);
+  }
+
+  /**
+   * Resolves a model name to its endpoint through the catalogue and the routing rows.
+   *
+   * @param catalog the catalogue manager
+   * @param routes the routing rows, when the deployment has them
+   * @return the resolver
+   */
+  @Bean
+  @ConditionalOnMissingBean(ModelEndpointResolver.class)
+  public CatalogModelEndpointResolver modelEndpointResolver(
+      CatalogModelManager catalog, ObjectProvider<FeatureModelRoutes> routes) {
+    return new CatalogModelEndpointResolver(catalog, routes);
   }
 
   /**

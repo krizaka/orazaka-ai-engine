@@ -7,6 +7,8 @@ import com.krizaka.orazaka.adapter.springai.chat.SpringAiChatInvocation;
 import com.krizaka.orazaka.adapter.springai.chat.SpringAiSpeechSynthesis;
 import com.krizaka.orazaka.adapter.springai.client.ChatGeneratorClientImpl;
 import com.krizaka.orazaka.adapter.springai.client.EmbeddingClientImpl;
+import com.krizaka.orazaka.adapter.springai.image.SpringAiImageGeneratorClient;
+import com.krizaka.orazaka.adapter.springai.memory.SpringAiToolAnswerCodec;
 import com.krizaka.orazaka.adapter.springai.prompt.PipelineOptionsRegistry;
 import com.krizaka.orazaka.adapter.springai.provider.SpringAiDynamicChatModelFactory;
 import com.krizaka.orazaka.adapter.springai.routing.DynamicModelRouter;
@@ -18,9 +20,13 @@ import com.krizaka.orazaka.core.application.routing.DynamicChatModelFactory;
 import com.krizaka.orazaka.core.domain.ports.outbound.ChatGeneratorClient;
 import com.krizaka.orazaka.core.domain.ports.outbound.ChatInvocation;
 import com.krizaka.orazaka.core.domain.ports.outbound.EmbeddingClient;
+import com.krizaka.orazaka.core.domain.ports.outbound.ImageGeneratorClient;
 import com.krizaka.orazaka.core.domain.ports.outbound.ModelEndpointResolver;
 import com.krizaka.orazaka.core.domain.ports.outbound.SpeechSynthesis;
+import com.krizaka.orazaka.core.domain.ports.outbound.ToolAnswerCodec;
+import com.krizaka.orazaka.core.infrastructure.config.CoreProperties;
 import com.krizaka.orazaka.core.infrastructure.spend.SpendGuard;
+import com.krizaka.orazaka.persistence.domain.ports.inbound.CatalogModelManager;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.audio.tts.TextToSpeechModel;
 import org.springframework.ai.chat.model.ChatModel;
@@ -39,7 +45,9 @@ class SpringAiAdapterAutoConfigurationTest {
           .withBean(Engine.class, () -> mock(Engine.class))
           .withBean(PipelineOptionsRegistry.class, () -> mock(PipelineOptionsRegistry.class))
           .withBean(ModelEndpointResolver.class, () -> mock(ModelEndpointResolver.class))
-          .withBean(SpendGuard.class, SpendGuard::unlimited);
+          .withBean(SpendGuard.class, SpendGuard::unlimited)
+          .withBean(CoreProperties.class, () -> mock(CoreProperties.class))
+          .withBean(CatalogModelManager.class, () -> mock(CatalogModelManager.class));
 
   @Test
   void theChatAndEmbeddingPortsAreWired() {
@@ -155,6 +163,21 @@ class SpringAiAdapterAutoConfigurationTest {
     runner
         .withBean(SpeechSynthesis.class, () -> own)
         .run(context -> assertThat(context.getBean(SpeechSynthesis.class)).isSameAs(own));
+  }
+
+  @Test
+  void theToolAnswerCodecAndTheImageClientAreWiredAndAHostOneWins() {
+    runner.run(
+        context -> {
+          assertThat(context.getBean(ToolAnswerCodec.class))
+              .isInstanceOf(SpringAiToolAnswerCodec.class);
+          assertThat(context.getBean(ImageGeneratorClient.class))
+              .isInstanceOf(SpringAiImageGeneratorClient.class);
+        });
+    var own = mock(ImageGeneratorClient.class);
+    runner
+        .withBean(ImageGeneratorClient.class, () -> own)
+        .run(context -> assertThat(context.getBean(ImageGeneratorClient.class)).isSameAs(own));
   }
 
   @Test

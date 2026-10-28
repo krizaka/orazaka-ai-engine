@@ -38,6 +38,11 @@ class ToolInterceptor implements PromptContextInterceptor {
     if (request.streaming()) {
       return options;
     }
+    // In client-executed mode the client's tools are the closed list (ADR-093 §4): the engine's own
+    // are not offered beside them.
+    if (request.clientToolMode()) {
+      return options;
+    }
     if (options != null && options.model() != null) {
       String modelLower = options.model().toLowerCase();
       if (modelLower.contains("vision")

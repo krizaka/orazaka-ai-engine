@@ -1,7 +1,9 @@
 package com.krizaka.orazaka.adapter.springai.tool;
 
+import com.krizaka.orazaka.core.application.security.ClientToolGate;
 import com.krizaka.orazaka.core.domain.model.chat.EngineTool;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
+import com.krizaka.orazaka.core.domain.model.chat.ToolCall;
 import com.krizaka.orazaka.core.domain.model.security.Actor;
 import com.krizaka.orazaka.core.domain.ports.outbound.PlatformMcpServerProvider;
 import com.krizaka.orazaka.core.domain.ports.outbound.ToolRegistry;
@@ -38,6 +40,7 @@ public final class SpringAiToolResolution implements ToolResolution {
   private final PlatformMcpServerProvider platformMcpServerProvider;
   private final UserMcpServerProvider userMcpServerProvider;
   private final ToolRegistry toolRegistry;
+  private final ClientToolGate clientToolGate;
 
   /**
    * Constructs the resolution.
@@ -45,14 +48,52 @@ public final class SpringAiToolResolution implements ToolResolution {
    * @param platformMcpServerProvider The platform-wide MCP provider (nullable).
    * @param userMcpServerProvider The user private MCP provider (nullable).
    * @param toolRegistry The local tools registry (nullable).
+   * @param clientToolGate The ADR-091 check of the tools the client runs (ADR-093 §4); {@code null}
+   *     means client-executed mode offers nothing.
    */
   public SpringAiToolResolution(
       PlatformMcpServerProvider platformMcpServerProvider,
       UserMcpServerProvider userMcpServerProvider,
-      ToolRegistry toolRegistry) {
+      ToolRegistry toolRegistry,
+      ClientToolGate clientToolGate) {
     this.platformMcpServerProvider = platformMcpServerProvider;
     this.userMcpServerProvider = userMcpServerProvider;
     this.toolRegistry = toolRegistry;
+    this.clientToolGate = clientToolGate;
+  }
+
+  /** A resolution with no client-executed mode: it offers no client tool. */
+  public SpringAiToolResolution(
+      PlatformMcpServerProvider platformMcpServerProvider,
+      UserMcpServerProvider userMcpServerProvider,
+      ToolRegistry toolRegistry) {
+    this(platformMcpServerProvider, userMcpServerProvider, toolRegistry, null);
+  }
+
+  /**
+   * The client's declared tools the actor may use, as definitions only: no MCP server is opened and
+   * none of the engine's own tools is offered beside them (the list is closed, ADR-093 §4).
+   */
+  @Override
+  public ResolvedTools resolveClientTools(InternalChatRequest request) {
+    if (clientToolGate == null) {
+      return ResolvedTools.none();
+    }
+    Actor actor = Actor.from(request.context()).orElse(null);
+    List<ClientToolCallback> callbacks =
+        clientToolGate.offer(actor, request.clientTools()).stream()
+            .map(ClientToolCallback::new)
+            .toList();
+    return new ResolvedTools(callbacks, List.of());
+  }
+
+  @Override
+  public List<ToolCall> screenClientCalls(InternalChatRequest request, List<ToolCall> calls) {
+    if (clientToolGate == null) {
+      return List.of();
+    }
+    Actor actor = Actor.from(request.context()).orElse(null);
+    return clientToolGate.screen(actor, request.clientTools(), calls);
   }
 
   @Override

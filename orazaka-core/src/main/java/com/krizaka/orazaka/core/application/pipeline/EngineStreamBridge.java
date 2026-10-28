@@ -9,6 +9,7 @@ import com.krizaka.orazaka.core.domain.model.chat.ChatRoute;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatResponse;
 import com.krizaka.orazaka.core.domain.model.chat.TokenUsage;
+import com.krizaka.orazaka.core.domain.model.chat.ToolCall;
 import com.krizaka.orazaka.core.domain.ports.outbound.ChatInvocation;
 import com.krizaka.orazaka.core.domain.ports.outbound.UserCredentialsProvider;
 import java.util.HashMap;
@@ -94,17 +95,21 @@ public final class EngineStreamBridge {
           // Usage arrives once, on the last chunk of a stream — captured here so the completion
           // handler can settle the turn's hold against real tokens rather than an estimate.
           final AtomicReference<TokenUsage> tokenUsage = new AtomicReference<>(TokenUsage.none());
+          final List<ToolCall> askedFor = new java.util.concurrent.CopyOnWriteArrayList<>();
 
           ChatRoute route =
               ChatRoutes.resolve(
                   request.context().userId(), context.provider(), credentialsProvider);
           // Never the prompt, not even at DEBUG: a log keeps no data class (ADR-064).
-          Flux<ChatCompletion> streamFlux = initStream(route, context);
+          Flux<ChatCompletion> streamFlux = initStream(request, route, context);
 
           return streamFlux
               .onErrorResume(
                   RuntimeException.class,
                   ex -> {
+                    if (request.clientToolMode()) {
+                      return Flux.error(ex);
+                    }
                     logger.warn(
                         "Asynchronous tool execution activation failure, falling back to non-tool text inference stream.",
                         ex);
@@ -117,8 +122,18 @@ public final class EngineStreamBridge {
                       responseBuilder.append(chunk);
                     }
                     captureTokenUsage(completion, tokenUsage);
+                    // Screened once, here: what the client gets is what passed ADR-091 this turn.
+                    List<ToolCall> returned =
+                        request.clientToolMode()
+                            ? pipelineBridge.screenClientCalls(request, completion.toolCalls())
+                            : List.of();
+                    askedFor.addAll(returned);
                     return new InternalChatResponse(
-                        chunk, context.conversationId(), Map.of("provider", context.provider()));
+                        chunk,
+                        context.conversationId(),
+                        TokenUsage.none(),
+                        Map.of("provider", context.provider()),
+                        returned);
                   })
               .doOnComplete(
                   () -> {
@@ -131,7 +146,8 @@ public final class EngineStreamBridge {
                             fullText,
                             context.conversationId(),
                             tokenUsage.get(),
-                            Map.copyOf(metadata));
+                            Map.copyOf(metadata),
+                            List.copyOf(askedFor));
                     eventPublisher.publishEvent(
                         new ChatCompletedEvent(request, out, context.holdId()));
                   })
@@ -164,10 +180,14 @@ public final class EngineStreamBridge {
                         context.holdId())));
   }
 
-  private Flux<ChatCompletion> initStream(ChatRoute route, EnginePipelineContext context) {
+  private Flux<ChatCompletion> initStream(
+      InternalChatRequest request, ChatRoute route, EnginePipelineContext context) {
     try {
       return chatInvocation.stream(context.toPrompt(), route);
     } catch (RuntimeException e) {
+      if (request.clientToolMode()) {
+        throw e;
+      }
       logger.warn(
           "Model '{}' stream failed tool execution activation, falling back to non-tool text inference stream.",
           context.provider(),

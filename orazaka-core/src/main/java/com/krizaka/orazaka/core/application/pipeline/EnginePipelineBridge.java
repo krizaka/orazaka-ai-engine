@@ -7,6 +7,7 @@ import com.krizaka.orazaka.core.domain.model.CachedResponse;
 import com.krizaka.orazaka.core.domain.model.PromptContext;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
 import com.krizaka.orazaka.core.domain.model.chat.PromptDraft;
+import com.krizaka.orazaka.core.domain.model.chat.ToolCall;
 import com.krizaka.orazaka.core.domain.ports.outbound.ModelCatalogProvider;
 import com.krizaka.orazaka.core.domain.ports.outbound.PromptAssembly;
 import com.krizaka.orazaka.core.domain.ports.outbound.ToolResolution;
@@ -130,7 +131,12 @@ public final class EnginePipelineBridge {
                 (o1, o2) -> o1);
 
     // The turn's tools, resolved behind the port (roles and denials audit are checked at the tool)
-    var tools = toolResolution.resolve(request);
+    // In client-executed mode (ADR-093 §4) the offer is the client's declared tools the actor may
+    // use, re-checked on this turn; the engine's own tools are not offered at all.
+    var tools =
+        request.clientToolMode()
+            ? toolResolution.resolveClientTools(request)
+            : toolResolution.resolve(request);
     var prompt = promptAssembly.assemble(engineMessages, engineOptions, provider, tools.handles());
     String conversationId = request.context().conversationId();
 
@@ -143,6 +149,18 @@ public final class EnginePipelineBridge {
         resolveHoldId(pipelineContext),
         null,
         pipelineContext);
+  }
+
+  /**
+   * Screens the calls the model made in client-executed mode (ADR-093 §4): those whose tool was
+   * declared and the actor may still use go back to the client; the rest are dropped and audited.
+   *
+   * @param request the chat request
+   * @param calls what the model asked for
+   * @return the calls to return to the client
+   */
+  public List<ToolCall> screenClientCalls(InternalChatRequest request, List<ToolCall> calls) {
+    return calls.isEmpty() ? calls : toolResolution.screenClientCalls(request, calls);
   }
 
   /**

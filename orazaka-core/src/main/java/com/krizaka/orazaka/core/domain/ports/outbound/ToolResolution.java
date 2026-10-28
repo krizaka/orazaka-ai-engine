@@ -1,6 +1,7 @@
 package com.krizaka.orazaka.core.domain.ports.outbound;
 
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
+import com.krizaka.orazaka.core.domain.model.chat.ToolCall;
 import java.util.List;
 
 /**
@@ -34,4 +35,28 @@ public interface ToolResolution {
    * @return the tools; never {@code null}, empty when the turn has no verified actor
    */
   ResolvedTools resolve(InternalChatRequest request);
+
+  /**
+   * The tools of a turn in client-executed mode (ADR-093 §4): only the ones the client declared and
+   * the actor may use, as handles the model is offered but that never run on the engine. Checked on
+   * every turn.
+   *
+   * @param request the chat request ({@link InternalChatRequest#clientToolMode()} is true)
+   * @return the tools; closed by default: none unless the port implements them
+   */
+  default ResolvedTools resolveClientTools(InternalChatRequest request) {
+    return ResolvedTools.none();
+  }
+
+  /**
+   * The calls of the model that go back to the client in client-executed mode: those whose tool was
+   * declared and is still permitted to the actor. Refusals are audited.
+   *
+   * @param request the chat request
+   * @param calls what the model asked for
+   * @return the calls to return; closed by default: none
+   */
+  default List<ToolCall> screenClientCalls(InternalChatRequest request, List<ToolCall> calls) {
+    return List.of();
+  }
 }

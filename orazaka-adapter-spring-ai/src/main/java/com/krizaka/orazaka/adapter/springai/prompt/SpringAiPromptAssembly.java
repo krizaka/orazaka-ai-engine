@@ -1,5 +1,6 @@
 package com.krizaka.orazaka.adapter.springai.prompt;
 
+import com.krizaka.orazaka.adapter.springai.tool.ClientToolCallback;
 import com.krizaka.orazaka.core.application.routing.ProviderClassifier;
 import com.krizaka.orazaka.core.domain.model.chat.EngineChatOptions;
 import com.krizaka.orazaka.core.domain.model.chat.EngineMessage;
@@ -44,9 +45,13 @@ public final class SpringAiPromptAssembly implements PromptAssembly {
   public PreparedPrompt assemble(
       List<EngineMessage> messages, EngineChatOptions options, String provider, List<?> tools) {
     ChatOptions finalOptions = MessageCompiler.toSpring(options);
+    // The client's tools (ADR-093 §4) are offered to every provider, the local one included: that
+    // is the sovereign install's whole point. The engine's own tools keep their rule.
+    boolean clientTools =
+        !tools.isEmpty() && tools.stream().allMatch(ClientToolCallback.class::isInstance);
     if (!tools.isEmpty()
         && finalOptions instanceof ToolCallingChatOptions toolCalling
-        && !ProviderClassifier.ollama().equalsIgnoreCase(provider)) {
+        && (clientTools || !ProviderClassifier.ollama().equalsIgnoreCase(provider))) {
       List<ToolCallback> callbacks = tools.stream().map(ToolCallback.class::cast).toList();
       // Spring AI 2.0 options are immutable: rebuild via mutate() rather than a setter.
       finalOptions = toolCalling.mutate().toolCallbacks(callbacks).build();

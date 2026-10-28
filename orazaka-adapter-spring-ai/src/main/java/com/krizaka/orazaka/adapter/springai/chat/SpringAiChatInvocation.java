@@ -6,7 +6,9 @@ import com.krizaka.orazaka.core.domain.model.chat.ChatCompletion;
 import com.krizaka.orazaka.core.domain.model.chat.ChatRoute;
 import com.krizaka.orazaka.core.domain.model.chat.PreparedPrompt;
 import com.krizaka.orazaka.core.domain.model.chat.TokenUsage;
+import com.krizaka.orazaka.core.domain.model.chat.ToolCall;
 import com.krizaka.orazaka.core.domain.ports.outbound.ChatInvocation;
+import java.util.List;
 import java.util.Objects;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
@@ -60,6 +62,18 @@ public class SpringAiChatInvocation implements ChatInvocation {
         "Not a Spring AI prompt: " + (prompt == null ? null : prompt.getClass().getName()));
   }
 
+  /** The calls the model asked for; the engine returns them to the client, it never runs them. */
+  private static List<ToolCall> toolCallsOf(ChatResponse response) {
+    if (response == null
+        || response.getResult() == null
+        || response.getResult().getOutput() == null) {
+      return List.of();
+    }
+    return response.getResult().getOutput().getToolCalls().stream()
+        .map(call -> new ToolCall(call.id(), call.name(), call.arguments()))
+        .toList();
+  }
+
   /** Reads text and usage; a chunk without text is empty rather than absent when streaming. */
   private static ChatCompletion completion(ChatResponse response, boolean emptyIfAbsent) {
     String text = null;
@@ -82,6 +96,6 @@ public class SpringAiChatInvocation implements ChatInvocation {
                 reported.getTotalTokens());
       }
     }
-    return new ChatCompletion(text, usage);
+    return new ChatCompletion(text, usage, toolCallsOf(response));
   }
 }

@@ -1,5 +1,6 @@
 package com.krizaka.orazaka.core.domain.model.chat;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -17,10 +18,22 @@ import java.util.Map;
  * @param tokenUsage What this turn consumed; {@link TokenUsage#none()} on a streaming chunk, where
  *     the provider only reports usage once at the end.
  * @param metadata Provider-specific metadata (e.g. provider key, duration).
+ * @param toolCalls the calls the model asked for in client-executed mode (ADR-093 §4), already
+ *     screened against the tools offered; empty otherwise.
  * @see InternalChatRequest
  */
 public record InternalChatResponse(
-    String content, String conversationId, TokenUsage tokenUsage, Map<String, Object> metadata) {
+    String content,
+    String conversationId,
+    TokenUsage tokenUsage,
+    Map<String, Object> metadata,
+    List<ToolCall> toolCalls) {
+
+  /** An answer that asked for no tool. */
+  public InternalChatResponse(
+      String content, String conversationId, TokenUsage tokenUsage, Map<String, Object> metadata) {
+    this(content, conversationId, tokenUsage, metadata, List.of());
+  }
 
   /** Compact constructor — defaults null content to empty string and copies metadata. */
   public InternalChatResponse {
@@ -31,6 +44,7 @@ public record InternalChatResponse(
       tokenUsage = TokenUsage.none();
     }
     metadata = metadata == null ? Map.of() : Map.copyOf(metadata);
+    toolCalls = toolCalls == null ? List.of() : List.copyOf(toolCalls);
   }
 
   /**

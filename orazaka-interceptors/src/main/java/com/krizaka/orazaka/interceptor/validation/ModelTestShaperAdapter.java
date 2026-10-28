@@ -1,7 +1,9 @@
 package com.krizaka.orazaka.interceptor.validation;
 
 import com.krizaka.orazaka.core.domain.model.AssertionContract;
+import com.krizaka.orazaka.core.domain.model.ValidationStepType;
 import com.krizaka.orazaka.core.domain.model.chat.EngineMessage;
+import com.krizaka.orazaka.core.domain.model.control.JudgeUnavailableException;
 import com.krizaka.orazaka.core.domain.ports.outbound.ProviderChatClient;
 import com.krizaka.orazaka.core.domain.ports.outbound.TestShaperPort;
 import java.time.Instant;
@@ -20,7 +22,9 @@ import tools.jackson.databind.ObjectMapper;
  * Qwen-2.5-Coder) to generate structured JSON assertion contracts. The prompt instructs the model
  * to produce machine-evaluable assertion rules that the LLM response must satisfy.
  *
- * <p>Graceful degradation: returns {@link AssertionContract#empty()} on any failure.
+ * <p>Fails closed: a model that fails, answers nothing or answers something unreadable throws
+ * {@link JudgeUnavailableException}, never an empty contract (an empty contract means "nothing to
+ * assert").
  *
  * @since 1.1.0
  */
@@ -65,40 +69,29 @@ public class ModelTestShaperAdapter implements TestShaperPort {
 
   @Override
   public AssertionContract generateAssertions(String userPrompt, String responseText) {
+    String userContent = "User Prompt:\n" + userPrompt + "\n\nAI Response:\n" + responseText;
+    String text;
     try {
-      String userContent = "User Prompt:\n" + userPrompt + "\n\nAI Response:\n" + responseText;
-
-      String text =
+      text =
           chatModel.completeWithDefault(
               List.of(EngineMessage.system(TDR_SYSTEM_PROMPT), EngineMessage.user(userContent)),
               0.0);
-
-      if (text == null || text.isBlank()) {
-        logger.warn("Tier D — TDR model returned empty response. Returning empty contract.");
-        return AssertionContract.empty();
-      }
-
-      return parseContract(text);
     } catch (RuntimeException e) {
-      logger.error("Tier D — TDR assertion generation failed. Gracefully degrading.", e);
-      return AssertionContract.empty();
+      throw unavailable("the TDR model failed", e);
     }
+    if (text == null || text.isBlank()) {
+      throw unavailable("the TDR model returned an empty response", null);
+    }
+    return parseContract(text);
   }
 
-  /**
-   * Parses the model's JSON response into an AssertionContract.
-   *
-   * @param text The raw model output.
-   * @return Parsed contract, or empty on parse failure.
-   */
+  /** The contract in the model's JSON answer; an answer that holds none is an outage. */
   private AssertionContract parseContract(String text) {
+    String json = extractJsonBlock(text);
+    if (json == null) {
+      throw unavailable("no JSON in the TDR response", null);
+    }
     try {
-      String json = extractJsonBlock(text);
-      if (json == null) {
-        logger.warn("Tier D — Could not extract JSON from TDR response.");
-        return AssertionContract.empty();
-      }
-
       var node = MAPPER.readTree(json);
       String schemaName = node.has("schemaName") ? node.get("schemaName").asString("tdr") : "tdr";
       List<String> assertions =
@@ -107,10 +100,14 @@ public class ModelTestShaperAdapter implements TestShaperPort {
               : List.of();
 
       return new AssertionContract(schemaName, assertions, Instant.now().toString());
-    } catch (Exception e) {
-      logger.warn("Tier D — Failed to parse TDR assertion JSON.", e);
-      return AssertionContract.empty();
+    } catch (RuntimeException e) {
+      throw unavailable("unreadable TDR assertion JSON", e);
     }
+  }
+
+  private static JudgeUnavailableException unavailable(String cause, Throwable origin) {
+    logger.warn("Tier D — {}.", cause);
+    return new JudgeUnavailableException(ValidationStepType.TDR_D, cause, origin);
   }
 
   private String extractJsonBlock(String text) {

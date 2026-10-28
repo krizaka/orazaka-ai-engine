@@ -162,13 +162,15 @@ public abstract sealed class AbstractEngine permits Engine {
     }
     long durationMs = (System.nanoTime() - startTime) / 1_000_000;
     // Every answer is screened before it leaves — this one and a cached one take the same path.
-    String text =
-        ResponseScreen.apply(interceptors, context.promptContext(), extractResponseText(response));
+    var screened =
+        ResponseScreen.screen(interceptors, context.promptContext(), extractResponseText(response));
+    String text = screened.text();
     ResponseScreen.served(interceptors, context.promptContext(), text);
 
     interceptors.forEach(i -> i.postProcess(request, context.promptText(), text));
 
     Map<String, Object> metadata = buildChatMetadata(context, durationMs);
+    metadata.putAll(screened.notes());
     var out =
         new InternalChatResponse(
             text,
@@ -191,8 +193,9 @@ public abstract sealed class AbstractEngine permits Engine {
         "Engine answered from cache: tier={}, conversation={}",
         cached.tier(),
         context.conversationId());
-    String text = ResponseScreen.apply(interceptors, context.promptContext(), cached.text());
-    Map<String, Object> metadata = new HashMap<>();
+    var screened = ResponseScreen.screen(interceptors, context.promptContext(), cached.text());
+    String text = screened.text();
+    Map<String, Object> metadata = new HashMap<>(screened.notes());
     metadata.put("provider", CachedResponse.PROVIDER);
     metadata.put("cache", cached.tier());
     metadata.put("cacheSimilarity", cached.similarity());

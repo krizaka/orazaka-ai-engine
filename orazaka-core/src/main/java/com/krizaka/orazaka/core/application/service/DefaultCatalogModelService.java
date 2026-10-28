@@ -7,18 +7,16 @@ import com.krizaka.orazaka.persistence.domain.ports.inbound.CatalogModelManager;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import org.springframework.stereotype.Service;
 
 /**
  * Package-private implementation of the CatalogModelService inbound port. Delegates to the
  * out-of-boundary persistence package. Follows ERR-105 (Interface-Driven Boundaries).
  */
-@Service
-class CatalogModelServiceImpl implements CatalogModelService {
+public class DefaultCatalogModelService implements CatalogModelService {
 
   private final CatalogModelManager catalogModelManager;
 
-  CatalogModelServiceImpl(CatalogModelManager catalogModelManager) {
+  public DefaultCatalogModelService(CatalogModelManager catalogModelManager) {
     this.catalogModelManager =
         Objects.requireNonNull(catalogModelManager, "CatalogModelManager cannot be null");
   }
@@ -26,14 +24,14 @@ class CatalogModelServiceImpl implements CatalogModelService {
   @Override
   public List<CatalogModelInfo> getAllModels() {
     return catalogModelManager.getAllModels().stream()
-        .map(CatalogModelServiceImpl::toInfo)
+        .map(DefaultCatalogModelService::toInfo)
         .toList();
   }
 
   @Override
   public List<CatalogModelInfo> getModelsByCategory(String category) {
     return catalogModelManager.getModelsByCategory(category).stream()
-        .map(CatalogModelServiceImpl::toInfo)
+        .map(DefaultCatalogModelService::toInfo)
         .toList();
   }
 
@@ -41,7 +39,7 @@ class CatalogModelServiceImpl implements CatalogModelService {
   public Optional<CatalogModelInfo> getDefaultModelByCategory(String category) {
     return catalogModelManager
         .getDefaultModelByCategory(category)
-        .map(CatalogModelServiceImpl::toInfo);
+        .map(DefaultCatalogModelService::toInfo);
   }
 
   @Override

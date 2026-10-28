@@ -18,20 +18,20 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class CatalogModelServiceImplTest {
+class DefaultCatalogModelServiceTest {
 
   @Mock private CatalogModelManager catalogModelManager;
 
-  private CatalogModelServiceImpl service;
+  private DefaultCatalogModelService service;
 
   @BeforeEach
   void setUp() {
-    service = new CatalogModelServiceImpl(catalogModelManager);
+    service = new DefaultCatalogModelService(catalogModelManager);
   }
 
   @Test
   void constructorShouldThrowOnNullManager() {
-    assertThatThrownBy(() -> new CatalogModelServiceImpl(null))
+    assertThatThrownBy(() -> new DefaultCatalogModelService(null))
         .isInstanceOf(NullPointerException.class)
         .hasMessageContaining("CatalogModelManager cannot be null");
   }

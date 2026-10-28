@@ -72,7 +72,7 @@ class AccessGovernanceTest {
             new DescribedPredicate<JavaClass>("are not the executor, its wrapper or the cache") {
               @Override
               public boolean test(JavaClass type) {
-                return !"McpServiceImpl".equals(type.getSimpleName())
+                return !"DefaultMcpService".equals(type.getSimpleName())
                     && !"ActorBoundToolCallback".equals(type.getSimpleName())
                     && !"CachingToolCallback".equals(type.getSimpleName());
               }
@@ -88,7 +88,7 @@ class AccessGovernanceTest {
   void theExecutorAuthorizes() {
     classes()
         .that()
-        .haveSimpleName("McpServiceImpl")
+        .haveSimpleName("DefaultMcpService")
         .should()
         .callMethod(ToolRegistry.class, "authorize", Actor.class, String.class)
         .check(production);

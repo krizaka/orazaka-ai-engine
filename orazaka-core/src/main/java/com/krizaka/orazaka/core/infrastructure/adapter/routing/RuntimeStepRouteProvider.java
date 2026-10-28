@@ -13,7 +13,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.springframework.stereotype.Component;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
@@ -25,14 +24,13 @@ import tools.jackson.databind.ObjectMapper;
  * runs_on=local} declares a sovereign candidate. Missing configuration never uses a catalog
  * default.
  */
-@Component
-class RuntimeStepRouteProvider implements StepRouteProvider {
+public class RuntimeStepRouteProvider implements StepRouteProvider {
 
   private final RuntimeConfigProvider config;
   private final CatalogModelManager catalog;
   private final ObjectMapper mapper;
 
-  RuntimeStepRouteProvider(
+  public RuntimeStepRouteProvider(
       RuntimeConfigProvider config, CatalogModelManager catalog, ObjectMapper mapper) {
     this.config = Objects.requireNonNull(config, "RuntimeConfigProvider cannot be null");
     this.catalog = Objects.requireNonNull(catalog, "CatalogModelManager cannot be null");

@@ -10,10 +10,8 @@ import com.krizaka.orazaka.core.domain.ports.outbound.StepRouteProvider;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
-import org.springframework.stereotype.Component;
 
 /** Stateless step router that fails closed when no explicitly configured model is eligible. */
-@Component
 public class PolicyStepRouter implements StepRouter {
 
   private final StepRouteProvider routeProvider;

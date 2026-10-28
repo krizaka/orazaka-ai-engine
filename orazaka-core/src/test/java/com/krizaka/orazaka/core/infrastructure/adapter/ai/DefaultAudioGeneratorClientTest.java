@@ -10,11 +10,11 @@ import com.krizaka.orazaka.core.domain.model.audio.AudioRequest;
 import com.krizaka.orazaka.core.domain.model.audio.AudioResponse;
 import org.junit.jupiter.api.Test;
 
-class AudioGeneratorClientImplTest {
+class DefaultAudioGeneratorClientTest {
 
   @Test
   void constructorNullCheck() {
-    assertThatThrownBy(() -> new AudioGeneratorClientImpl(null))
+    assertThatThrownBy(() -> new DefaultAudioGeneratorClient(null))
         .isInstanceOf(NullPointerException.class)
         .hasMessageContaining("Engine must not be null");
   }
@@ -22,7 +22,7 @@ class AudioGeneratorClientImplTest {
   @Test
   void generateAudio() {
     Engine engine = mock(Engine.class);
-    AudioGeneratorClientImpl client = new AudioGeneratorClientImpl(engine);
+    DefaultAudioGeneratorClient client = new DefaultAudioGeneratorClient(engine);
 
     AudioRequest request =
         new AudioRequest(
@@ -52,7 +52,7 @@ class AudioGeneratorClientImplTest {
             com.krizaka.orazaka.core.domain.model.Context.anonymous());
     when(engine.generateSpeech(request)).thenReturn(new byte[] {1});
 
-    assertThat(new AudioGeneratorClientImpl(engine).generateAudio(request).format())
+    assertThat(new DefaultAudioGeneratorClient(engine).generateAudio(request).format())
         .isEqualTo("wav");
   }
 }

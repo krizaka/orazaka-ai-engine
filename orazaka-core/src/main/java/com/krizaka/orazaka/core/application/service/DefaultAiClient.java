@@ -13,20 +13,18 @@ import com.krizaka.orazaka.core.domain.ports.outbound.ImageGeneratorClient;
 import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
-/** Concrete, package-private implementation of {@link AiClient}. */
-@Component
-class AiClientImpl implements AiClient {
+/** Concrete implementation of {@link AiClient}. */
+public class DefaultAiClient implements AiClient {
 
-  private static final Logger logger = LoggerFactory.getLogger(AiClientImpl.class);
+  private static final Logger logger = LoggerFactory.getLogger(DefaultAiClient.class);
 
   private final ChatGeneratorClient chatGeneratorClient;
   private final AudioGeneratorClient audioGeneratorClient;
   private final ImageGeneratorClient imageGeneratorClient;
 
-  public AiClientImpl(
+  public DefaultAiClient(
       ChatGeneratorClient chatGeneratorClient,
       AudioGeneratorClient audioGeneratorClient,
       ImageGeneratorClient imageGeneratorClient) {

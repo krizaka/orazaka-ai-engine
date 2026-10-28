@@ -8,23 +8,24 @@ import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import com.krizaka.orazaka.core.domain.model.chat.EngineMessage;
+import com.krizaka.orazaka.core.domain.ports.outbound.ToolAnswerCodec;
 import com.krizaka.orazaka.persistence.domain.model.ChatMessageDto;
 import com.krizaka.orazaka.persistence.domain.ports.inbound.ChatMemoryPersistenceProvider;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.chat.messages.ToolResponseMessage;
 import org.springframework.dao.QueryTimeoutException;
 
 class ChatMemoryStoreImplTest {
 
   private final ChatMemoryPersistenceProvider provider = mock(ChatMemoryPersistenceProvider.class);
-  private final ChatMemoryStoreImpl store = new ChatMemoryStoreImpl(provider);
+  private final ChatMemoryStoreImpl store = new ChatMemoryStoreImpl(provider, new MarkerCodec());
   private final ListAppender<ILoggingEvent> logs = new ListAppender<>();
   private final Logger logger = (Logger) LoggerFactory.getLogger(ChatMemoryStoreImpl.class);
 
@@ -50,27 +51,16 @@ class ChatMemoryStoreImplTest {
   }
 
   @Test
-  @DisplayName("[#27] a tool answer is stored as a tool and read back as a tool, id and name kept")
+  @DisplayName("[#27] a tool answer is stored through the codec and read back as a tool")
   void toolResponseRoundTrips() {
-    ToolResponseMessage tool =
-        ToolResponseMessage.builder()
-            .responses(
-                List.of(new ToolResponseMessage.ToolResponse("call-1", "weather", "{\"c\":21}")))
-            .build();
-
     List<EngineMessage> back =
-        roundTrip(List.of(new EngineMessage(EngineMessage.Role.TOOL, "", tool)));
+        roundTrip(List.of(new EngineMessage(EngineMessage.Role.TOOL, "", "native")));
 
     assertThat(back)
         .singleElement()
         .extracting(EngineMessage::role)
         .isEqualTo(EngineMessage.Role.TOOL);
-    assertThat(back.getFirst().nativeMessage()).isInstanceOf(ToolResponseMessage.class);
-    ToolResponseMessage read = (ToolResponseMessage) back.getFirst().nativeMessage();
-    assertThat(read.getResponses()).hasSize(1);
-    assertThat(read.getResponses().getFirst().id()).isEqualTo("call-1");
-    assertThat(read.getResponses().getFirst().name()).isEqualTo("weather");
-    assertThat(read.getResponses().getFirst().responseData()).isEqualTo("{\"c\":21}");
+    assertThat(back.getFirst().nativeMessage()).isEqualTo("native");
   }
 
   @Test
@@ -89,20 +79,6 @@ class ChatMemoryStoreImplTest {
   }
 
   @Test
-  @DisplayName("[#27] a tool row written before answers were structured is read as plain text")
-  void legacyToolRow() {
-    when(provider.findRecent(anyString(), anyInt()))
-        .thenReturn(List.of(new ChatMessageDto("c-1", "tool", "sunny", null)));
-
-    EngineMessage read = store.findRecent("c-1", 5).getFirst();
-
-    assertThat(read.nativeMessage()).isInstanceOf(ToolResponseMessage.class);
-    assertThat(
-            ((ToolResponseMessage) read.nativeMessage()).getResponses().getFirst().responseData())
-        .isEqualTo("sunny");
-  }
-
-  @Test
   @DisplayName(
       "[#27] a persistence failure degrades and logs the stack trace on read, write, clear")
   void failuresKeepTheirStackTrace() {
@@ -117,5 +93,21 @@ class ChatMemoryStoreImplTest {
 
     assertThat(logs.list).hasSize(3);
     assertThat(logs.list).allSatisfy(event -> assertThat(event.getThrowableProxy()).isNotNull());
+  }
+
+  /** A stand-in codec: a message with a native payload is stored as {@code tool:<payload>}. */
+  private static final class MarkerCodec implements ToolAnswerCodec {
+    @Override
+    public Optional<String> encode(EngineMessage message) {
+      return message.nativeMessage() == null
+          ? Optional.empty()
+          : Optional.of("tool:" + message.nativeMessage());
+    }
+
+    @Override
+    public EngineMessage decode(String stored) {
+      return new EngineMessage(
+          EngineMessage.Role.TOOL, "", stored.substring(stored.indexOf(':') + 1));
+    }
   }
 }

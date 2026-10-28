@@ -109,7 +109,7 @@
             <groupId>com.krizaka.orazaka</groupId>
             <artifactId>orazaka-persistence-app-api</artifactId>
         </dependency>
-        <!-- DataAccessException — the DB-agnostic persistence exception ChatMemoryStoreImpl catches
+        <!-- DataAccessException — the DB-agnostic persistence exception the memory store catches
              when calling the persistence ports. Was transitive via the JPA starter until the
              persistence-app-api extraction; now declared explicitly where it is used. -->
         <dependency>

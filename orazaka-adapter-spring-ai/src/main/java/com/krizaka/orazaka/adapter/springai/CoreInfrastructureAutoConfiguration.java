@@ -1,4 +1,4 @@
-package com.krizaka.orazaka.core.infrastructure.config;
+package com.krizaka.orazaka.adapter.springai;
 
 import com.krizaka.orazaka.core.application.engine.GraphEngine;
 import com.krizaka.orazaka.core.application.processing.AudioPreProcessor;
@@ -11,20 +11,25 @@ import com.krizaka.orazaka.core.domain.ports.outbound.ModelCatalogProvider;
 import com.krizaka.orazaka.core.infrastructure.adapter.processor.LocalAudioProcessor;
 import com.krizaka.orazaka.core.infrastructure.adapter.processor.LocalVideoProcessor;
 import com.krizaka.orazaka.core.infrastructure.adapter.processor.ProviderEndpointResolver;
+import com.krizaka.orazaka.core.infrastructure.config.CoreProperties;
+import com.krizaka.orazaka.core.infrastructure.config.SecurityProperties;
 import com.krizaka.orazaka.persistence.domain.ports.inbound.CatalogModelManager;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * Spring Boot {@code @Configuration} class for the {@code orazaka-core} module.
+ * Spring wiring of the core's configuration and infrastructure beans (ADR-092 §4 rule 1,
+ * orazaka-ai-engine#121): the core holds the plain records, this binds them.
  *
  * <p>Defines configuration properties ({@link CoreProperties}), the {@link GraphEngine}, and
  * infrastructure beans. AI model beans (chat/speech) are DB-driven routing beans in the {@code
@@ -33,19 +38,14 @@ import tools.jackson.databind.ObjectMapper;
  *
  * @see CoreProperties
  */
-@Configuration
-public class CoreConfiguration {
+@AutoConfiguration(before = CoreServicesAutoConfiguration.class)
+public class CoreInfrastructureAutoConfiguration {
 
-  private static final Logger logger = LoggerFactory.getLogger(CoreConfiguration.class);
+  private static final Logger logger =
+      LoggerFactory.getLogger(CoreInfrastructureAutoConfiguration.class);
 
   private static final String DEFAULT_PROVIDER = "ollama";
   private static final String DEFAULT_REFINER_MODEL = "llama3.2:3b";
-
-  /** Nested configuration record for custom image models. */
-  public static record CustomImageConfig(String provider, String baseUrl) {}
-
-  /** Nested configuration record for custom video models. */
-  public static record CustomVideoConfig(String provider, String baseUrl) {}
 
   /**
    * Binds the {@code orazaka.core} configuration prefix to a {@link CoreProperties} record.
@@ -129,6 +129,26 @@ public class CoreConfiguration {
 
     return new CoreProperties(
         defaultProvider, rag, mcp, orchestration, videoConfig, imageConfig, vision, audio);
+  }
+
+  /**
+   * Binds {@code orazaka.security}: the governance kill-switch, off unless the property says so
+   * (yaml, environment variable or system property).
+   */
+  @Bean
+  public SecurityProperties securityProperties(Environment env) {
+    return Binder.get(env)
+        .bind("orazaka.security", SecurityProperties.class)
+        .orElseGet(() -> new SecurityProperties(false));
+  }
+
+  /**
+   * Synchronous executor for Chat/RAG SSE pipelines: Project Loom virtual threads (CQRS runtime
+   * pool; the asynchronous runtime lives in the workers, behind RabbitMQ).
+   */
+  @Bean("synchronousExecutor")
+  public ExecutorService synchronousExecutor() {
+    return Executors.newVirtualThreadPerTaskExecutor();
   }
 
   /**

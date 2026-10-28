@@ -1,8 +1,5 @@
 package com.krizaka.orazaka.core.infrastructure.config;
 
-import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.boot.context.properties.bind.DefaultValue;
-
 /**
  * Security governance configuration properties. Maps to {@code orazaka.security} in {@code
  * application.yml}.
@@ -14,8 +11,7 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * @param disableAi When {@code true}, blocks all AI-dependent interceptors with a hard {@link
  *     SecurityException}. This is a compliance shield, not a performance failover.
  */
-@ConfigurationProperties(prefix = "orazaka.security")
-public record SecurityProperties(@DefaultValue("false") boolean disableAi) {
+public record SecurityProperties(boolean disableAi) {
 
   /**
    * Compact canonical constructor — the ONLY constructor, deliberately.
@@ -26,8 +22,7 @@ public record SecurityProperties(@DefaultValue("false") boolean disableAi) {
    * "inactive" in the startup log of every deployment this platform has ever had, and the log line
    * was correct — which is why nobody noticed (ADR-055 §8).
    *
-   * <p>{@code @DefaultValue} supplies the default now, which is what the removed constructor was
-   * there for and does not compete for the binder's attention.
+   * <p>The default (off) is the boolean default; the binding lives in the Spring adapter.
    */
   public SecurityProperties {}
 }

@@ -1,5 +1,6 @@
 package com.krizaka.orazaka.adapter.springai;
 
+import com.krizaka.orazaka.adapter.springai.memory.PersistedChatMemoryStore;
 import com.krizaka.orazaka.adapter.springai.remote.HttpKnowledgeAdapter;
 import com.krizaka.orazaka.adapter.springai.remote.InfrastructureProber;
 import com.krizaka.orazaka.adapter.springai.remote.KnowledgeProperties;
@@ -47,6 +48,7 @@ import com.krizaka.orazaka.core.domain.ports.outbound.PromptAssembly;
 import com.krizaka.orazaka.core.domain.ports.outbound.SemanticClassifierPort;
 import com.krizaka.orazaka.core.domain.ports.outbound.SpeechSynthesis;
 import com.krizaka.orazaka.core.domain.ports.outbound.StepRouteProvider;
+import com.krizaka.orazaka.core.domain.ports.outbound.ToolAnswerCodec;
 import com.krizaka.orazaka.core.domain.ports.outbound.ToolRegistry;
 import com.krizaka.orazaka.core.domain.ports.outbound.ToolResolution;
 import com.krizaka.orazaka.core.domain.ports.outbound.UserCredentialsProvider;
@@ -56,6 +58,7 @@ import com.krizaka.orazaka.core.infrastructure.config.CoreProperties;
 import com.krizaka.orazaka.core.infrastructure.config.SecurityProperties;
 import com.krizaka.orazaka.core.infrastructure.host.HostCapabilityDetector;
 import com.krizaka.orazaka.persistence.domain.ports.inbound.CatalogModelManager;
+import com.krizaka.orazaka.persistence.domain.ports.inbound.ChatMemoryPersistenceProvider;
 import com.krizaka.orazaka.persistence.domain.ports.inbound.ChatSessionPersistenceProvider;
 import com.krizaka.orazaka.persistence.domain.ports.inbound.JobPersistenceProvider;
 import com.krizaka.orazaka.persistence.domain.ports.inbound.RuntimeConfigProvider;
@@ -93,15 +96,24 @@ public class CoreServicesAutoConfiguration {
   }
 
   /**
-   * The conversation memories, durable when the host brings a store.
+   * The conversation memories, durable when the host brings a store or the persistence provider.
    *
-   * @param store the durable store, if any
+   * @param store the host's own durable store, if any
+   * @param persistence the persisted chat memory, if the host has one
+   * @param codec how tool answers are stored
    * @return the resolver
    */
   @Bean
   @ConditionalOnMissingBean
-  public MemoryResolver memoryResolver(ObjectProvider<ChatMemoryStore> store) {
-    return new MemoryResolver(store.getIfAvailable());
+  public MemoryResolver memoryResolver(
+      ObjectProvider<ChatMemoryStore> store,
+      ObjectProvider<ChatMemoryPersistenceProvider> persistence,
+      ObjectProvider<ToolAnswerCodec> codec) {
+    ChatMemoryStore durable = store.getIfAvailable();
+    if (durable == null && persistence.getIfAvailable() != null && codec.getIfAvailable() != null) {
+      durable = new PersistedChatMemoryStore(persistence.getObject(), codec.getObject());
+    }
+    return new MemoryResolver(durable);
   }
 
   /**

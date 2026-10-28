@@ -4,7 +4,6 @@ import static com.krizaka.orazaka.test.TestConstants.*;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.*;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.krizaka.orazaka.test.architecture.ConfigBindingRules;
 import com.krizaka.orazaka.test.architecture.LoggedContentRules;
 import com.krizaka.orazaka.test.architecture.SourceFileScanner;
 import com.tngtech.archunit.core.domain.JavaClasses;
@@ -93,7 +92,7 @@ class GovernanceTest {
         .because(
             "application/service holds only inbound-port implementations (*ServiceImpl, or"
                 + " Default* when public and registered by an adapter's auto-configuration, plus"
-                + " stereotype impls like ChatMemoryStoreImpl). Mappers are inlined into"
+                + " stereotype impls). Mappers are inlined into"
                 + " their impl; factories live with the concern they build (routing); never here"
                 + " [ERR-129/130].")
         .check(coreClasses);
@@ -410,6 +409,7 @@ class GovernanceTest {
         .because(
             "Implementation classes (*Impl) must be package-private."
                 + " Cross-module interaction happens through interfaces only [ERR-105].")
+        .allowEmptyShould(true)
         .check(coreClasses);
   }
 
@@ -649,14 +649,6 @@ class GovernanceTest {
             "Java Records are stateless Data Carriers and must remain pure [ERR-135]. "
                 + "They cannot perform I/O, log, or depend on Spring context/beans/AiClient.")
         .check(coreClasses);
-  }
-
-  @Test
-  @DisplayName(
-      "[CFG-001] every type the configuration binder builds has a constructor it can choose")
-  void configurationBindsUnambiguously() {
-    ConfigBindingRules.assertConfigurationBindsUnambiguously();
-    ConfigBindingRules.assertInjectableComponentsHaveOneConstructor();
   }
 
   @Test

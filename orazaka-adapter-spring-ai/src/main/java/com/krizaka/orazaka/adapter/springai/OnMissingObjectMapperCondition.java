@@ -1,4 +1,4 @@
-package com.krizaka.orazaka.core.infrastructure.config;
+package com.krizaka.orazaka.adapter.springai;
 
 import org.springframework.context.annotation.Condition;
 import org.springframework.context.annotation.ConditionContext;

@@ -2,25 +2,13 @@
   "rules": {
     "spring-ai-outside-adapter": {
       "count": 0,
-      "classes": [
-      ]
+      "classes": []
     },
     "spring-in-business": {
       "count": 2,
       "classes": [
         "com.krizaka.orazaka.business.BusinessAutoConfiguration",
         "com.krizaka.orazaka.business.prompt.MarkdownPromptResolver"
-      ]
-    },
-    "spring-in-core": {
-      "count": 6,
-      "classes": [
-        "com.krizaka.orazaka.core.application.service.ChatMemoryStoreImpl",
-        "com.krizaka.orazaka.core.infrastructure.config.CoreConfiguration",
-        "com.krizaka.orazaka.core.infrastructure.config.CoreProperties",
-        "com.krizaka.orazaka.core.infrastructure.config.OnMissingObjectMapperCondition",
-        "com.krizaka.orazaka.core.infrastructure.config.RuntimePoolConfig",
-        "com.krizaka.orazaka.core.infrastructure.config.SecurityProperties"
       ]
     }
   }

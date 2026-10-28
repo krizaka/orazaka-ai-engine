@@ -46,17 +46,4 @@ class SecurityPropertiesTest {
         .hasSize(1);
     assertThat(SecurityProperties.class.getConstructors()[0].getParameterCount()).isEqualTo(1);
   }
-
-  @Test
-  @DisplayName("[ADR-055] and it binds from a property source, end to end")
-  void bindsFromAPropertySource() {
-    org.springframework.boot.context.properties.bind.Binder binder =
-        new org.springframework.boot.context.properties.bind.Binder(
-            new org.springframework.boot.context.properties.source.MapConfigurationPropertySource(
-                java.util.Map.of("orazaka.security.disable-ai", "true")));
-
-    SecurityProperties bound = binder.bind("orazaka.security", SecurityProperties.class).get();
-
-    assertThat(bound.disableAi()).isTrue();
-  }
 }

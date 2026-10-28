@@ -1,4 +1,4 @@
-package com.krizaka.orazaka.core.application.service;
+package com.krizaka.orazaka.adapter.springai.memory;
 
 import com.krizaka.orazaka.core.domain.model.chat.EngineMessage;
 import com.krizaka.orazaka.core.domain.ports.outbound.ChatMemoryStore;
@@ -11,26 +11,24 @@ import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
-import org.springframework.stereotype.Service;
 
 /**
- * Package-private adapter binding the core {@link ChatMemoryStore} port to the persistence module's
- * {@link ChatMemoryPersistenceProvider} (Postgres). Mirrors DefaultChatSessionService. Follows
- * ERR-105.
+ * Adapter binding the core {@link ChatMemoryStore} port to the persistence module's {@link
+ * ChatMemoryPersistenceProvider} (Postgres). Mirrors DefaultChatSessionService.
  *
  * <p>Conversation memory is best-effort enrichment: a persistence failure (e.g. the table not yet
  * provisioned, or a transient DB error) must never break the chat response. Each operation
  * therefore degrades gracefully — reads return no history, writes are skipped — and logs a warning.
  */
-@Service
-class ChatMemoryStoreImpl implements ChatMemoryStore {
+public class PersistedChatMemoryStore implements ChatMemoryStore {
 
-  private static final Logger logger = LoggerFactory.getLogger(ChatMemoryStoreImpl.class);
+  private static final Logger logger = LoggerFactory.getLogger(PersistedChatMemoryStore.class);
 
   private final ChatMemoryPersistenceProvider provider;
   private final ToolAnswerCodec toolAnswers;
 
-  ChatMemoryStoreImpl(ChatMemoryPersistenceProvider provider, ToolAnswerCodec toolAnswers) {
+  public PersistedChatMemoryStore(
+      ChatMemoryPersistenceProvider provider, ToolAnswerCodec toolAnswers) {
     this.provider =
         Objects.requireNonNull(provider, "ChatMemoryPersistenceProvider cannot be null");
     this.toolAnswers = Objects.requireNonNull(toolAnswers, "ToolAnswerCodec cannot be null");

@@ -23,6 +23,7 @@ import com.krizaka.orazaka.core.domain.model.security.Actor;
 import com.krizaka.orazaka.core.domain.ports.outbound.AccessAudit;
 import com.krizaka.orazaka.core.domain.ports.outbound.ChatInvocation;
 import com.krizaka.orazaka.core.domain.ports.outbound.ModelCatalogProvider;
+import com.krizaka.orazaka.core.domain.ports.outbound.SpeechSynthesis;
 import com.krizaka.orazaka.core.domain.ports.outbound.ToolPermissionProvider;
 import com.krizaka.orazaka.core.domain.ports.outbound.ToolResolution;
 import com.krizaka.orazaka.core.domain.ports.outbound.UserCredentialsProvider;
@@ -35,7 +36,6 @@ import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.ai.audio.tts.TextToSpeechModel;
 import org.springframework.context.ApplicationEventPublisher;
 import reactor.core.publisher.Flux;
 
@@ -120,7 +120,7 @@ class ClientExecutedModeTest {
     engine =
         new Engine(
             model,
-            mock(TextToSpeechModel.class),
+            mock(SpeechSynthesis.class),
             properties,
             List.of(),
             null,

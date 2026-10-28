@@ -1,3 +1,4 @@
 com.krizaka.orazaka.adapter.springai.SpringAiAdapterAutoConfiguration
 com.krizaka.orazaka.adapter.springai.CoreServicesAutoConfiguration
 com.krizaka.orazaka.adapter.springai.CoreInfrastructureAutoConfiguration
+com.krizaka.orazaka.adapter.springai.BusinessUseCasesAutoConfiguration

@@ -23,9 +23,10 @@ import tools.jackson.databind.ObjectMapper;
 /**
  * ADR-092 §4 rule 1, orazaka-ai-engine#112: the domain is pure Java 21. Spring AI lives in {@code
  * orazaka-adapter-spring-ai}; {@code orazaka.core} does not depend on {@code org.springframework..}
- * at all ({@link CoreWithoutSpringTest}, no baseline) and {@code orazaka.business} does not either.
- * The classes that break a rule today are the baseline in {@code architecture-ratchet.json}: a new
- * violation fails the build, a fixed one never does.
+ * at all ({@link CoreWithoutSpringTest}, no baseline) and neither does {@code orazaka.business}
+ * ({@link BusinessWithoutSpringTest}, no baseline). The classes that break a rule today are the
+ * baseline in {@code architecture-ratchet.json}: a new violation fails the build, a fixed one never
+ * does.
  *
  * <p>Fixed some? Lock the gain: {@code ./mvnw -pl orazaka-architecture test
  * -Darchitecture.ratchet.update=true} (it never raises a count).
@@ -45,12 +46,7 @@ class SpringBoundaryRatchetTest {
               "spring-ai-outside-adapter",
               "Spring AI is used only in orazaka-adapter-spring-ai (ADR-092 §4 rule 1)",
               pkg -> !pkg.startsWith(ADAPTER),
-              "org.springframework.ai"),
-          new Rule(
-              "spring-in-business",
-              "orazaka.business is pure Java 21: no org.springframework.. (ADR-092 §4 rule 1)",
-              pkg -> pkg.startsWith("com.krizaka.orazaka.business"),
-              "org.springframework"));
+              "org.springframework.ai"));
 
   /** The packages of this repository's modules (not the contract jars on the classpath). */
   private static final List<String> OWN_PACKAGES =

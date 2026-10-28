@@ -3,13 +3,6 @@
     "spring-ai-outside-adapter": {
       "count": 0,
       "classes": []
-    },
-    "spring-in-business": {
-      "count": 2,
-      "classes": [
-        "com.krizaka.orazaka.business.BusinessAutoConfiguration",
-        "com.krizaka.orazaka.business.prompt.MarkdownPromptResolver"
-      ]
     }
   }
 }

@@ -1,21 +1,17 @@
 package com.krizaka.orazaka.business.prompt;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
+import java.io.UncheckedIOException;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.ResourceLoader;
 
 /**
  * Thread-safe, cached resolver for Git-tracked Markdown prompt templates.
  *
- * <p>Reads prompt files from {@code classpath:prompts/{name}.md} using Spring's {@link
- * ResourceLoader} and caches the resolved content in a {@link ConcurrentHashMap} for lock-free,
- * wait-free subsequent reads.
+ * <p>Reads prompt files from {@code classpath:prompts/{name}.md} through a {@link PromptTextSource}
+ * and caches the resolved content in a {@link ConcurrentHashMap} for lock-free, wait-free
+ * subsequent reads.
  *
  * <p><b>Concurrency Contract</b>:
  *
@@ -36,19 +32,19 @@ public final class MarkdownPromptResolver {
   private static final String PROMPT_PREFIX = "classpath:prompts/";
   private static final String PROMPT_SUFFIX = ".md";
 
-  private final ResourceLoader resourceLoader;
+  private final PromptTextSource source;
   private final ConcurrentHashMap<String, Optional<String>> cache;
 
   /**
-   * Constructs the resolver with the given Spring resource loader.
+   * Constructs the resolver with the given text source.
    *
-   * @param resourceLoader Spring's resource loader for classpath resolution.
+   * @param source reads the text behind a {@code classpath:prompts/...} location.
    */
-  public MarkdownPromptResolver(ResourceLoader resourceLoader) {
-    if (resourceLoader == null) {
-      throw new IllegalArgumentException("ResourceLoader must not be null");
+  public MarkdownPromptResolver(PromptTextSource source) {
+    if (source == null) {
+      throw new IllegalArgumentException("PromptTextSource must not be null");
     }
-    this.resourceLoader = resourceLoader;
+    this.source = source;
     this.cache = new ConcurrentHashMap<>();
   }
 
@@ -109,18 +105,15 @@ public final class MarkdownPromptResolver {
    */
   private Optional<String> loadFromClasspath(String promptName) {
     String location = PROMPT_PREFIX + promptName + PROMPT_SUFFIX;
-    Resource resource = resourceLoader.getResource(location);
-
-    if (!resource.exists()) {
-      logger.warn("Prompt file not found: {} — returning empty.", location);
-      return Optional.empty();
-    }
-
-    try (InputStream is = resource.getInputStream()) {
-      String content = new String(is.readAllBytes(), StandardCharsets.UTF_8);
-      logger.debug("Loaded prompt '{}' ({} chars) from classpath.", promptName, content.length());
-      return Optional.of(content);
-    } catch (IOException e) {
+    try {
+      Optional<String> content = source.read(location);
+      if (content.isEmpty()) {
+        logger.warn("Prompt file not found: {} — returning empty.", location);
+      } else {
+        logger.debug("Loaded prompt '{}' ({} chars).", promptName, content.get().length());
+      }
+      return content;
+    } catch (UncheckedIOException e) {
       logger.warn("Failed to read prompt file: {} — returning empty.", location, e);
       return Optional.empty();
     }

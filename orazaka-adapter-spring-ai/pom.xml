@@ -21,6 +21,12 @@
             <groupId>com.krizaka.orazaka</groupId>
             <artifactId>orazaka-core</artifactId>
         </dependency>
+        <!-- The App Factory use-cases (pure Java) are wired here. -->
+        <dependency>
+            <groupId>com.krizaka.orazaka</groupId>
+            <artifactId>orazaka-business</artifactId>
+            <version>${project.version}</version>
+        </dependency>
         <!-- Spring AI itself comes through orazaka-core for now (its remaining Spring AI files move here
              slice by slice); declared again here once core drops it. -->
         <dependency>

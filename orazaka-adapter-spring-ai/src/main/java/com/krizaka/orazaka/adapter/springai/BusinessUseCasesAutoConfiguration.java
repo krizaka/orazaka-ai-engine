@@ -1,11 +1,13 @@
-package com.krizaka.orazaka.business;
+package com.krizaka.orazaka.adapter.springai;
 
+import com.krizaka.orazaka.adapter.springai.prompt.ClasspathPromptTextSource;
 import com.krizaka.orazaka.business.api.UseCase;
 import com.krizaka.orazaka.business.api.UseCaseDispatcher;
 import com.krizaka.orazaka.business.api.UseCaseRegistry;
 import com.krizaka.orazaka.business.application.SpringUseCaseRegistry;
 import com.krizaka.orazaka.business.application.UseCaseDispatcherImpl;
 import com.krizaka.orazaka.business.prompt.MarkdownPromptResolver;
+import com.krizaka.orazaka.business.prompt.PromptTextSource;
 import com.krizaka.orazaka.business.usecases.chat.ChatAssistantUseCase;
 import com.krizaka.orazaka.business.usecases.image.ImageGenerationUseCase;
 import com.krizaka.orazaka.business.usecases.studio.StudioRunUseCase;
@@ -17,7 +19,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.core.io.ResourceLoader;
 
 /**
- * Spring Boot auto-configuration for the orazaka-business module — the App Factory wiring.
+ * Spring Boot auto-configuration of the orazaka-business use-cases — the App Factory wiring. It
+ * lives in the adapter because orazaka-business is pure Java.
  *
  * <p>Registers the prompt resolver, every {@link UseCase} bean, and the {@link UseCaseRegistry} /
  * {@link UseCaseDispatcher}. Beans are declared explicitly (no classpath scanning) so the App
@@ -30,11 +33,16 @@ import org.springframework.core.io.ResourceLoader;
  * @since 1.0.0
  */
 @AutoConfiguration
-public class BusinessAutoConfiguration {
+public class BusinessUseCasesAutoConfiguration {
 
   @Bean
-  MarkdownPromptResolver markdownPromptResolver(ResourceLoader resourceLoader) {
-    return new MarkdownPromptResolver(resourceLoader);
+  PromptTextSource promptTextSource(ResourceLoader resourceLoader) {
+    return new ClasspathPromptTextSource(resourceLoader);
+  }
+
+  @Bean
+  MarkdownPromptResolver markdownPromptResolver(PromptTextSource source) {
+    return new MarkdownPromptResolver(source);
   }
 
   @Bean

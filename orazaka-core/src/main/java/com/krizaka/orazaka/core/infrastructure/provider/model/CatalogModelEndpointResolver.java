@@ -1,11 +1,15 @@
 package com.krizaka.orazaka.core.infrastructure.provider.model;
 
 import com.krizaka.orazaka.core.domain.model.ModelEndpoint;
+import com.krizaka.orazaka.core.domain.ports.outbound.FeatureModelRoutes;
 import com.krizaka.orazaka.core.domain.ports.outbound.ModelEndpointResolver;
 import com.krizaka.orazaka.persistence.domain.model.CatalogModelDto;
 import com.krizaka.orazaka.persistence.domain.ports.inbound.CatalogModelManager;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
@@ -23,9 +27,21 @@ import org.springframework.stereotype.Component;
 class CatalogModelEndpointResolver implements ModelEndpointResolver {
 
   private final CatalogModelManager catalog;
+  private final FeatureModelRoutes routes;
 
-  CatalogModelEndpointResolver(CatalogModelManager catalog) {
+  /**
+   * The Spring constructor: the routing rows are optional, a deployment without an adapter for them
+   * routes every feature to its category default.
+   */
+  @Autowired
+  CatalogModelEndpointResolver(
+      CatalogModelManager catalog, ObjectProvider<FeatureModelRoutes> routes) {
+    this(catalog, routes.getIfAvailable(() -> feature -> List.of()));
+  }
+
+  CatalogModelEndpointResolver(CatalogModelManager catalog, FeatureModelRoutes routes) {
     this.catalog = Objects.requireNonNull(catalog, "CatalogModelManager cannot be null");
+    this.routes = Objects.requireNonNull(routes, "FeatureModelRoutes cannot be null");
   }
 
   @Override
@@ -42,6 +58,19 @@ class CatalogModelEndpointResolver implements ModelEndpointResolver {
   @Override
   public Optional<ModelEndpoint> resolveDefault(String category) {
     return catalog.getDefaultModelByCategory(category).flatMap(this::toEndpoint);
+  }
+
+  @Override
+  public Optional<ModelEndpoint> resolveForFeature(String featureKey, String fallbackCategory) {
+    if (featureKey != null && !featureKey.isBlank()) {
+      for (String modelName : routes.modelNames(featureKey)) {
+        Optional<ModelEndpoint> routed = resolve(modelName);
+        if (routed.isPresent()) {
+          return routed;
+        }
+      }
+    }
+    return resolveDefault(fallbackCategory);
   }
 
   private Optional<ModelEndpoint> toEndpoint(CatalogModelDto model) {

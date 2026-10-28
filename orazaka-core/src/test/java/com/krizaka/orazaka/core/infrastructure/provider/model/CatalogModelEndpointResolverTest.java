@@ -5,6 +5,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.krizaka.orazaka.core.domain.model.ModelEndpoint;
+import com.krizaka.orazaka.core.domain.ports.outbound.FeatureModelRoutes;
 import com.krizaka.orazaka.persistence.domain.model.CatalogModelDto;
 import com.krizaka.orazaka.persistence.domain.ports.inbound.CatalogModelManager;
 import java.util.List;
@@ -30,7 +31,9 @@ class CatalogModelEndpointResolverTest {
     when(catalog.getProviderApiKey("do-inference")).thenReturn("sk-test");
 
     ModelEndpoint endpoint =
-        new CatalogModelEndpointResolver(catalog).resolveDefault("chat").orElseThrow();
+        new CatalogModelEndpointResolver(catalog, feature -> List.of())
+            .resolveDefault("chat")
+            .orElseThrow();
 
     assertEquals("https://inference.do-ai.run", endpoint.baseUrl());
     assertEquals("sk-test", endpoint.apiKey());
@@ -45,8 +48,78 @@ class CatalogModelEndpointResolverTest {
     when(catalog.getProviderBaseUrl("ollama")).thenReturn("http://localhost:11434");
 
     ModelEndpoint endpoint =
-        new CatalogModelEndpointResolver(catalog).resolve("qwen2.5:7b").orElseThrow();
+        new CatalogModelEndpointResolver(catalog, feature -> List.of())
+            .resolve("qwen2.5:7b")
+            .orElseThrow();
 
     assertEquals("not-required", endpoint.apiKey()); // ModelEndpoint's value for a keyless provider
+  }
+
+  private static final String FEATURE = "agent.code.issue-to-pr";
+
+  private CatalogModelManager catalogWithCodeModels() {
+    CatalogModelManager catalog = mock(CatalogModelManager.class);
+    CatalogModelDto local = model("qwen2.5-coder:7b", "ollama");
+    CatalogModelDto hosted = model("hosted-coder", "do-inference");
+    when(catalog.getAllModels()).thenReturn(List.of(local, hosted));
+    when(catalog.getDefaultModelByCategory("code")).thenReturn(Optional.of(local));
+    when(catalog.getProviderBaseUrl("ollama")).thenReturn("http://localhost:11434");
+    when(catalog.getProviderBaseUrl("do-inference")).thenReturn("https://inference.do-ai.run");
+    return catalog;
+  }
+
+  @Test
+  void aFeatureRoutesToItsBestRankedModel() {
+    FeatureModelRoutes routes =
+        feature ->
+            FEATURE.equals(feature) ? List.of("hosted-coder", "qwen2.5-coder:7b") : List.of();
+
+    ModelEndpoint endpoint =
+        new CatalogModelEndpointResolver(catalogWithCodeModels(), routes)
+            .resolveForFeature(FEATURE, "code")
+            .orElseThrow();
+
+    assertEquals("hosted-coder", endpoint.modelName());
+  }
+
+  @Test
+  void aFeatureWithNoRowFallsBackToTheCategoryDefault() {
+    ModelEndpoint endpoint =
+        new CatalogModelEndpointResolver(catalogWithCodeModels(), feature -> List.of())
+            .resolveForFeature(FEATURE, "code")
+            .orElseThrow();
+
+    assertEquals("qwen2.5-coder:7b", endpoint.modelName());
+  }
+
+  @Test
+  void aRowWhoseModelCannotBeReachedFallsToTheNextRankThenToTheDefault() {
+    CatalogModelManager catalog = catalogWithCodeModels();
+    when(catalog.getProviderBaseUrl("do-inference")).thenReturn(null);
+
+    ModelEndpoint next =
+        new CatalogModelEndpointResolver(
+                catalog, feature -> List.of("hosted-coder", "qwen2.5-coder:7b"))
+            .resolveForFeature(FEATURE, "code")
+            .orElseThrow();
+    ModelEndpoint fallback =
+        new CatalogModelEndpointResolver(
+                catalog, feature -> List.of("hosted-coder", "unknown-model"))
+            .resolveForFeature(FEATURE, "code")
+            .orElseThrow();
+
+    assertEquals("qwen2.5-coder:7b", next.modelName());
+    assertEquals("qwen2.5-coder:7b", fallback.modelName());
+  }
+
+  @Test
+  void aBlankFeatureKeyIsTheCategoryDefault() {
+    ModelEndpoint endpoint =
+        new CatalogModelEndpointResolver(
+                catalogWithCodeModels(), feature -> List.of("hosted-coder"))
+            .resolveForFeature(" ", "code")
+            .orElseThrow();
+
+    assertEquals("qwen2.5-coder:7b", endpoint.modelName());
   }
 }

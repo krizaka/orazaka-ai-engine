@@ -1,11 +1,6 @@
 package com.krizaka.orazaka.core.application.routing;
 
 import java.util.Set;
-import org.springframework.ai.anthropic.AnthropicChatOptions;
-import org.springframework.ai.chat.prompt.ChatOptions;
-import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
-import org.springframework.ai.ollama.api.OllamaChatOptions;
-import org.springframework.ai.openai.OpenAiChatOptions;
 
 /**
  * Centralized provider classification utility.
@@ -88,41 +83,5 @@ public final class ProviderClassifier {
    */
   public static boolean isLocal(String provider) {
     return provider != null && LOCAL_PROVIDERS.contains(provider.toLowerCase());
-  }
-
-  /**
-   * Resolves a provider name from Spring AI {@link ChatOptions} type.
-   *
-   * @param options The chat options instance (nullable).
-   * @return The inferred provider name, or {@code null} if unresolvable.
-   */
-  public static String resolveFromOptions(ChatOptions options) {
-    return switch (options) {
-      case OllamaChatOptions ignored -> OLLAMA_PROVIDER;
-      case OpenAiChatOptions ignored -> OPENAI_PROVIDER;
-      case AnthropicChatOptions ignored -> ANTHROPIC_PROVIDER;
-      case GoogleGenAiChatOptions ignored -> GEMINI_PROVIDER;
-      case null, default -> null;
-    };
-  }
-
-  /**
-   * Extracts the model name from a Spring AI {@link ChatOptions} instance.
-   *
-   * <p>Centralizes the scattered {@code instanceof} checks that were previously duplicated in
-   * {@code AbstractEngine} and {@code EnginePipelineBridge}. Uses Java 21 exhaustive pattern
-   * matching to ensure compile-time safety.
-   *
-   * @param options The chat options instance (nullable).
-   * @return The model name, or {@code null} if the options type is unrecognized or null.
-   */
-  public static String resolveModelName(ChatOptions options) {
-    return switch (options) {
-      case OpenAiChatOptions o -> o.getModel();
-      case AnthropicChatOptions a -> a.getModel();
-      case GoogleGenAiChatOptions g -> g.getModel();
-      case OllamaChatOptions ol -> ol.getModel();
-      case null, default -> null;
-    };
   }
 }

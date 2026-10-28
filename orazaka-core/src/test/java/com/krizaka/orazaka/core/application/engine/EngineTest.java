@@ -33,10 +33,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.ai.audio.tts.Speech;
-import org.springframework.ai.audio.tts.TextToSpeechModel;
-import org.springframework.ai.audio.tts.TextToSpeechPrompt;
-import org.springframework.ai.audio.tts.TextToSpeechResponse;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.UserMessage;
@@ -63,7 +59,7 @@ class EngineTest {
 
   @Mock private ChatModel chatModel;
   @Mock private EmbeddingModel embeddingModel;
-  @Mock private TextToSpeechModel speechModel;
+  @Mock private SpeechSynthesis speechModel;
   @Mock private ToolRegistry toolRegistry;
   @Mock private KnowledgeService knowledgeService;
   @Mock private McpOrchestrator mcpOrchestrator;
@@ -666,13 +662,8 @@ class EngineTest {
   void shouldGenerateSpeech() {
     // Given
     var req = new AudioRequest("hello tts", "alloy", "tts-1", Map.of(), Context.anonymous());
-    var speechResponse = mock(TextToSpeechResponse.class);
-    var speechResult = mock(Speech.class);
     byte[] expectedAudioBytes = new byte[] {1, 2, 3};
-
-    when(speechResult.getOutput()).thenReturn(expectedAudioBytes);
-    when(speechResponse.getResult()).thenReturn(speechResult);
-    when(speechModel.call(any(TextToSpeechPrompt.class))).thenReturn(speechResponse);
+    when(speechModel.synthesize("hello tts", "tts-1", null)).thenReturn(expectedAudioBytes);
 
     // When
     byte[] audioBytes = engine.generateSpeech(req);

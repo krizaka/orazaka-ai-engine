@@ -2,8 +2,11 @@ package com.krizaka.orazaka.adapter.springai;
 
 import com.krizaka.orazaka.adapter.springai.chat.SpringAiChatInvocation;
 import com.krizaka.orazaka.adapter.springai.chat.SpringAiProviderChatClient;
+import com.krizaka.orazaka.adapter.springai.chat.SpringAiSpeechSynthesis;
 import com.krizaka.orazaka.adapter.springai.client.ChatGeneratorClientImpl;
 import com.krizaka.orazaka.adapter.springai.client.EmbeddingClientImpl;
+import com.krizaka.orazaka.adapter.springai.image.SpringAiImageGeneratorClient;
+import com.krizaka.orazaka.adapter.springai.memory.SpringAiToolAnswerCodec;
 import com.krizaka.orazaka.adapter.springai.prompt.OllamaOptionsStrategy;
 import com.krizaka.orazaka.adapter.springai.prompt.OpenAiOptionsStrategy;
 import com.krizaka.orazaka.adapter.springai.prompt.PipelineOptionsRegistry;
@@ -26,9 +29,12 @@ import com.krizaka.orazaka.core.application.engine.Engine;
 import com.krizaka.orazaka.core.application.routing.DynamicChatModelFactory;
 import com.krizaka.orazaka.core.domain.ports.outbound.*;
 import com.krizaka.orazaka.core.infrastructure.adapter.security.LoggingAccessAudit;
+import com.krizaka.orazaka.core.infrastructure.config.CoreProperties;
 import com.krizaka.orazaka.core.infrastructure.spend.SpendGuard;
+import com.krizaka.orazaka.persistence.domain.ports.inbound.CatalogModelManager;
 import java.util.List;
 import java.util.Map;
+import org.springframework.ai.audio.tts.TextToSpeechModel;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -181,6 +187,44 @@ public class SpringAiAdapterAutoConfiguration {
   public SpringAiChatInvocation chatInvocation(
       ChatModel chatModel, DynamicChatModelFactory<ChatModel> modelFactory) {
     return new SpringAiChatInvocation(chatModel, modelFactory);
+  }
+
+  /**
+   * The port that turns text into speech audio, over the primary text-to-speech model.
+   *
+   * @param model the primary model
+   * @return the port
+   */
+  @Bean
+  @ConditionalOnMissingBean(SpeechSynthesis.class)
+  public SpringAiSpeechSynthesis speechSynthesis(TextToSpeechModel model) {
+    return new SpringAiSpeechSynthesis(model);
+  }
+
+  /**
+   * The port that stores a tool's answer as text for conversation memory.
+   *
+   * @return the codec
+   */
+  @Bean
+  @ConditionalOnMissingBean(ToolAnswerCodec.class)
+  public SpringAiToolAnswerCodec toolAnswerCodec() {
+    return new SpringAiToolAnswerCodec();
+  }
+
+  /**
+   * The image port, over the catalogue's image models (stable-diffusion.cpp dialect of the OpenAI
+   * images API).
+   *
+   * @param properties core configuration
+   * @param catalogModelManager the catalogue, which names the active image model and its provider
+   * @return the client
+   */
+  @Bean
+  @ConditionalOnMissingBean(ImageGeneratorClient.class)
+  public SpringAiImageGeneratorClient imageGeneratorClient(
+      CoreProperties properties, CatalogModelManager catalogModelManager) {
+    return new SpringAiImageGeneratorClient(properties, catalogModelManager);
   }
 
   /**

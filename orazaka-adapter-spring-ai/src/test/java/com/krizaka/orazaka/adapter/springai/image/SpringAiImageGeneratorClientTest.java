@@ -1,4 +1,4 @@
-package com.krizaka.orazaka.core.infrastructure.adapter.ai;
+package com.krizaka.orazaka.adapter.springai.image;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -42,7 +42,7 @@ import org.junit.jupiter.api.Test;
  * the count the server was asked to run — the caller's, else the catalogue's, else the
  * deployment's.
  */
-class ImageGeneratorClientImplTest {
+public class SpringAiImageGeneratorClientTest {
 
   private HttpServer provider;
   private final AtomicReference<String> received = new AtomicReference<>();
@@ -82,16 +82,16 @@ class ImageGeneratorClientImplTest {
     return Base64.getEncoder().encodeToString(bytes.toByteArray());
   }
 
-  private static ImageGeneratorClientImpl client(String baseUrl, int steps) {
+  private static SpringAiImageGeneratorClient client(String baseUrl, int steps) {
     return client(baseUrl, steps, List.of());
   }
 
-  private static ImageGeneratorClientImpl client(
+  private static SpringAiImageGeneratorClient client(
       String baseUrl, int steps, List<CatalogModelDto> catalogued) {
     return client(baseUrl, steps, catalogued, null);
   }
 
-  private static ImageGeneratorClientImpl client(
+  private static SpringAiImageGeneratorClient client(
       String baseUrl, int steps, List<CatalogModelDto> catalogued, String providerKey) {
     CoreProperties properties =
         new CoreProperties(
@@ -119,7 +119,7 @@ class ImageGeneratorClientImplTest {
     when(catalog.getModelsByCategory(anyString())).thenReturn(catalogued);
     when(catalog.getProviderBaseUrl(anyString())).thenReturn(null);
     when(catalog.getProviderApiKey(anyString())).thenReturn(providerKey);
-    return new ImageGeneratorClientImpl(properties, catalog);
+    return new SpringAiImageGeneratorClient(properties, catalog);
   }
 
   private static ImageRequest askFor(int width, int height) {
@@ -293,7 +293,7 @@ class ImageGeneratorClientImplTest {
     IllegalStateException refused =
         org.junit.jupiter.api.Assertions.assertThrows(
             IllegalStateException.class,
-            () -> ImageGeneratorClientImpl.requireRealImage(onePixel, null));
+            () -> SpringAiImageGeneratorClient.requireRealImage(onePixel, null));
     org.junit.jupiter.api.Assertions.assertTrue(refused.getMessage().contains("70 bytes"));
   }
 
@@ -301,13 +301,13 @@ class ImageGeneratorClientImplTest {
   void requireRealImage_refusesNothingAtAll() {
     org.junit.jupiter.api.Assertions.assertThrows(
         IllegalStateException.class,
-        () -> ImageGeneratorClientImpl.requireRealImage(new byte[0], null));
+        () -> SpringAiImageGeneratorClient.requireRealImage(new byte[0], null));
   }
 
   @org.junit.jupiter.api.Test
   void requireRealImage_acceptsAPictureOrAHostedUrl() {
-    ImageGeneratorClientImpl.requireRealImage(new byte[200_000], null);
-    ImageGeneratorClientImpl.requireRealImage(new byte[0], "https://cdn.example/x.png");
+    SpringAiImageGeneratorClient.requireRealImage(new byte[200_000], null);
+    SpringAiImageGeneratorClient.requireRealImage(new byte[0], "https://cdn.example/x.png");
   }
 
   @Test

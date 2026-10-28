@@ -1,10 +1,10 @@
-package com.krizaka.orazaka.core.infrastructure.provider.model;
+package com.krizaka.orazaka.persistence.bridge;
 
 import com.krizaka.orazaka.core.domain.ports.outbound.FeatureModelRoutes;
 import com.krizaka.orazaka.persistence.domain.ports.inbound.FeatureRouteManager;
 import java.util.List;
 import java.util.Objects;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 
 /**
  * DB-backed {@link FeatureModelRoutes} adapter (ADR-029): reads {@code orazaka_feature_models}
@@ -12,12 +12,12 @@ import org.springframework.stereotype.Component;
  * persistence import. A deployment without the port wired keeps {@link
  * CatalogModelEndpointResolver}'s default (every feature routes to its category default).
  */
-@Component
-class CatalogFeatureModelRoutes implements FeatureModelRoutes {
+@Service
+class FeatureModelRoutesAdapter implements FeatureModelRoutes {
 
   private final FeatureRouteManager routes;
 
-  CatalogFeatureModelRoutes(FeatureRouteManager routes) {
+  FeatureModelRoutesAdapter(FeatureRouteManager routes) {
     this.routes = Objects.requireNonNull(routes, "FeatureRouteManager cannot be null");
   }
 

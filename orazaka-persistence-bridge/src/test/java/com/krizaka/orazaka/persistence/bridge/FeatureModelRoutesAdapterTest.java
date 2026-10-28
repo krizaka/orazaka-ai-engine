@@ -1,4 +1,4 @@
-package com.krizaka.orazaka.core.infrastructure.provider.model;
+package com.krizaka.orazaka.persistence.bridge;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
@@ -8,7 +8,7 @@ import com.krizaka.orazaka.persistence.domain.ports.inbound.FeatureRouteManager;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-class CatalogFeatureModelRoutesTest {
+class FeatureModelRoutesAdapterTest {
 
   @Test
   void theRoutesAreTheManagersAnswerInItsOrder() {
@@ -17,6 +17,6 @@ class CatalogFeatureModelRoutesTest {
 
     assertEquals(
         List.of("a", "b"),
-        new CatalogFeatureModelRoutes(manager).modelNames("agent.code.issue-to-pr"));
+        new FeatureModelRoutesAdapter(manager).modelNames("agent.code.issue-to-pr"));
   }
 }

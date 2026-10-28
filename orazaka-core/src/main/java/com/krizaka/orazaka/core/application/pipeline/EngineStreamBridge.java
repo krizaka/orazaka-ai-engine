@@ -46,6 +46,7 @@ import reactor.core.publisher.Flux;
 public final class EngineStreamBridge {
 
   private static final Logger logger = LoggerFactory.getLogger(EngineStreamBridge.class);
+  private static final String PROVIDER_KEY = "provider";
 
   private final ChatInvocation chatInvocation;
   private final EnginePipelineBridge pipelineBridge;
@@ -132,7 +133,7 @@ public final class EngineStreamBridge {
                         chunk,
                         context.conversationId(),
                         TokenUsage.none(),
-                        Map.of("provider", context.provider()),
+                        Map.of(PROVIDER_KEY, context.provider()),
                         returned);
                   })
               .doOnComplete(
@@ -165,7 +166,7 @@ public final class EngineStreamBridge {
     String text = ResponseScreen.apply(interceptors, context.promptContext(), cached.text());
     Map<String, Object> metadata =
         Map.of(
-            "provider", CachedResponse.PROVIDER,
+            PROVIDER_KEY, CachedResponse.PROVIDER,
             "cache", cached.tier(),
             "cacheSimilarity", cached.similarity());
     var chunk = new InternalChatResponse(text, context.conversationId(), metadata);
@@ -208,7 +209,7 @@ public final class EngineStreamBridge {
       EnginePipelineContext context, long startTime) {
     long durationMs = (System.nanoTime() - startTime) / 1_000_000;
     Map<String, Object> metadata = new HashMap<>();
-    metadata.put("provider", context.provider());
+    metadata.put(PROVIDER_KEY, context.provider());
     metadata.put("durationMs", durationMs);
     return metadata;
   }

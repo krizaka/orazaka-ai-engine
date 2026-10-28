@@ -145,7 +145,7 @@ class ClientExecutedModeTest {
 
     var out = engine.chat(turn(List.of(READ)));
 
-    assertThat(out.toolCalls()).containsExactly(asked.get(0));
+    assertThat(out.toolCalls()).containsExactly(asked.getFirst());
     assertThat(events).containsExactly("client-tools");
   }
 
@@ -188,6 +188,6 @@ class ClientExecutedModeTest {
     var chunks = engine.stream(turn(List.of(READ))).collectList().block();
 
     assertThat(chunks).hasSize(1);
-    assertThat(chunks.get(0).toolCalls()).extracting(ToolCall::name).containsExactly("read_file");
+    assertThat(chunks.getFirst().toolCalls()).extracting(ToolCall::name).containsExactly("read_file");
   }
 }

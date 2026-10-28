@@ -188,6 +188,8 @@ class ClientExecutedModeTest {
     var chunks = engine.stream(turn(List.of(READ))).collectList().block();
 
     assertThat(chunks).hasSize(1);
-    assertThat(chunks.getFirst().toolCalls()).extracting(ToolCall::name).containsExactly("read_file");
+    assertThat(chunks.getFirst().toolCalls())
+        .extracting(ToolCall::name)
+        .containsExactly("read_file");
   }
 }

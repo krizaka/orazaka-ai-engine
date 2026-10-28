@@ -166,9 +166,12 @@ public final class EngineStreamBridge {
     String text = ResponseScreen.apply(interceptors, context.promptContext(), cached.text());
     Map<String, Object> metadata =
         Map.of(
-            PROVIDER_KEY, CachedResponse.PROVIDER,
-            "cache", cached.tier(),
-            "cacheSimilarity", cached.similarity());
+            PROVIDER_KEY,
+            CachedResponse.PROVIDER,
+            "cache",
+            cached.tier(),
+            "cacheSimilarity",
+            cached.similarity());
     var chunk = new InternalChatResponse(text, context.conversationId(), metadata);
     return Flux.just(chunk)
         .doOnComplete(

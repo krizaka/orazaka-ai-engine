@@ -29,6 +29,11 @@ public record GroundedResearchResult(
     UNSUPPORTED_SOURCE,
     /** No text of the law was in force that day: nothing was asked of the model. */
     NO_SOURCES,
+    /**
+     * A lecture would cost more than {@code law.lecture.max-credits} (or the cap is 0): nothing was
+     * asked of the model and nothing is charged.
+     */
+    CREDIT_CAP_REACHED,
     /** The run budget could not hold the call. */
     BUDGET_EXHAUSTED
   }

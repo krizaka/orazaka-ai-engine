@@ -31,6 +31,15 @@ public interface GroundedResearchSettings {
   boolean lectureEnabled();
 
   /**
+   * The most credits one lecture may cost ({@code law.lecture.max-credits}): the source's call and
+   * the tokens of the model, as the ledger reserves them. A missing row is 0: nothing is spent that
+   * was not allowed.
+   *
+   * @return the cap, in credits
+   */
+  int lectureMaxCredits();
+
+  /**
    * What happens to a claim that is not verified ({@code research.verify.mode}).
    *
    * @return keep it marked, or drop it

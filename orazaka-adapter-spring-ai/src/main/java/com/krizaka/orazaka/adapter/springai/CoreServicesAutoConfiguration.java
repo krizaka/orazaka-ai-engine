@@ -67,6 +67,7 @@ import java.util.List;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.ApplicationEventPublisher;
@@ -98,22 +99,29 @@ public class CoreServicesAutoConfiguration {
   /**
    * The conversation memories, durable when the host brings a store or the persistence provider.
    *
-   * @param store the host's own durable store, if any
-   * @param persistence the persisted chat memory, if the host has one
-   * @param codec how tool answers are stored
+   * @param store the host's own durable store, if any (see {@link #chatMemoryStore})
    * @return the resolver
    */
   @Bean
   @ConditionalOnMissingBean
-  public MemoryResolver memoryResolver(
-      ObjectProvider<ChatMemoryStore> store,
-      ObjectProvider<ChatMemoryPersistenceProvider> persistence,
-      ObjectProvider<ToolAnswerCodec> codec) {
-    ChatMemoryStore durable = store.getIfAvailable();
-    if (durable == null && persistence.getIfAvailable() != null && codec.getIfAvailable() != null) {
-      durable = new PersistedChatMemoryStore(persistence.getObject(), codec.getObject());
-    }
-    return new MemoryResolver(durable);
+  public MemoryResolver memoryResolver(ObjectProvider<ChatMemoryStore> store) {
+    return new MemoryResolver(store.getIfAvailable());
+  }
+
+  /**
+   * The durable chat memory on the persistence module, for hosts that keep chat messages (the
+   * conversation service injects it). Absent when the host has no persisted chat memory.
+   *
+   * @param persistence the persisted chat memory
+   * @param codec how tool answers are stored
+   * @return the store
+   */
+  @Bean
+  @ConditionalOnMissingBean(ChatMemoryStore.class)
+  @ConditionalOnBean({ChatMemoryPersistenceProvider.class, ToolAnswerCodec.class})
+  public ChatMemoryStore chatMemoryStore(
+      ChatMemoryPersistenceProvider persistence, ToolAnswerCodec codec) {
+    return new PersistedChatMemoryStore(persistence, codec);
   }
 
   /**

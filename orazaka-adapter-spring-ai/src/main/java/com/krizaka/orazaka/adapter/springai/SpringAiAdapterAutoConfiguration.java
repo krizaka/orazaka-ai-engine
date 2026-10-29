@@ -32,7 +32,6 @@ import com.krizaka.orazaka.core.application.routing.DynamicChatModelFactory;
 import com.krizaka.orazaka.core.application.security.ClientToolGate;
 import com.krizaka.orazaka.core.domain.ports.inbound.AgentTurns;
 import com.krizaka.orazaka.core.domain.ports.outbound.*;
-import com.krizaka.orazaka.core.domain.ports.outbound.ToolLoopBounds;
 import com.krizaka.orazaka.core.infrastructure.adapter.security.LoggingAccessAudit;
 import com.krizaka.orazaka.core.infrastructure.config.CoreProperties;
 import com.krizaka.orazaka.persistence.domain.ports.inbound.CatalogModelManager;

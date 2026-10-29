@@ -1,12 +1,14 @@
 package com.krizaka.orazaka.core.domain.model.chat;
 
+import java.io.Serial;
+
 /**
  * The model kept asking for tools past the bound of its feature: the turn is stopped, with this
  * reason (never a silent cut of the loop). The streamed turn ends on it as an error event.
  */
 public class ToolRoundsExceededException extends IllegalStateException {
 
-  private static final long serialVersionUID = 1L;
+  @Serial private static final long serialVersionUID = 1L;
 
   private final String featureKey;
   private final int maxRounds;

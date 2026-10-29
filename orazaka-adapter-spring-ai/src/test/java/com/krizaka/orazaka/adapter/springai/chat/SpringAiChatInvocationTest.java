@@ -10,9 +10,11 @@ import static org.mockito.Mockito.when;
 import com.krizaka.orazaka.adapter.springai.prompt.SpringPreparedPrompt;
 import com.krizaka.orazaka.adapter.springai.tool.ClientToolCallback;
 import com.krizaka.orazaka.core.application.routing.DynamicChatModelFactory;
+import com.krizaka.orazaka.core.domain.model.chat.ChatCompletion;
 import com.krizaka.orazaka.core.domain.model.chat.ChatRoute;
 import com.krizaka.orazaka.core.domain.model.chat.ClientTool;
 import com.krizaka.orazaka.core.domain.model.chat.PreparedPrompt;
+import com.krizaka.orazaka.core.domain.model.chat.ToolCall;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
@@ -135,7 +137,7 @@ class SpringAiChatInvocationTest {
 
     var chunks = invocation.stream(withTools(lookup), ChatRoute.platform()).collectList().block();
 
-    assertThat(chunks).extracting(c -> c.text()).contains("it is 42");
+    assertThat(chunks).extracting(ChatCompletion::text).contains("it is 42");
     assertThat(chunks).allSatisfy(c -> assertThat(c.toolCalls()).isEmpty());
     assertThat(lookup.runs).hasValue(1);
   }
@@ -147,7 +149,7 @@ class SpringAiChatInvocationTest {
 
     var out = invocation.call(withTools(client), ChatRoute.platform());
 
-    assertThat(out.toolCalls()).extracting(c -> c.name()).containsExactly("pick");
+    assertThat(out.toolCalls()).extracting(ToolCall::name).containsExactly("pick");
   }
 
   @Test

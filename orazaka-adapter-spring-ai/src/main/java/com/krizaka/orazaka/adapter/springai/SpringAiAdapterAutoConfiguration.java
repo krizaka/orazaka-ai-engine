@@ -8,6 +8,7 @@ import com.krizaka.orazaka.adapter.springai.client.ChatGeneratorClientImpl;
 import com.krizaka.orazaka.adapter.springai.client.EmbeddingClientImpl;
 import com.krizaka.orazaka.adapter.springai.image.SpringAiImageGeneratorClient;
 import com.krizaka.orazaka.adapter.springai.memory.SpringAiToolAnswerCodec;
+import com.krizaka.orazaka.adapter.springai.observability.FeatureTagObservationFilter;
 import com.krizaka.orazaka.adapter.springai.prompt.OllamaOptionsStrategy;
 import com.krizaka.orazaka.adapter.springai.prompt.OpenAiOptionsStrategy;
 import com.krizaka.orazaka.adapter.springai.prompt.PipelineOptionsRegistry;
@@ -177,8 +178,10 @@ public class SpringAiAdapterAutoConfiguration {
   @Bean
   @Primary
   @ConditionalOnMissingBean
-  public RoutedTextToSpeechModel routedTextToSpeechModel(ModelEndpointResolver resolver) {
-    return new RoutedTextToSpeechModel(resolver);
+  public RoutedTextToSpeechModel routedTextToSpeechModel(
+      ModelEndpointResolver resolver, ObjectProvider<ObservationRegistry> observations) {
+    return new RoutedTextToSpeechModel(
+        resolver, observations.getIfAvailable(() -> ObservationRegistry.NOOP));
   }
 
   /**
@@ -205,7 +208,21 @@ public class SpringAiAdapterAutoConfiguration {
         ToolCallingManager.builder()
             .observationRegistry(observations.getIfAvailable(() -> ObservationRegistry.NOOP))
             .build(),
-        bounds.getIfAvailable(() -> ToolLoopBounds.fixed(ToolLoopBounds.DEFAULT_MAX_ROUNDS)));
+        bounds.getIfAvailable(() -> ToolLoopBounds.fixed(ToolLoopBounds.DEFAULT_MAX_ROUNDS)),
+        observations.getIfAvailable(() -> ObservationRegistry.NOOP));
+  }
+
+  /**
+   * Tags every {@code gen_ai} observation with the feature key of its turn (ADR-094 slice 3).
+   * Spring Boot adds every {@link io.micrometer.observation.ObservationFilter} bean to the host's
+   * registry.
+   *
+   * @return the filter
+   */
+  @Bean
+  @ConditionalOnMissingBean
+  public FeatureTagObservationFilter featureTagObservationFilter() {
+    return new FeatureTagObservationFilter();
   }
 
   /**
@@ -281,8 +298,11 @@ public class SpringAiAdapterAutoConfiguration {
   @Bean
   @ConditionalOnMissingBean(EmbeddingClient.class)
   public EmbeddingClientImpl embeddingClientImpl(
-      ModelEndpointResolver endpoints, SpendGuard spendGuard) {
-    return new EmbeddingClientImpl(endpoints, spendGuard);
+      ModelEndpointResolver endpoints,
+      SpendGuard spendGuard,
+      ObjectProvider<ObservationRegistry> observations) {
+    return new EmbeddingClientImpl(
+        endpoints, spendGuard, observations.getIfAvailable(() -> ObservationRegistry.NOOP));
   }
 
   /**

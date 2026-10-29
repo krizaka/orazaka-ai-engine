@@ -9,6 +9,7 @@ import com.krizaka.orazaka.core.domain.model.chat.PreparedPrompt;
 import com.krizaka.orazaka.core.domain.model.chat.TokenUsage;
 import com.krizaka.orazaka.core.domain.model.chat.ToolCall;
 import com.krizaka.orazaka.core.domain.ports.outbound.ChatInvocation;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
@@ -82,10 +83,12 @@ public class SpringAiChatInvocation implements ChatInvocation {
     Prompt current = promptOf(prompt);
     ChatResponse response = model.call(current);
     TokenUsage used = completion(response, false).usage();
+    List<ToolCall> ran = new ArrayList<>();
     for (int round = 0; serverToolsAsked(current, response); round++) {
       if (round >= maxToolRounds) {
         throw tooManyRounds();
       }
+      ran.addAll(toolCallsOf(response));
       ToolExecutionResult result = toolManager.executeToolCalls(current, response);
       if (result.returnDirect()) {
         response = new ChatResponse(ToolExecutionResult.buildGenerations(result));
@@ -96,7 +99,7 @@ public class SpringAiChatInvocation implements ChatInvocation {
       used = sum(used, completion(response, false).usage());
     }
     ChatCompletion last = completion(response, false);
-    return new ChatCompletion(last.text(), used, last.toolCalls());
+    return new ChatCompletion(last.text(), used, last.toolCalls(), ran);
   }
 
   @Override
@@ -125,16 +128,21 @@ public class SpringAiChatInvocation implements ChatInvocation {
                   if (round >= maxToolRounds) {
                     return Flux.error(tooManyRounds());
                   }
+                  ChatCompletion ran =
+                      new ChatCompletion("", TokenUsage.none(), List.of(), toolCallsOf(response));
                   ToolExecutionResult result = toolManager.executeToolCalls(current, response);
                   if (result.returnDirect()) {
                     return Flux.just(
+                        ran,
                         completion(
                             new ChatResponse(ToolExecutionResult.buildGenerations(result)), true));
                   }
-                  return streamRound(
-                      model,
-                      new Prompt(result.conversationHistory(), current.getOptions()),
-                      round + 1);
+                  return Flux.just(ran)
+                      .concatWith(
+                          streamRound(
+                              model,
+                              new Prompt(result.conversationHistory(), current.getOptions()),
+                              round + 1));
                 }));
   }
 

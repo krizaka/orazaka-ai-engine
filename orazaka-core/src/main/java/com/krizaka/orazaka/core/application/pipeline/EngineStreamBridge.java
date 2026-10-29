@@ -3,6 +3,7 @@ package com.krizaka.orazaka.core.application.pipeline;
 import com.krizaka.orazaka.core.application.engine.AbstractEngine;
 import com.krizaka.orazaka.core.application.interceptor.PromptContextInterceptor;
 import com.krizaka.orazaka.core.domain.event.ChatCompletedEvent;
+import com.krizaka.orazaka.core.domain.event.ToolExecutedEvent;
 import com.krizaka.orazaka.core.domain.model.CachedResponse;
 import com.krizaka.orazaka.core.domain.model.chat.ChatCompletion;
 import com.krizaka.orazaka.core.domain.model.chat.ChatRoute;
@@ -116,6 +117,7 @@ public final class EngineStreamBridge {
                         ex);
                     return chatInvocation.stream(context.toPrompt().withoutTools(), route);
                   })
+              .doOnNext(completion -> announceExecuted(completion, context, eventPublisher))
               .map(
                   completion -> {
                     String chunk = completion.text();
@@ -235,6 +237,14 @@ public final class EngineStreamBridge {
           context.provider(),
           e);
       return chatInvocation.stream(context.toPrompt().withoutTools(), route);
+    }
+  }
+
+  /** Says, once per call, which tools the engine ran during the turn (name and id only). */
+  private static void announceExecuted(
+      ChatCompletion completion, EnginePipelineContext context, DomainEventPublisher publisher) {
+    for (ToolCall ran : completion.executed()) {
+      publisher.publish(new ToolExecutedEvent(context.conversationId(), ran.name(), ran.id()));
     }
   }
 

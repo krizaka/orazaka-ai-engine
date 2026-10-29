@@ -35,6 +35,7 @@ import com.krizaka.orazaka.core.domain.ports.outbound.*;
 import com.krizaka.orazaka.core.infrastructure.adapter.security.LoggingAccessAudit;
 import com.krizaka.orazaka.core.infrastructure.config.CoreProperties;
 import com.krizaka.orazaka.persistence.domain.ports.inbound.CatalogModelManager;
+import io.micrometer.observation.ObservationRegistry;
 import java.util.List;
 import java.util.Map;
 import org.springframework.ai.audio.tts.TextToSpeechModel;
@@ -132,8 +133,10 @@ public class SpringAiAdapterAutoConfiguration {
    */
   @Bean
   @ConditionalOnMissingBean
-  public UniversalProxyChatProvider universalProxyChatProvider() {
-    return new UniversalProxyChatProvider();
+  public UniversalProxyChatProvider universalProxyChatProvider(
+      ObjectProvider<ObservationRegistry> observations) {
+    return new UniversalProxyChatProvider(
+        observations.getIfAvailable(() -> ObservationRegistry.NOOP));
   }
 
   /**
@@ -185,6 +188,8 @@ public class SpringAiAdapterAutoConfiguration {
    * @param chatModel the primary model
    * @param modelFactory builds a model for a user's key
    * @param bounds the tool-round bound per feature key, when a store is wired (else the default)
+   * @param observations the host's registry, so each tool round is observed ({@code
+   *     spring.ai.tool})
    * @return the invocation
    */
   @Bean
@@ -192,11 +197,14 @@ public class SpringAiAdapterAutoConfiguration {
   public SpringAiChatInvocation chatInvocation(
       ChatModel chatModel,
       DynamicChatModelFactory<ChatModel> modelFactory,
-      ObjectProvider<ToolLoopBounds> bounds) {
+      ObjectProvider<ToolLoopBounds> bounds,
+      ObjectProvider<ObservationRegistry> observations) {
     return new SpringAiChatInvocation(
         chatModel,
         modelFactory,
-        ToolCallingManager.builder().build(),
+        ToolCallingManager.builder()
+            .observationRegistry(observations.getIfAvailable(() -> ObservationRegistry.NOOP))
+            .build(),
         bounds.getIfAvailable(() -> ToolLoopBounds.fixed(ToolLoopBounds.DEFAULT_MAX_ROUNDS)));
   }
 
@@ -284,8 +292,10 @@ public class SpringAiAdapterAutoConfiguration {
    */
   @Bean
   @ConditionalOnMissingBean
-  public AnthropicDynamicProvider anthropicDynamicProvider() {
-    return new AnthropicDynamicProvider();
+  public AnthropicDynamicProvider anthropicDynamicProvider(
+      ObjectProvider<ObservationRegistry> observations) {
+    return new AnthropicDynamicProvider(
+        observations.getIfAvailable(() -> ObservationRegistry.NOOP));
   }
 
   /**
@@ -295,8 +305,9 @@ public class SpringAiAdapterAutoConfiguration {
    */
   @Bean
   @ConditionalOnMissingBean
-  public GeminiDynamicProvider geminiDynamicProvider() {
-    return new GeminiDynamicProvider();
+  public GeminiDynamicProvider geminiDynamicProvider(
+      ObjectProvider<ObservationRegistry> observations) {
+    return new GeminiDynamicProvider(observations.getIfAvailable(() -> ObservationRegistry.NOOP));
   }
 
   /**
@@ -306,8 +317,9 @@ public class SpringAiAdapterAutoConfiguration {
    */
   @Bean
   @ConditionalOnMissingBean
-  public OpenAiDynamicProvider openAiDynamicProvider() {
-    return new OpenAiDynamicProvider();
+  public OpenAiDynamicProvider openAiDynamicProvider(
+      ObjectProvider<ObservationRegistry> observations) {
+    return new OpenAiDynamicProvider(observations.getIfAvailable(() -> ObservationRegistry.NOOP));
   }
 
   /**

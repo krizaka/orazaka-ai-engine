@@ -1,5 +1,7 @@
 package com.krizaka.orazaka.adapter.springai.routing;
 
+import io.micrometer.observation.ObservationRegistry;
+import java.util.Objects;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
@@ -23,6 +25,21 @@ import org.springframework.ai.openai.OpenAiChatOptions;
  */
 public class UniversalProxyChatProvider {
 
+  private final ObservationRegistry observationRegistry;
+
+  /** Without a host registry: nothing is observed. */
+  public UniversalProxyChatProvider() {
+    this(ObservationRegistry.NOOP);
+  }
+
+  /**
+   * @param observationRegistry the host's registry, so Spring AI records {@code
+   *     gen_ai.client.operation} for every model built here (ADR-094)
+   */
+  public UniversalProxyChatProvider(ObservationRegistry observationRegistry) {
+    this.observationRegistry = Objects.requireNonNull(observationRegistry, "registry");
+  }
+
   /**
    * Builds an OpenAI-compatible {@link ChatModel} for the given endpoint.
    *
@@ -43,6 +60,7 @@ public class UniversalProxyChatProvider {
                 .apiKey(apiKey)
                 .baseUrl(withApiVersion(baseUrl))
                 .build())
+        .observationRegistry(observationRegistry)
         .build();
   }
 

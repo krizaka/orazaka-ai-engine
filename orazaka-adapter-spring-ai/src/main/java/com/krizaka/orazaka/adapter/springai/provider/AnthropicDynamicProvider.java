@@ -2,12 +2,29 @@ package com.krizaka.orazaka.adapter.springai.provider;
 
 import com.anthropic.client.AnthropicClient;
 import com.anthropic.client.okhttp.AnthropicOkHttpClient;
+import io.micrometer.observation.ObservationRegistry;
+import java.util.Objects;
 import org.springframework.ai.anthropic.AnthropicChatModel;
 import org.springframework.ai.anthropic.AnthropicChatOptions;
 import org.springframework.ai.chat.model.ChatModel;
 
 /** Dynamic ChatModel provider for Anthropic (Claude) models. */
 public class AnthropicDynamicProvider implements DynamicChatModelProvider {
+
+  private final ObservationRegistry observationRegistry;
+
+  /** Without a host registry: nothing is observed. */
+  public AnthropicDynamicProvider() {
+    this(ObservationRegistry.NOOP);
+  }
+
+  /**
+   * @param observationRegistry the host's registry, so Spring AI records {@code
+   *     gen_ai.client.operation} for every model built here (ADR-094)
+   */
+  public AnthropicDynamicProvider(ObservationRegistry observationRegistry) {
+    this.observationRegistry = Objects.requireNonNull(observationRegistry, "registry");
+  }
 
   @Override
   public boolean supports(String providerName) {
@@ -23,6 +40,7 @@ public class AnthropicDynamicProvider implements DynamicChatModelProvider {
     return AnthropicChatModel.builder()
         .anthropicClient(client)
         .options(AnthropicChatOptions.builder().model(modelName).build())
+        .observationRegistry(observationRegistry)
         .build();
   }
 }

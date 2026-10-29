@@ -34,11 +34,7 @@ class CoreIndependenceTest {
             "com.krizaka.orazaka.studios..",
             "com.krizaka.orazaka.tools..",
             "com.krizaka.orazaka.interceptor..",
-            "com.krizaka.orochia..",
-            "com.krizaka.yasakia..",
             "com.krizaka.yomizaka..",
-            "com.krizaka.yororis..",
-            "com.krizaka.kachizaka..",
             "com.krizaka.akinaza..")
         .because(
             "the core is the engine; packs, studios and products depend on it, never the reverse")

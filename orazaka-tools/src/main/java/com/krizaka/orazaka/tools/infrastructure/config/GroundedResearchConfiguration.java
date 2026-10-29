@@ -39,24 +39,42 @@ public class GroundedResearchConfiguration {
   }
 
   @Bean
-  GroundedResearchService groundedResearchService(
-      GroundedResearchSettings settings,
-      ResearchStore research,
-      LawCorpusStore corpus,
+  Collaborators groundedCollaborators(
       ObjectProvider<GroundedClaimsModel> model,
       AiClient chat,
-      CitationVerifier verifier,
       ObjectProvider<ResearchMeter> meter,
-      ObjectProvider<ChatTokenMeter> tokenMeter) {
-    return new GroundedResearchService(
-        settings,
-        research,
+      ObjectProvider<ChatTokenMeter> tokenMeter,
+      LawCorpusStore corpus,
+      ResearchStore research) {
+    return new Collaborators(
         new LawCorpusResearchService(corpus, research, Clock.systemUTC()),
         model.getIfAvailable(() -> new ChatGroundedClaimsModel(chat)),
-        verifier,
         meter.getIfAvailable(GroundedResearchConfiguration::noMeter),
         tokenMeter.getIfAvailable(GroundedResearchConfiguration::noTokenMeter));
   }
+
+  @Bean
+  GroundedResearchService groundedResearchService(
+      GroundedResearchSettings settings,
+      ResearchStore research,
+      CitationVerifier verifier,
+      Collaborators collaborators) {
+    return new GroundedResearchService(
+        settings,
+        research,
+        collaborators.provider(),
+        collaborators.model(),
+        verifier,
+        collaborators.meter(),
+        collaborators.tokenMeter());
+  }
+
+  /** The corpus provider, the model and the two meters, resolved once (fail closed). */
+  record Collaborators(
+      LawCorpusResearchService provider,
+      GroundedClaimsModel model,
+      ResearchMeter meter,
+      ChatTokenMeter tokenMeter) {}
 
   private static ResearchMeter noMeter() {
     return (runId, actorId, providerKey) -> {

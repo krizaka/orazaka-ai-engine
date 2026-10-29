@@ -251,4 +251,21 @@ class SpringAiChatInvocationTest {
     assertThat(asked.get()).isNull();
     assertThat(lookup.runs.get()).isEqualTo(2);
   }
+
+  @Test
+  void theCachedTokensSpringAiReportsAreCarriedAndAddedUpOverRounds() {
+    var usage =
+        new org.springframework.ai.chat.metadata.DefaultUsage(1000, 50, 1050, null, 800L, 120L);
+    var metadata =
+        org.springframework.ai.chat.metadata.ChatResponseMetadata.builder().usage(usage).build();
+    when(platform.call(any(Prompt.class)))
+        .thenReturn(
+            new ChatResponse(List.of(new Generation(new AssistantMessage("cached"))), metadata));
+
+    var out = invocation.call(prompt, ChatRoute.platform());
+
+    assertThat(out.usage().cachedReadTokens()).isEqualTo(800);
+    assertThat(out.usage().cacheWriteTokens()).isEqualTo(120);
+    assertThat(out.usage().totalTokens()).isEqualTo(1050);
+  }
 }

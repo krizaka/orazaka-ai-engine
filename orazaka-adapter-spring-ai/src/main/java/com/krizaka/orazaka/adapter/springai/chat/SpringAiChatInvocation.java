@@ -176,16 +176,10 @@ public class SpringAiChatInvocation implements ChatInvocation {
   }
 
   private static TokenUsage sum(TokenUsage a, TokenUsage b) {
-    if (a == null || a.equals(TokenUsage.none())) {
+    if (a == null) {
       return b;
     }
-    if (b == null || b.equals(TokenUsage.none())) {
-      return a;
-    }
-    return TokenUsage.reported(
-        a.promptTokens() + b.promptTokens(),
-        a.completionTokens() + b.completionTokens(),
-        a.totalTokens() + b.totalTokens());
+    return a.plus(b);
   }
 
   /**
@@ -256,7 +250,9 @@ public class SpringAiChatInvocation implements ChatInvocation {
             TokenUsage.reported(
                 reported.getPromptTokens(),
                 reported.getCompletionTokens(),
-                reported.getTotalTokens());
+                reported.getTotalTokens(),
+                reported.getCacheReadInputTokens(),
+                reported.getCacheWriteInputTokens());
       }
     }
     return new ChatCompletion(text, usage, toolCallsOf(response));

@@ -1,5 +1,6 @@
 package com.krizaka.orazaka.tools.application.service;
 
+import com.krizaka.orazaka.core.domain.model.chat.TokenUsage;
 import com.krizaka.orazaka.core.domain.model.research.Citation;
 import com.krizaka.orazaka.core.domain.model.research.Claim;
 import com.krizaka.orazaka.core.domain.model.research.ClaimReason;
@@ -10,6 +11,7 @@ import com.krizaka.orazaka.core.domain.model.research.QuoteNormalizer;
 import com.krizaka.orazaka.core.domain.model.research.ReadDocument;
 import com.krizaka.orazaka.core.domain.model.research.VerifyMode;
 import com.krizaka.orazaka.core.domain.ports.inbound.CitationVerifier;
+import com.krizaka.orazaka.tools.application.port.law.ChatTokenMeter;
 import com.krizaka.orazaka.tools.application.port.law.GroundedClaimsModel;
 import com.krizaka.orazaka.tools.application.port.law.GroundedResearchSettings;
 import com.krizaka.orazaka.tools.application.port.law.ResearchMeter;
@@ -37,10 +39,13 @@ import java.util.Optional;
  *   <li>The articles are read from the dated corpus at {@code asOf}, without network. When none was
  *       in force, the model is not asked: the call is refused ({@code NO_SOURCES}) and says which
  *       references are unknown.
- *   <li>One call, held against the run budget as a metered {@code CALL}, asks the model; the
- *       deterministic verifier then checks every claim against the stored article. The answer that
- *       leaves is rendered from the claims, never taken from the model, and its sources are the
- *       documents read, not the ones the model names.
+ *   <li>One call, held against the run budget as a metered {@code CALL} and, beside it, the chat
+ *       tokens of the model (each settled once: the call as one {@code CALL}, the tokens as the
+ *       provider reported them), asks the model; a lecture whose two reservations together pass
+ *       {@code law.lecture.max-credits} is refused before the model is asked ({@code
+ *       CREDIT_CAP_REACHED}). The deterministic verifier then checks every claim against the stored
+ *       article. The answer that leaves is rendered from the claims, never taken from the model,
+ *       and its sources are the documents read, not the ones the model names.
  *   <li>A lecture adds the user's document <b>as data</b>, never stored: a claim stays {@code
  *       TO_VALIDATE} unless one of its quotes is found in the article <b>and</b> one in the
  *       document.
@@ -57,6 +62,7 @@ public class GroundedResearchService {
   private final GroundedClaimsModel model;
   private final CitationVerifier verifier;
   private final ResearchMeter meter;
+  private final ChatTokenMeter tokenMeter;
 
   /**
    * Wires the service.
@@ -67,6 +73,7 @@ public class GroundedResearchService {
    * @param model the model port of the grounded call
    * @param verifier the ADR-087 citation verifier
    * @param meter the metering of a grounded call
+   * @param tokenMeter the metering of the chat tokens of a grounded call
    */
   public GroundedResearchService(
       GroundedResearchSettings settings,
@@ -74,13 +81,15 @@ public class GroundedResearchService {
       LawCorpusResearchService provider,
       GroundedClaimsModel model,
       CitationVerifier verifier,
-      ResearchMeter meter) {
+      ResearchMeter meter,
+      ChatTokenMeter tokenMeter) {
     this.settings = Objects.requireNonNull(settings, "GroundedResearchSettings");
     this.research = Objects.requireNonNull(research, "ResearchStore");
     this.provider = Objects.requireNonNull(provider, "LawCorpusResearchService");
     this.model = Objects.requireNonNull(model, "GroundedClaimsModel");
     this.verifier = Objects.requireNonNull(verifier, "CitationVerifier");
     this.meter = Objects.requireNonNull(meter, "ResearchMeter");
+    this.tokenMeter = Objects.requireNonNull(tokenMeter, "ChatTokenMeter");
   }
 
   /**
@@ -102,6 +111,9 @@ public class GroundedResearchService {
     }
     if (request.isLecture() && !settings.lectureEnabled()) {
       return GroundedResearchResult.refused(Outcome.LECTURE_DISABLED, List.of());
+    }
+    if (request.isLecture() && settings.lectureMaxCredits() <= 0) {
+      return GroundedResearchResult.refused(Outcome.CREDIT_CAP_REACHED, List.of());
     }
     LawCorpusResearchService.Read read =
         provider.read(
@@ -140,26 +152,66 @@ public class GroundedResearchService {
 
   private GroundedResearchResult ask(
       GroundedResearchRequest request, ResearchSource source, LawCorpusResearchService.Read read) {
-    ResearchMeter.Hold hold;
+    Holds holds;
     try {
-      hold = meter.hold(request.runId().toString(), request.actorId(), source.provider());
+      holds = hold(request, source);
     } catch (ResearchMeter.BudgetExceededException refused) {
       return GroundedResearchResult.refused(Outcome.BUDGET_EXHAUSTED, read.unknown());
     }
-    GroundedAnswer verified;
+    if (request.isLecture() && holds.estimatedCredits() > settings.lectureMaxCredits()) {
+      holds.release(new IllegalStateException("lecture cap reached"));
+      return GroundedResearchResult.refused(Outcome.CREDIT_CAP_REACHED, read.unknown());
+    }
+    Answered answered;
     try {
       List<ReadDocument> readByThisAnswer = provider.record(source, read.documents());
-      verified = answer(request, read.documents(), readByThisAnswer);
+      answered = answer(request, read.documents(), readByThisAnswer);
     } catch (RuntimeException failure) {
-      release(hold, failure);
+      holds.release(failure);
       throw failure;
     }
-    hold.settle();
+    holds.settle(answered.usage());
     return new GroundedResearchResult(
-        Outcome.ANSWERED, verified, sourcesRead(read.documents()), read.unknown());
+        Outcome.ANSWERED, answered.verified(), sourcesRead(read.documents()), read.unknown());
   }
 
-  private GroundedAnswer answer(
+  /**
+   * Holds the source's call, then the model's tokens; when the second fails, the first is freed.
+   */
+  private Holds hold(GroundedResearchRequest request, ResearchSource source) {
+    String run = request.runId().toString();
+    ResearchMeter.Hold call = meter.hold(run, request.actorId(), source.provider());
+    try {
+      return new Holds(call, tokenMeter.hold(run, request.actorId()));
+    } catch (RuntimeException refused) {
+      release(call, refused);
+      throw refused;
+    }
+  }
+
+  /** The two reservations of one grounded call, closed together and once each. */
+  private record Holds(ResearchMeter.Hold call, ChatTokenMeter.Hold tokens) {
+
+    long estimatedCredits() {
+      return call.estimatedCredits() + tokens.estimatedCredits();
+    }
+
+    void settle(TokenUsage usage) {
+      call.settle();
+      tokens.settle(usage);
+    }
+
+    /** A failed release never hides the failure that caused it. */
+    void release(RuntimeException failure) {
+      GroundedResearchService.release(call, failure);
+      GroundedResearchService.release(tokens, failure);
+    }
+  }
+
+  /** A verified answer and the tokens the model call consumed. */
+  private record Answered(GroundedAnswer verified, TokenUsage usage) {}
+
+  private Answered answer(
       GroundedResearchRequest request, List<CorpusDocument> documents, List<ReadDocument> read) {
     List<GroundedClaimsModel.Passage> passages = new ArrayList<>();
     for (CorpusDocument d : documents) {
@@ -167,14 +219,19 @@ public class GroundedResearchService {
           new GroundedClaimsModel.Passage(d.officialUrl(), d.contentHash(), d.title(), d.text()));
     }
     if (!request.isLecture()) {
-      GroundedAnswer proposed = model.ask(request.question(), request.language(), passages);
-      return verifier.verify(proposed, settings.verifyMode(), read);
+      GroundedClaimsModel.Reply reply =
+          model.askMetered(request.question(), request.language(), passages);
+      return new Answered(
+          verifier.verify(reply.answer(), settings.verifyMode(), read), reply.usage());
     }
     String hash = Sha256.hex(request.document().getBytes(StandardCharsets.UTF_8));
     String url = DOCUMENT_URN + hash;
     passages.add(new GroundedClaimsModel.Passage(url, hash, "document", request.document()));
-    GroundedAnswer proposed = model.ask(request.question(), request.language(), passages);
-    return pairWithDocument(proposed, new DocumentRef(url, hash, request.document()), read);
+    GroundedClaimsModel.Reply reply =
+        model.askMetered(request.question(), request.language(), passages);
+    return new Answered(
+        pairWithDocument(reply.answer(), new DocumentRef(url, hash, request.document()), read),
+        reply.usage());
   }
 
   /** The user's document, held in memory for one call: never stored, never logged (ADR-064). */
@@ -257,7 +314,15 @@ public class GroundedResearchService {
   /** A failed release never hides the failure that caused it. */
   private static void release(ResearchMeter.Hold hold, RuntimeException failure) {
     try {
-      hold.release("the grounded call failed");
+      hold.release("the grounded call did not run");
+    } catch (RuntimeException releaseFailure) {
+      failure.addSuppressed(releaseFailure);
+    }
+  }
+
+  private static void release(ChatTokenMeter.Hold hold, RuntimeException failure) {
+    try {
+      hold.release("the grounded call did not run");
     } catch (RuntimeException releaseFailure) {
       failure.addSuppressed(releaseFailure);
     }

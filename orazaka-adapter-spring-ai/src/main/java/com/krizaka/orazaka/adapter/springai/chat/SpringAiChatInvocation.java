@@ -164,8 +164,8 @@ public class SpringAiChatInvocation implements ChatInvocation {
   }
 
   /**
-   * True when the model asked for tools and every one is a server tool the engine runs; a client
-   * tool among them means the whole turn goes back to the client.
+   * True when the model asked for tools and every one is a server tool the engine offered and runs; a
+   * client tool, or a name nobody offered, means the whole turn goes back to the caller.
    */
   private static boolean serverToolsAsked(Prompt prompt, ChatResponse response) {
     if (response == null || !response.hasToolCalls()) {
@@ -176,12 +176,12 @@ public class SpringAiChatInvocation implements ChatInvocation {
             ? tools.getToolCallbacks()
             : List.of();
     return response.getResult().getOutput().getToolCalls().stream()
-        .noneMatch(
+        .allMatch(
             call ->
                 offered.stream()
                     .anyMatch(
                         t ->
-                            t instanceof ClientToolCallback
+                            !(t instanceof ClientToolCallback)
                                 && t.getToolDefinition().name().equals(call.name())));
   }
 

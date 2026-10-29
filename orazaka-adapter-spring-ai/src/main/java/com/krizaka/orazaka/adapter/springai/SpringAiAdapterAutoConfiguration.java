@@ -102,13 +102,22 @@ public class SpringAiAdapterAutoConfiguration {
    * The structured-output port, when exactly one chat model is wired.
    *
    * @param chatModel the model
+   * @param bounds how many answers a call may ask for (the default of the port when none is wired)
+   * @param observations where the chat client's observations go
    * @return the client
    */
   @Bean
   @ConditionalOnSingleCandidate(ChatModel.class)
   @ConditionalOnMissingBean(StructuredOutputClient.class)
-  public SpringAiStructuredOutputClient structuredOutputClient(ChatModel chatModel) {
-    return new SpringAiStructuredOutputClient(chatModel);
+  public SpringAiStructuredOutputClient structuredOutputClient(
+      ChatModel chatModel,
+      ObjectProvider<StructuredOutputBounds> bounds,
+      ObjectProvider<ObservationRegistry> observations) {
+    return new SpringAiStructuredOutputClient(
+        chatModel,
+        bounds.getIfAvailable(
+            () -> StructuredOutputBounds.fixed(StructuredOutputBounds.DEFAULT_MAX_ATTEMPTS)),
+        observations.getIfAvailable(() -> ObservationRegistry.NOOP));
   }
 
   /**

@@ -2,13 +2,14 @@ package com.krizaka.orazaka.adapter.springai.structured;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
 
+import com.krizaka.orazaka.core.domain.model.structured.StructuredOutputInvalidException;
 import com.krizaka.orazaka.core.domain.model.structured.StructuredOutputRequest;
+import com.krizaka.orazaka.core.domain.ports.outbound.StructuredOutputBounds;
+import io.micrometer.observation.ObservationRegistry;
+import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
@@ -19,34 +20,90 @@ class SpringAiStructuredOutputClientTest {
 
   record Verdict(String label, int score) {}
 
-  private static ChatResponse reply(String text) {
-    return new ChatResponse(List.of(new Generation(new AssistantMessage(text))));
+  /**
+   * A stub model that answers the scripted texts in order (the last one repeats) and records
+   * prompts.
+   */
+  private static final class ScriptedModel implements ChatModel {
+    final List<Prompt> prompts = new ArrayList<>();
+    private final List<String> answers;
+
+    ScriptedModel(String... answers) {
+      this.answers = List.of(answers);
+    }
+
+    @Override
+    public ChatResponse call(Prompt prompt) {
+      prompts.add(prompt);
+      String text = answers.get(Math.min(prompts.size(), answers.size()) - 1);
+      return new ChatResponse(List.of(new Generation(new AssistantMessage(text))));
+    }
+  }
+
+  private static StructuredOutputRequest<Verdict> ask() {
+    return new StructuredOutputRequest<>("Judge.", "Is it fine?", Verdict.class);
+  }
+
+  private static SpringAiStructuredOutputClient client(ChatModel model, int attempts) {
+    return new SpringAiStructuredOutputClient(
+        model, StructuredOutputBounds.fixed(attempts), ObservationRegistry.NOOP);
   }
 
   @Test
-  void theAnswerIsReturnedTypedAndTheFormatIsAskedFor() {
-    ChatModel model = mock(ChatModel.class);
-    when(model.call(any(Prompt.class))).thenReturn(reply("{\"label\":\"ok\",\"score\":7}"));
-    var client = new SpringAiStructuredOutputClient(model);
+  void aValidAnswerIsReturnedTypedInOneAttemptAndTheFormatIsAskedFor() {
+    var model = new ScriptedModel("{\"label\":\"ok\",\"score\":7}");
 
-    Verdict verdict =
-        client.generate(new StructuredOutputRequest<>("Judge.", "Is it fine?", Verdict.class));
+    Verdict verdict = client(model, 2).generate(ask());
 
     assertThat(verdict).isEqualTo(new Verdict("ok", 7));
-    var prompt = ArgumentCaptor.forClass(Prompt.class);
-    verify(model).call(prompt.capture());
-    assertThat(prompt.getValue().getContents()).contains("Judge.").contains("Is it fine?");
-    assertThat(prompt.getValue().getInstructions().getFirst().getText()).contains("score");
+    assertThat(model.prompts).hasSize(1);
+    assertThat(model.prompts.getFirst().getContents()).contains("Judge.").contains("Is it fine?");
+    assertThat(model.prompts.getFirst().getContents()).contains("score");
   }
 
   @Test
-  void anAnswerOfTheWrongShapeIsRefused() {
-    ChatModel model = mock(ChatModel.class);
-    when(model.call(any(Prompt.class))).thenReturn(reply("not json at all"));
-    var client = new SpringAiStructuredOutputClient(model);
+  void anInvalidAnswerThenAValidOneYieldsTheObjectInTwoAttempts() {
+    var model =
+        new ScriptedModel(
+            "{\"label\":\"ok\",\"score\":\"high\"}", "{\"label\":\"ok\",\"score\":7}");
 
-    assertThatThrownBy(
-            () -> client.generate(new StructuredOutputRequest<>("", "Is it fine?", Verdict.class)))
+    Verdict verdict = client(model, 2).generate(ask());
+
+    assertThat(verdict).isEqualTo(new Verdict("ok", 7));
+    assertThat(model.prompts).hasSize(2);
+    // the second ask names what was wrong
+    assertThat(model.prompts.get(1).getContents()).contains("score");
+  }
+
+  @Test
+  void aPartialAnswerThenAValidOneIsCorrected() {
+    var model = new ScriptedModel("{\"label\":\"ok\",\"sco", "{\"label\":\"ok\",\"score\":3}");
+
+    assertThat(client(model, 2).generate(ask())).isEqualTo(new Verdict("ok", 3));
+    assertThat(model.prompts).hasSize(2);
+  }
+
+  @Test
+  void alwaysInvalidFailsWithTheTypedErrorAfterTheBoundNeverADefault() {
+    var model = new ScriptedModel("not json at all");
+
+    assertThatThrownBy(() -> client(model, 2).generate(ask()))
+        .isInstanceOfSatisfying(
+            StructuredOutputInvalidException.class,
+            e -> {
+              assertThat(e.attempts()).isEqualTo(2);
+              assertThat(e.type()).isEqualTo("Verdict");
+            })
         .isInstanceOf(IllegalStateException.class);
+    assertThat(model.prompts).hasSize(2);
+  }
+
+  @Test
+  void aBoundOfOneAsksOnce() {
+    var model = new ScriptedModel("{\"label\":1}");
+
+    assertThatThrownBy(() -> client(model, 1).generate(ask()))
+        .isInstanceOf(StructuredOutputInvalidException.class);
+    assertThat(model.prompts).hasSize(1);
   }
 }

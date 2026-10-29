@@ -65,6 +65,10 @@ output (`StructuredOutputClient`) and tools (`ToolRegistry`, results cached thro
 `./mvnw -pl orazaka-architecture -am test -Darchitecture.ratchet.update=true` lowers the baseline
 (it never raises it). Every PR of the migration lowers at least one count.
 
+### Structured output: validated against its schema, self-corrected, bounded (ADR-094 §4.6, #172)
+
+`StructuredOutputClient.generate` asks for an instance of a type. The adapter puts Spring AI's `ChatClient` and its `StructuredOutputValidationAdvisor` in front of the model: each answer is validated against the type's JSON schema and, when it does not match (or is cut off), the model is asked again with the violation named. The number of answers one call may ask for is the `StructuredOutputBounds` port (default 2, the first plus one correction). Out of attempts, the call fails with a typed `StructuredOutputInvalidException` (an `IllegalStateException`, with the type and the attempts): never a default value, so a caller can turn it into a control verdict. Every attempt is a model call, so it is observed and counted in the same way as any other (`gen_ai.*`).
+
 ### Tool loop: server tools run inside the engine (ADR-094 §4.1, #169)
 
 Spring AI 2 no longer loops on tool calls inside the model, so `SpringAiChatInvocation` does it with the library's `ToolCallingManager`: when the model asks for tools, the engine runs them (already resolved, authorised and bound to the actor by the tool resolution), sends the results back and calls the model again, until it answers. Streaming does the same round by round; the server tool calls of intermediate rounds are not forwarded to the caller.

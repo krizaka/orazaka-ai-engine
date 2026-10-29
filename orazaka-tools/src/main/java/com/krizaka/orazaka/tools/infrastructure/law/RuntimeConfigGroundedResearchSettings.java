@@ -14,6 +14,7 @@ public final class RuntimeConfigGroundedResearchSettings implements GroundedRese
   static final String KEY_RESEARCH_ENABLED = "research.enabled";
   static final String KEY_CORPUS_ENABLED = "law.corpus.enabled";
   static final String KEY_LECTURE_ENABLED = "law.lecture.enabled";
+  static final String KEY_LECTURE_MAX_CREDITS = "law.lecture.max-credits";
   static final String KEY_VERIFY_MODE = "research.verify.mode";
   static final String KEY_MAX_ARTICLES = "law.retrieval.max-articles";
   static final String KEY_QUOTE_MAX_CHARS = "research.quote.max-chars";
@@ -47,6 +48,12 @@ public final class RuntimeConfigGroundedResearchSettings implements GroundedRese
   @Override
   public boolean lectureEnabled() {
     return config.getBoolean(KEY_LECTURE_ENABLED, false);
+  }
+
+  /** A missing row is a cap of 0: a lecture spends nothing it was not allowed to. */
+  @Override
+  public int lectureMaxCredits() {
+    return config.getInt(KEY_LECTURE_MAX_CREDITS, 0);
   }
 
   @Override

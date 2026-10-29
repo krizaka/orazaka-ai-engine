@@ -3,6 +3,7 @@ package com.krizaka.orazaka.tools.application.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.krizaka.orazaka.core.domain.model.chat.TokenUsage;
 import com.krizaka.orazaka.core.domain.model.research.Citation;
 import com.krizaka.orazaka.core.domain.model.research.Claim;
 import com.krizaka.orazaka.core.domain.model.research.ClaimReason;
@@ -11,6 +12,7 @@ import com.krizaka.orazaka.core.domain.model.research.GroundedAnswer;
 import com.krizaka.orazaka.core.domain.model.research.GroundedSource;
 import com.krizaka.orazaka.core.domain.model.research.VerifyMode;
 import com.krizaka.orazaka.persistence.domain.ports.inbound.RuntimeConfigProvider;
+import com.krizaka.orazaka.tools.application.port.law.ChatTokenMeter;
 import com.krizaka.orazaka.tools.application.port.law.GroundedClaimsModel;
 import com.krizaka.orazaka.tools.application.port.law.GroundedResearchSettings;
 import com.krizaka.orazaka.tools.application.port.law.ResearchMeter;
@@ -49,6 +51,7 @@ class GroundedResearchServiceTest {
   private final FixedSettings settings = new FixedSettings();
   private final ScriptedModel model = new ScriptedModel();
   private final RecordingMeter meter = new RecordingMeter();
+  private final RecordingTokenMeter tokens = new RecordingTokenMeter();
   private GroundedResearchService service;
 
   @BeforeEach
@@ -74,7 +77,8 @@ class GroundedResearchServiceTest {
         new LawCorpusResearchService(corpus, research, Clock.fixed(NOW, ZoneOffset.UTC)),
         model,
         new CitationVerificationService(research, new SeededConfig()),
-        meter);
+        meter,
+        tokens);
   }
 
   private void add(UUID importId, String ref, String text) {
@@ -307,6 +311,112 @@ class GroundedResearchServiceTest {
     assertThat(claim.status()).isEqualTo(ClaimStatus.TO_VALIDATE);
   }
 
+  @Test
+  @DisplayName("the chat tokens of the call are held, then settled once with what was reported")
+  void the_tokens_are_billed_once() {
+    GroundedResearchResult result = service.research(ask(null, "1932"));
+
+    assertThat(result.outcome()).isEqualTo(Outcome.ANSWERED);
+    assertThat(tokens.holds).isEqualTo(1);
+    assertThat(tokens.settled).containsExactly(TokenUsage.reported(900, 100, 1_000));
+    assertThat(tokens.released).isZero();
+    assertThat(meter.settled).isEqualTo(1);
+  }
+
+  @Test
+  @DisplayName("tokens the provider did not report are handed on as unreported, not as zero")
+  void unreported_tokens_are_not_zero() {
+    model.usage = TokenUsage.none();
+
+    service.research(ask(null, "1932"));
+
+    assertThat(tokens.settled).containsExactly(TokenUsage.none());
+    assertThat(tokens.settled.getFirst().reported()).isFalse();
+  }
+
+  @Test
+  @DisplayName(
+      "a lecture whose reservations pass law.lecture.max-credits is refused, nothing charged")
+  void a_lecture_stops_at_its_cap() {
+    settings.lecture = true;
+    settings.lectureCap = 39; // 10 for the call + 30 for the tokens
+
+    GroundedResearchResult result = service.research(ask(DOCUMENT, "1932"));
+
+    assertThat(result.outcome()).isEqualTo(Outcome.CREDIT_CAP_REACHED);
+    assertThat(result.answer().claims()).isEmpty();
+    assertThat(model.calls).isZero();
+    assertThat(meter.settled).isZero();
+    assertThat(meter.released).isEqualTo(1);
+    assertThat(tokens.settled).isEmpty();
+    assertThat(tokens.released).isEqualTo(1);
+    assertThat(research.documents).isEmpty();
+  }
+
+  @Test
+  @DisplayName("a lecture exactly at its cap runs, and settles once")
+  void a_lecture_at_the_cap_runs() {
+    settings.lecture = true;
+    settings.lectureCap = 40;
+    model.documentQuote = "visitera le logement demain à 10 h sans autre préavis";
+
+    GroundedResearchResult result = service.research(ask(DOCUMENT, "1932"));
+
+    assertThat(result.outcome()).isEqualTo(Outcome.ANSWERED);
+    assertThat(meter.settled).isEqualTo(1);
+    assertThat(tokens.settled).hasSize(1);
+    assertThat(meter.released).isZero();
+    assertThat(tokens.released).isZero();
+  }
+
+  @Test
+  @DisplayName("a cap of 0 (or no row) keeps the lecture off: nothing is held")
+  void a_zero_cap_is_no_lecture() {
+    settings.lecture = true;
+    settings.lectureCap = 0;
+
+    GroundedResearchResult result = service.research(ask(DOCUMENT, "1932"));
+
+    assertThat(result.outcome()).isEqualTo(Outcome.CREDIT_CAP_REACHED);
+    assertThat(meter.holds).isZero();
+    assertThat(tokens.holds).isZero();
+    assertThat(model.calls).isZero();
+  }
+
+  @Test
+  @DisplayName("the cap is for a lecture: a call with no document is not bound by it")
+  void the_cap_is_not_for_a_plain_call() {
+    settings.lectureCap = 0;
+
+    assertThat(service.research(ask(null, "1932")).outcome()).isEqualTo(Outcome.ANSWERED);
+  }
+
+  @Test
+  @DisplayName(
+      "credits that cannot hold the tokens free the call's hold and refuse before the model")
+  void tokens_that_cannot_be_held_free_the_call() {
+    tokens.refuse = true;
+
+    GroundedResearchResult result = service.research(ask(null, "1932"));
+
+    assertThat(result.outcome()).isEqualTo(Outcome.BUDGET_EXHAUSTED);
+    assertThat(meter.released).isEqualTo(1);
+    assertThat(meter.settled).isZero();
+    assertThat(model.calls).isZero();
+  }
+
+  @Test
+  @DisplayName("a model failure releases both holds: nothing is settled")
+  void a_failure_releases_both_holds() {
+    model.failure = new IllegalStateException("model down");
+
+    assertThatThrownBy(() -> service.research(ask(null, "1932")))
+        .isInstanceOf(IllegalStateException.class);
+    assertThat(meter.released).isEqualTo(1);
+    assertThat(tokens.released).isEqualTo(1);
+    assertThat(tokens.settled).isEmpty();
+  }
+
   /** A model that cites one claim per article, and the document when it is given. */
   private static final class ScriptedModel implements GroundedClaimsModel {
     int calls;
@@ -315,6 +425,13 @@ class GroundedResearchServiceTest {
     RuntimeException failure;
     GroundedSource namedSource;
     final List<List<Passage>> passages = new ArrayList<>();
+
+    TokenUsage usage = TokenUsage.reported(900, 100, 1_000);
+
+    @Override
+    public Reply askMetered(String question, String language, List<Passage> given) {
+      return new Reply(ask(question, language, given), usage);
+    }
 
     @Override
     public GroundedAnswer ask(String question, String language, List<Passage> given) {
@@ -353,6 +470,7 @@ class GroundedResearchServiceTest {
     int settled;
     int released;
     boolean refuse;
+    long estimate = 10;
 
     @Override
     public Hold hold(String runId, String actorId, String providerKey) {
@@ -362,8 +480,46 @@ class GroundedResearchServiceTest {
       holds++;
       return new Hold() {
         @Override
+        public long estimatedCredits() {
+          return estimate;
+        }
+
+        @Override
         public void settle() {
           settled++;
+        }
+
+        @Override
+        public void release(String reason) {
+          released++;
+        }
+      };
+    }
+  }
+
+  /** The tokens of the model call, on counters. */
+  private static final class RecordingTokenMeter implements ChatTokenMeter {
+    int holds;
+    final List<TokenUsage> settled = new ArrayList<>();
+    int released;
+    boolean refuse;
+    long estimate = 30;
+
+    @Override
+    public Hold hold(String runId, String actorId) {
+      if (refuse) {
+        throw new ResearchMeter.BudgetExceededException("credits cannot hold the tokens");
+      }
+      holds++;
+      return new Hold() {
+        @Override
+        public long estimatedCredits() {
+          return estimate;
+        }
+
+        @Override
+        public void settle(TokenUsage usage) {
+          settled.add(usage);
         }
 
         @Override
@@ -379,6 +535,7 @@ class GroundedResearchServiceTest {
     boolean research = true;
     boolean corpus = true;
     boolean lecture;
+    int lectureCap = 1_000;
     VerifyMode mode = VerifyMode.MARK;
 
     @Override
@@ -394,6 +551,11 @@ class GroundedResearchServiceTest {
     @Override
     public boolean lectureEnabled() {
       return lecture;
+    }
+
+    @Override
+    public int lectureMaxCredits() {
+      return lectureCap;
     }
 
     @Override

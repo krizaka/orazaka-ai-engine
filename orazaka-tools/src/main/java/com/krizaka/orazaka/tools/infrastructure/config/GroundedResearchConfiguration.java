@@ -3,6 +3,7 @@ package com.krizaka.orazaka.tools.infrastructure.config;
 import com.krizaka.orazaka.core.domain.ports.inbound.AiClient;
 import com.krizaka.orazaka.core.domain.ports.inbound.CitationVerifier;
 import com.krizaka.orazaka.persistence.domain.ports.inbound.RuntimeConfigProvider;
+import com.krizaka.orazaka.tools.application.port.law.ChatTokenMeter;
 import com.krizaka.orazaka.tools.application.port.law.GroundedClaimsModel;
 import com.krizaka.orazaka.tools.application.port.law.GroundedResearchSettings;
 import com.krizaka.orazaka.tools.application.port.law.LawCorpusStore;
@@ -45,20 +46,29 @@ public class GroundedResearchConfiguration {
       ObjectProvider<GroundedClaimsModel> model,
       AiClient chat,
       CitationVerifier verifier,
-      ObjectProvider<ResearchMeter> meter) {
+      ObjectProvider<ResearchMeter> meter,
+      ObjectProvider<ChatTokenMeter> tokenMeter) {
     return new GroundedResearchService(
         settings,
         research,
         new LawCorpusResearchService(corpus, research, Clock.systemUTC()),
         model.getIfAvailable(() -> new ChatGroundedClaimsModel(chat)),
         verifier,
-        meter.getIfAvailable(GroundedResearchConfiguration::noMeter));
+        meter.getIfAvailable(GroundedResearchConfiguration::noMeter),
+        tokenMeter.getIfAvailable(GroundedResearchConfiguration::noTokenMeter));
   }
 
   private static ResearchMeter noMeter() {
     return (runId, actorId, providerKey) -> {
       throw new ResearchMeter.BudgetExceededException(
           "no metering is wired: a grounded call is never made unmetered");
+    };
+  }
+
+  private static ChatTokenMeter noTokenMeter() {
+    return (runId, actorId) -> {
+      throw new ResearchMeter.BudgetExceededException(
+          "no token metering is wired: a grounded call is never made unmetered");
     };
   }
 }

@@ -32,6 +32,7 @@ import com.krizaka.orazaka.core.application.routing.DynamicChatModelFactory;
 import com.krizaka.orazaka.core.application.security.ClientToolGate;
 import com.krizaka.orazaka.core.domain.ports.inbound.AgentTurns;
 import com.krizaka.orazaka.core.domain.ports.outbound.*;
+import com.krizaka.orazaka.core.domain.ports.outbound.ToolLoopBounds;
 import com.krizaka.orazaka.core.infrastructure.adapter.security.LoggingAccessAudit;
 import com.krizaka.orazaka.core.infrastructure.config.CoreProperties;
 import com.krizaka.orazaka.persistence.domain.ports.inbound.CatalogModelManager;
@@ -39,6 +40,7 @@ import java.util.List;
 import java.util.Map;
 import org.springframework.ai.audio.tts.TextToSpeechModel;
 import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.model.tool.ToolCallingManager;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -183,13 +185,20 @@ public class SpringAiAdapterAutoConfiguration {
    *
    * @param chatModel the primary model
    * @param modelFactory builds a model for a user's key
+   * @param bounds the tool-round bound per feature key, when a store is wired (else the default)
    * @return the invocation
    */
   @Bean
   @ConditionalOnMissingBean(ChatInvocation.class)
   public SpringAiChatInvocation chatInvocation(
-      ChatModel chatModel, DynamicChatModelFactory<ChatModel> modelFactory) {
-    return new SpringAiChatInvocation(chatModel, modelFactory);
+      ChatModel chatModel,
+      DynamicChatModelFactory<ChatModel> modelFactory,
+      ObjectProvider<ToolLoopBounds> bounds) {
+    return new SpringAiChatInvocation(
+        chatModel,
+        modelFactory,
+        ToolCallingManager.builder().build(),
+        bounds.getIfAvailable(() -> ToolLoopBounds.fixed(ToolLoopBounds.DEFAULT_MAX_ROUNDS)));
   }
 
   /**

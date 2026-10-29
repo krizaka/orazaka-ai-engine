@@ -49,7 +49,8 @@ public class AgentTurnsImpl implements AgentTurns {
     }
     InternalChatRequest internal =
         new InternalChatRequest("", messages, options(request), request.context(), false)
-            .withClientTools(request.tools());
+            .withClientTools(request.tools())
+            .withFeatureKey(request.featureKey());
     InternalChatResponse answer = engine.chat(internal);
     return new AgentTurnResult(answer.content(), answer.toolCalls(), answer.tokenUsage());
   }

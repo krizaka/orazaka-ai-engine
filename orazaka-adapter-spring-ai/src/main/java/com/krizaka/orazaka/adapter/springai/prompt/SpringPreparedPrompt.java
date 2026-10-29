@@ -11,8 +11,19 @@ import org.springframework.ai.openai.OpenAiChatOptions;
  * only the chat invocation adapter opens this.
  *
  * @param prompt the assembled prompt
+ * @param featureKey the feature of the turn, or {@code null}
  */
-public record SpringPreparedPrompt(Prompt prompt) implements PreparedPrompt {
+public record SpringPreparedPrompt(Prompt prompt, String featureKey) implements PreparedPrompt {
+
+  /** A prompt of a turn with no feature key. */
+  public SpringPreparedPrompt(Prompt prompt) {
+    this(prompt, null);
+  }
+
+  @Override
+  public PreparedPrompt forFeature(String key) {
+    return new SpringPreparedPrompt(prompt, key);
+  }
 
   @Override
   public int messageCount() {
@@ -26,7 +37,7 @@ public record SpringPreparedPrompt(Prompt prompt) implements PreparedPrompt {
 
   @Override
   public PreparedPrompt withoutTools() {
-    return new SpringPreparedPrompt(removeTools(prompt));
+    return new SpringPreparedPrompt(removeTools(prompt), featureKey);
   }
 
   /**

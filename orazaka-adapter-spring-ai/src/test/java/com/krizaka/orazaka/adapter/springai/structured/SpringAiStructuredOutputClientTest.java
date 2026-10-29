@@ -14,7 +14,9 @@ import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
+import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.model.tool.StructuredOutputChatOptions;
 
 class SpringAiStructuredOutputClientTest {
 
@@ -27,9 +29,20 @@ class SpringAiStructuredOutputClientTest {
   private static final class ScriptedModel implements ChatModel {
     final List<Prompt> prompts = new ArrayList<>();
     private final List<String> answers;
+    private final ChatOptions defaults;
 
     ScriptedModel(String... answers) {
+      this(ChatOptions.builder().build(), answers);
+    }
+
+    ScriptedModel(ChatOptions defaults, String... answers) {
+      this.defaults = defaults;
       this.answers = List.of(answers);
+    }
+
+    @Override
+    public ChatOptions getDefaultOptions() {
+      return defaults;
     }
 
     @Override
@@ -105,5 +118,48 @@ class SpringAiStructuredOutputClientTest {
     assertThatThrownBy(() -> client(model, 1).generate(ask()))
         .isInstanceOf(StructuredOutputInvalidException.class);
     assertThat(model.prompts).hasSize(1);
+  }
+
+  @Test
+  void theBoundIsReadForTheFeatureOfTheCall() {
+    var model = new ScriptedModel("not json at all");
+    var bounds = (StructuredOutputBounds) key -> "agent.code.review".equals(key) ? 3 : 1;
+    var client = new SpringAiStructuredOutputClient(model, bounds, ObservationRegistry.NOOP);
+
+    assertThatThrownBy(
+            () ->
+                client.generate(
+                    new StructuredOutputRequest<>("", "Is it fine?", Verdict.class, "agent.code.review")))
+        .isInstanceOfSatisfying(
+            StructuredOutputInvalidException.class, e -> assertThat(e.attempts()).isEqualTo(3));
+    assertThat(model.prompts).hasSize(3);
+
+    var other = new ScriptedModel("not json at all");
+    var otherClient = new SpringAiStructuredOutputClient(other, bounds, ObservationRegistry.NOOP);
+    assertThatThrownBy(() -> otherClient.generate(ask()))
+        .isInstanceOf(StructuredOutputInvalidException.class);
+    assertThat(other.prompts).hasSize(1);
+  }
+
+  @Test
+  void aModelThatTakesAJsonSchemaIsAskedInItsNativeMode() {
+    var model =
+        new ScriptedModel(
+            StructuredOutputChatOptions.builder().build(), "{\"label\":\"ok\",\"score\":7}");
+
+    assertThat(client(model, 2).generate(ask())).isEqualTo(new Verdict("ok", 7));
+    assertThat(model.prompts.getFirst().getOptions())
+        .isInstanceOfSatisfying(
+            StructuredOutputChatOptions.class,
+            options -> assertThat(options.getOutputSchema()).contains("score"));
+  }
+
+  @Test
+  void aModelWithoutNativeModeFallsBackToTheAdvisorAndTheFormatInThePrompt() {
+    var model = new ScriptedModel("{\"label\":\"ok\",\"score\":7}");
+
+    assertThat(client(model, 2).generate(ask())).isEqualTo(new Verdict("ok", 7));
+    assertThat(model.prompts.getFirst().getOptions()).isNotInstanceOf(StructuredOutputChatOptions.class);
+    assertThat(model.prompts.getFirst().getContents()).contains("score");
   }
 }

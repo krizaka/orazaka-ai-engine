@@ -145,4 +145,20 @@ class CoreServicesAutoConfigurationTest {
               assertThat(context.getBean(McpService.class)).isSameAs(own);
             });
   }
+
+  /**
+   * The Studio, job and conversation hosts scan {@code orazaka-tools}, whose {@code @Service
+   * McpService} is a bean named {@code mcpService}: the core's own MCP bean must not take that name
+   * (dev refused to start, 2026-10-29, BeanDefinitionOverrideException).
+   */
+  @Test
+  void theCoreMcpServiceDoesNotTakeTheNameOfTheToolsModulesBean() {
+    runner
+        .withBean("mcpService", Object.class, Object::new)
+        .run(
+            context -> {
+              assertThat(context).hasNotFailed();
+              assertThat(context).getBean(McpService.class).isInstanceOf(DefaultMcpService.class);
+            });
+  }
 }

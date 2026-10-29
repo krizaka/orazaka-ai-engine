@@ -414,7 +414,7 @@ public class CoreServicesAutoConfiguration {
    */
   @Bean
   @ConditionalOnMissingBean(McpService.class)
-  public DefaultMcpService mcpService(ToolRegistry registry, AccessAudit audit) {
+  public DefaultMcpService coreMcpService(ToolRegistry registry, AccessAudit audit) {
     return new DefaultMcpService(registry, audit);
   }
 

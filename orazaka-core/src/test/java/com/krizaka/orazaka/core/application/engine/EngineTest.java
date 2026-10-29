@@ -598,9 +598,6 @@ class EngineTest {
           String promptText,
           List<EngineMessage> messages,
           EngineChatOptions options) {
-        if (request.streaming()) {
-          return options;
-        }
         if (toolRegistry == null || toolRegistry.getRegisteredTools(ACTOR).isEmpty()) {
           return options;
         }

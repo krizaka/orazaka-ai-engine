@@ -48,17 +48,18 @@ class ToolInterceptorTest {
   }
 
   @Test
-  @DisplayName("preProcess returns original options when streaming is true")
+  @DisplayName("preProcess offers the tools on a streamed turn too (the stream path runs them)")
   void preProcessStreaming() {
-    ToolRegistry toolRegistry = mock(ToolRegistry.class);
-    ToolInterceptor interceptor = new ToolInterceptor(toolRegistry, toolOptions);
     EngineChatOptions options = new EngineChatOptions("m", 0.1, 10);
+    EngineChatOptions withTools = new EngineChatOptions("m", 0.1, 10);
+    EngineTool lookup = tool("lookup");
+    when(toolOptions.withTools(options, List.of(lookup))).thenReturn(withTools);
 
     EngineChatOptions result =
-        interceptor.preProcess(request("prompt", true), "prompt", new ArrayList<>(), options);
+        interceptorOver(lookup)
+            .preProcess(request("prompt", true), "prompt", new ArrayList<>(), options);
 
-    assertThat(result).isSameAs(options);
-    verifyNoInteractions(toolRegistry, toolOptions);
+    assertThat(result).isSameAs(withTools);
   }
 
   @Test

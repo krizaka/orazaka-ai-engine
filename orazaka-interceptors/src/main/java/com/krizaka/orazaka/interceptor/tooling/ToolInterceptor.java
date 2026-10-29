@@ -35,9 +35,8 @@ class ToolInterceptor implements PromptContextInterceptor {
       String promptText,
       List<EngineMessage> messages,
       EngineChatOptions options) {
-    if (request.streaming()) {
-      return options;
-    }
+    // Sync and streamed turns offer the same tools: the invocation port runs the loop in both
+    // modes (ADR-094 §4.1, orazaka-ai-engine#169).
     // In client-executed mode the client's tools are the closed list (ADR-093 §4): the engine's own
     // are not offered beside them.
     if (request.clientToolMode()) {

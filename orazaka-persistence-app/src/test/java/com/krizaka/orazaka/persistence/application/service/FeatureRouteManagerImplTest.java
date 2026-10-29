@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 import com.krizaka.orazaka.persistence.infrastructure.adapter.persistence.entity.FeatureModelEntity;
 import com.krizaka.orazaka.persistence.infrastructure.adapter.persistence.repository.FeatureModelRepository;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -58,5 +59,20 @@ class FeatureRouteManagerImplTest {
     assertEquals(List.of(), manager.modelNames(null));
     assertEquals(List.of(), manager.modelNames("  "));
     verifyNoInteractions(repository);
+  }
+
+  @Test
+  @DisplayName("allRoutes groups every row by feature key, keys sorted, models in rank order")
+  void allRoutesGrouped() {
+    when(repository.findAll())
+        .thenReturn(
+            List.of(
+                row("b.feature", 1, "m3"), row("a.feature", 2, "m2"), row("a.feature", 1, "m1")));
+
+    Map<String, List<String>> routes = manager.allRoutes();
+
+    assertEquals(List.of("a.feature", "b.feature"), List.copyOf(routes.keySet()));
+    assertEquals(List.of("m1", "m2"), routes.get("a.feature"));
+    assertEquals(List.of("m3"), routes.get("b.feature"));
   }
 }

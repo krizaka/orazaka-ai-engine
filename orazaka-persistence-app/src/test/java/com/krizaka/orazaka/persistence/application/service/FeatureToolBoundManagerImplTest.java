@@ -1,12 +1,19 @@
 package com.krizaka.orazaka.persistence.application.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import com.krizaka.orazaka.persistence.infrastructure.adapter.persistence.entity.FeatureToolBoundEntity;
 import com.krizaka.orazaka.persistence.infrastructure.adapter.persistence.repository.FeatureToolBoundRepository;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import org.junit.jupiter.api.DisplayName;
@@ -65,5 +72,56 @@ class FeatureToolBoundManagerImplTest {
     when(repository.findById("*")).thenReturn(Optional.empty());
 
     assertTrue(manager.maxToolRounds("agent.other").isEmpty());
+  }
+
+  @Test
+  @DisplayName("all() lists every bound by key, sorted, the default row included")
+  void allSorted() {
+    when(repository.findAll())
+        .thenReturn(List.of(row("b.feature", 2), row("*", 8), row("a.feature", 4)));
+
+    assertEquals(Map.of("*", 8, "a.feature", 4, "b.feature", 2), manager.all());
+    assertEquals(List.of("*", "a.feature", "b.feature"), List.copyOf(manager.all().keySet()));
+  }
+
+  @Test
+  @DisplayName("upsert stores the bound of a feature, within 1 to 32")
+  void upsertStores() {
+    manager.upsert("agent.code.issue-to-pr", 5);
+
+    var saved = org.mockito.ArgumentCaptor.forClass(FeatureToolBoundEntity.class);
+    verify(repository).save(saved.capture());
+    assertEquals("agent.code.issue-to-pr", saved.getValue().getFeatureKey());
+    assertEquals(5, saved.getValue().getMaxToolRounds());
+  }
+
+  @Test
+  @DisplayName("upsert refuses a bound outside 1 to 32 and a blank or oversized key")
+  void upsertValidates() {
+    assertThrows(IllegalArgumentException.class, () -> manager.upsert("f", 0));
+    assertThrows(IllegalArgumentException.class, () -> manager.upsert("f", 33));
+    assertThrows(IllegalArgumentException.class, () -> manager.upsert(" ", 5));
+    assertThrows(IllegalArgumentException.class, () -> manager.upsert(null, 5));
+    assertThrows(IllegalArgumentException.class, () -> manager.upsert("x".repeat(121), 5));
+    verify(repository, never()).save(any());
+  }
+
+  @Test
+  @DisplayName("delete removes a feature's own row and says whether there was one")
+  void deleteRemoves() {
+    when(repository.existsById("agent.a")).thenReturn(true);
+    when(repository.existsById("agent.b")).thenReturn(false);
+
+    assertTrue(manager.delete("agent.a"));
+    assertFalse(manager.delete("agent.b"));
+    verify(repository).deleteById("agent.a");
+    verify(repository, never()).deleteById("agent.b");
+  }
+
+  @Test
+  @DisplayName("the default row is never removed")
+  void defaultRowStays() {
+    assertThrows(IllegalArgumentException.class, () -> manager.delete("*"));
+    verify(repository, never()).deleteById(any());
   }
 }

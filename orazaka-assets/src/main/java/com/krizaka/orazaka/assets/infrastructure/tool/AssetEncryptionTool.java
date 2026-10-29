@@ -76,6 +76,9 @@ public final class AssetEncryptionTool {
     }
   }
 
+  private static final String OP_MIGRATE = "migrate";
+  private static final String OP_VERIFY = "verify";
+
   private enum Command {
     KEYGEN,
     MIGRATE,
@@ -83,7 +86,7 @@ public final class AssetEncryptionTool {
   }
 
   private static final Map<String, Command> COMMANDS =
-      Map.of("keygen", Command.KEYGEN, "migrate", Command.MIGRATE, "verify", Command.VERIFY);
+      Map.of("keygen", Command.KEYGEN, OP_MIGRATE, Command.MIGRATE, OP_VERIFY, Command.VERIFY);
 
   /**
    * Converts every plaintext file under {@code uploadRoot}, skipping what is already done.
@@ -113,7 +116,7 @@ public final class AssetEncryptionTool {
         failed.add(file + " — " + e.getMessage());
       }
     }
-    return new Outcome("migrate", converted, alreadyDone, failed);
+    return new Outcome(OP_MIGRATE, converted, alreadyDone, failed);
   }
 
   /**
@@ -148,7 +151,7 @@ public final class AssetEncryptionTool {
         failed.add(file + " — " + e.getMessage());
       }
     }
-    return new Outcome("verify", verified, stillPlaintext, failed);
+    return new Outcome(OP_VERIFY, verified, stillPlaintext, failed);
   }
 
   private static List<Path> files(Path root) throws IOException {
@@ -188,8 +191,9 @@ public final class AssetEncryptionTool {
 
     /** A line an operator can paste into a change record. */
     public String describe() {
-      String changedLabel = "migrate".equals(operation) ? "converted" : "verified";
-      String unchangedLabel = "migrate".equals(operation) ? "already encrypted" : "still plaintext";
+      String changedLabel = OP_MIGRATE.equals(operation) ? "converted" : "verified";
+      String unchangedLabel =
+          OP_MIGRATE.equals(operation) ? "already encrypted" : "still plaintext";
       return operation
           + ": "
           + changed

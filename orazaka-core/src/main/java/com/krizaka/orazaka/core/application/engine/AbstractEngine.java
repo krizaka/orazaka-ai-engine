@@ -8,6 +8,7 @@ import com.krizaka.orazaka.core.application.pipeline.EnginePipelineContext;
 import com.krizaka.orazaka.core.application.pipeline.EngineStreamBridge;
 import com.krizaka.orazaka.core.application.pipeline.ResponseScreen;
 import com.krizaka.orazaka.core.domain.event.ChatCompletedEvent;
+import com.krizaka.orazaka.core.domain.event.ToolExecutedEvent;
 import com.krizaka.orazaka.core.domain.model.CachedResponse;
 import com.krizaka.orazaka.core.domain.model.audio.AudioRequest;
 import com.krizaka.orazaka.core.domain.model.chat.ChatCompletion;
@@ -161,6 +162,12 @@ public abstract sealed class AbstractEngine permits Engine {
       closeContextResources(context);
     }
     long durationMs = (System.nanoTime() - startTime) / 1_000_000;
+    if (response != null) {
+      for (ToolCall ran : response.executed()) {
+        eventPublisher.publish(
+            new ToolExecutedEvent(context.conversationId(), ran.name(), ran.id()));
+      }
+    }
     // Every answer is screened before it leaves — this one and a cached one take the same path.
     var screened =
         ResponseScreen.screen(interceptors, context.promptContext(), extractResponseText(response));

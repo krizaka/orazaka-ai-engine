@@ -107,6 +107,53 @@ class EngineStreamBridgeTest {
   }
 
   @Test
+  void aToolTheEngineRanIsAnnouncedWithItsNameAndCallIdOnly() {
+    var request = InternalChatRequest.simple(PROMPT_HELLO);
+    var prompt = new Prompt(PROMPT_HELLO, OllamaChatOptions.builder().build());
+    var context =
+        new EnginePipelineContext(
+            PROVIDER_OLLAMA, CONV_1, PROMPT_HELLO, new SpringPreparedPrompt(prompt));
+    when(pipelineBridge.compileContext(
+            request, orchestrationPipeline, PROVIDER_OLLAMA, List.of(interceptor)))
+        .thenReturn(context);
+    var ran = new com.krizaka.orazaka.core.domain.model.chat.ToolCall("c1", "lookup", "{\"q\":1}");
+    var chunks =
+        Flux.just(
+            new com.krizaka.orazaka.core.domain.model.chat.ChatCompletion(
+                "", null, List.of(), List.of(ran)),
+            new com.krizaka.orazaka.core.domain.model.chat.ChatCompletion("answer", null));
+    var bridge =
+        new EngineStreamBridge(
+            new com.krizaka.orazaka.core.domain.ports.outbound.ChatInvocation() {
+              @Override
+              public com.krizaka.orazaka.core.domain.model.chat.ChatCompletion call(
+                  com.krizaka.orazaka.core.domain.model.chat.PreparedPrompt p,
+                  com.krizaka.orazaka.core.domain.model.chat.ChatRoute r) {
+                throw new UnsupportedOperationException();
+              }
+
+              @Override
+              public Flux<com.krizaka.orazaka.core.domain.model.chat.ChatCompletion> stream(
+                  com.krizaka.orazaka.core.domain.model.chat.PreparedPrompt p,
+                  com.krizaka.orazaka.core.domain.model.chat.ChatRoute r) {
+                return chunks;
+              }
+            },
+            pipelineBridge,
+            credentialsProvider);
+
+    bridge
+        .createStream(
+            request, orchestrationPipeline, PROVIDER_OLLAMA, List.of(interceptor), eventPublisher)
+        .collectList()
+        .block();
+
+    verify(eventPublisher)
+        .publish(
+            new com.krizaka.orazaka.core.domain.event.ToolExecutedEvent(CONV_1, "lookup", "c1"));
+  }
+
+  @Test
   void shouldFallbackToNonToolStreamOnSynchronousException() {
     // Arrange
     var request = InternalChatRequest.simple(PROMPT_HELLO);

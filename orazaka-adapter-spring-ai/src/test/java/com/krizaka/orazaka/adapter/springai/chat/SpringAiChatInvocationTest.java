@@ -130,6 +130,30 @@ class SpringAiChatInvocationTest {
   }
 
   @Test
+  void aToolRunByTheEngineIsReportedOnTheCompletion() {
+    var lookup = new Lookup();
+    when(platform.call(any(Prompt.class))).thenReturn(asking("lookup"), answer("it is 42"));
+
+    var out = invocation.call(withTools(lookup), ChatRoute.platform());
+
+    assertThat(out.executed()).extracting(ToolCall::name).containsExactly("lookup");
+  }
+
+  @Test
+  void aToolRunByTheEngineIsReportedWhenStreamingToo() {
+    var lookup = new Lookup();
+    when(platform.stream(any(Prompt.class)))
+        .thenReturn(Flux.just(asking("lookup")), Flux.just(answer("it is 42")));
+
+    var chunks = invocation.stream(withTools(lookup), ChatRoute.platform()).collectList().block();
+
+    assertThat(chunks)
+        .flatExtracting(ChatCompletion::executed)
+        .extracting(ToolCall::name)
+        .containsExactly("lookup");
+  }
+
+  @Test
   void aServerToolTheModelAsksForIsRunWhenStreamingToo() {
     var lookup = new Lookup();
     when(platform.stream(any(Prompt.class)))

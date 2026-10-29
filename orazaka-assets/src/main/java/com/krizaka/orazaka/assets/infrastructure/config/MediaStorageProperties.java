@@ -1,5 +1,6 @@
 package com.krizaka.orazaka.assets.infrastructure.config;
 
+import java.util.Map;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
@@ -26,25 +27,37 @@ public record MediaStorageProperties(
 
   /** Fails at start, by name, on an incomplete provider — never at the first upload. */
   public MediaStorageProperties {
-    switch (provider) {
-      case "local" -> {}
-      case "bunny" -> {
+    Kind kind = KINDS.get(provider);
+    if (kind == null) {
+      throw new IllegalArgumentException(
+          "media.storage.provider must be local, bunny or directory, was " + provider);
+    }
+    switch (kind) {
+      case LOCAL -> {}
+      case BUNNY -> {
         if (isBlank(zone) || isBlank(apiKey)) {
           throw new IllegalArgumentException(
               "media.storage.provider=bunny needs MEDIA_STORAGE_ZONE and MEDIA_STORAGE_API_KEY");
         }
       }
-      case "directory" -> {
+      case DIRECTORY -> {
         if (isBlank(directory)) {
           throw new IllegalArgumentException(
               "media.storage.provider=directory needs MEDIA_STORAGE_DIRECTORY");
         }
       }
-      default ->
-          throw new IllegalArgumentException(
-              "media.storage.provider must be local, bunny or directory, was " + provider);
     }
   }
+
+  /** The providers a deployment may name, by the word its settings use. */
+  private enum Kind {
+    LOCAL,
+    BUNNY,
+    DIRECTORY
+  }
+
+  private static final Map<String, Kind> KINDS =
+      Map.of("local", Kind.LOCAL, "bunny", Kind.BUNNY, "directory", Kind.DIRECTORY);
 
   private static boolean isBlank(String value) {
     return value == null || value.isBlank();

@@ -11,6 +11,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Stream;
 
 /**
@@ -52,8 +53,14 @@ public final class AssetEncryptionTool {
       return;
     }
     Path keyFile = Path.of(args[1]);
-    switch (args[0]) {
-      case "keygen" -> {
+    Command command = COMMANDS.get(args[0]);
+    if (command == null) {
+      System.err.println("unknown subcommand: " + args[0]);
+      System.exit(2);
+      return;
+    }
+    switch (command) {
+      case KEYGEN -> {
         FileMasterKeyProvider.addKey(keyFile, args[2]);
         System.out.println(
             "Wrote master key '"
@@ -64,14 +71,19 @@ public final class AssetEncryptionTool {
         System.out.println(
             "Every retired key must stay in this file for as long as one asset still names it.");
       }
-      case "migrate" -> report(migrate(keyFile, Path.of(args[2])));
-      case "verify" -> report(verify(keyFile, Path.of(args[2])));
-      default -> {
-        System.err.println("unknown subcommand: " + args[0]);
-        System.exit(2);
-      }
+      case MIGRATE -> report(migrate(keyFile, Path.of(args[2])));
+      case VERIFY -> report(verify(keyFile, Path.of(args[2])));
     }
   }
+
+  private enum Command {
+    KEYGEN,
+    MIGRATE,
+    VERIFY
+  }
+
+  private static final Map<String, Command> COMMANDS =
+      Map.of("keygen", Command.KEYGEN, "migrate", Command.MIGRATE, "verify", Command.VERIFY);
 
   /**
    * Converts every plaintext file under {@code uploadRoot}, skipping what is already done.

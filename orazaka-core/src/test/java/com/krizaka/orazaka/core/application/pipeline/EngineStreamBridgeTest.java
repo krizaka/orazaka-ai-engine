@@ -107,12 +107,15 @@ class EngineStreamBridgeTest {
   }
 
   @Test
-  void aToolTheEngineRanIsAnnouncedWithItsNameAndCallIdOnly() {
+  void aToolTheEngineRanIsAnnouncedWithItsNameCallIdWhoAndFeatureOnly() {
     var request = InternalChatRequest.simple(PROMPT_HELLO);
     var prompt = new Prompt(PROMPT_HELLO, OllamaChatOptions.builder().build());
     var context =
         new EnginePipelineContext(
-            PROVIDER_OLLAMA, CONV_1, PROMPT_HELLO, new SpringPreparedPrompt(prompt));
+            PROVIDER_OLLAMA,
+            CONV_1,
+            PROMPT_HELLO,
+            new SpringPreparedPrompt(prompt).forFeature("agent.code.issue-to-pr"));
     when(pipelineBridge.compileContext(
             request, orchestrationPipeline, PROVIDER_OLLAMA, List.of(interceptor)))
         .thenReturn(context);
@@ -148,9 +151,20 @@ class EngineStreamBridgeTest {
         .collectList()
         .block();
 
-    verify(eventPublisher)
-        .publish(
-            new com.krizaka.orazaka.core.domain.event.ToolExecutedEvent(CONV_1, "lookup", "c1"));
+    var announced =
+        org.mockito.ArgumentCaptor.forClass(
+            com.krizaka.orazaka.core.domain.event.ToolExecutedEvent.class);
+    verify(eventPublisher).publish(announced.capture());
+    var event = announced.getValue();
+    assertThat(event.conversationId()).isEqualTo(CONV_1);
+    assertThat(event.toolName()).isEqualTo("lookup");
+    assertThat(event.callId()).isEqualTo("c1");
+    assertThat(event.userId()).isEqualTo(request.context().userId());
+    assertThat(event.featureKey()).isEqualTo("agent.code.issue-to-pr");
+    assertThat(event.durationMs()).isNotNegative();
+    assertThat(event.outcome()).isEqualTo("ok");
+    // never the arguments: nothing of {"q":1} is in the event
+    assertThat(event.toString()).doesNotContain("\"q\"");
   }
 
   @Test

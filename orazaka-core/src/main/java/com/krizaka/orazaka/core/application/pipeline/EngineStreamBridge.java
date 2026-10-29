@@ -117,7 +117,9 @@ public final class EngineStreamBridge {
                         ex);
                     return chatInvocation.stream(context.toPrompt().withoutTools(), route);
                   })
-              .doOnNext(completion -> announceExecuted(completion, context, eventPublisher))
+              .doOnNext(
+                  completion ->
+                      announceExecuted(completion, request, context, startTime, eventPublisher))
               .map(
                   completion -> {
                     String chunk = completion.text();
@@ -242,9 +244,22 @@ public final class EngineStreamBridge {
 
   /** Says, once per call, which tools the engine ran during the turn (name and id only). */
   private static void announceExecuted(
-      ChatCompletion completion, EnginePipelineContext context, DomainEventPublisher publisher) {
+      ChatCompletion completion,
+      InternalChatRequest request,
+      EnginePipelineContext context,
+      long startNanos,
+      DomainEventPublisher publisher) {
+    long durationMs = (System.nanoTime() - startNanos) / 1_000_000;
     for (ToolCall ran : completion.executed()) {
-      publisher.publish(new ToolExecutedEvent(context.conversationId(), ran.name(), ran.id()));
+      publisher.publish(
+          new ToolExecutedEvent(
+              context.conversationId(),
+              ran.name(),
+              ran.id(),
+              request.context().userId(),
+              context.toPrompt().featureKey(),
+              durationMs,
+              ToolExecutedEvent.OUTCOME_OK));
     }
   }
 

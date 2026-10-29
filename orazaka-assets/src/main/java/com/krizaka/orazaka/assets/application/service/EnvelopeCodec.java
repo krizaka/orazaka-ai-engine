@@ -104,6 +104,14 @@ public final class EnvelopeCodec {
     return buffer.array();
   }
 
+  private static byte[] readExactly(InputStream in, int length) throws IOException {
+    byte[] bytes = in.readNBytes(length);
+    if (bytes.length < length) {
+      throw new IOException("truncated envelope header");
+    }
+    return bytes;
+  }
+
   /**
    * Parses a header from the front of a stream, leaving it positioned at the first block.
    *
@@ -127,17 +135,10 @@ public final class EnvelopeCodec {
     long plainLength = buffer.getLong();
     int keyIdLength = Short.toUnsignedInt(buffer.getShort());
 
-    byte[] keyId = in.readNBytes(keyIdLength);
-    byte[] wrappedLength = in.readNBytes(2);
-    if (keyId.length < keyIdLength || wrappedLength.length < 2) {
-      throw new IOException("truncated envelope header");
-    }
-    int wrappedSize = Short.toUnsignedInt(ByteBuffer.wrap(wrappedLength).getShort());
-    byte[] wrapped = in.readNBytes(wrappedSize);
-    byte[] noncePrefix = in.readNBytes(EnvelopeHeader.NONCE_PREFIX_LENGTH);
-    if (wrapped.length < wrappedSize || noncePrefix.length < EnvelopeHeader.NONCE_PREFIX_LENGTH) {
-      throw new IOException("truncated envelope header");
-    }
+    byte[] keyId = readExactly(in, keyIdLength);
+    int wrappedSize = Short.toUnsignedInt(ByteBuffer.wrap(readExactly(in, 2)).getShort());
+    byte[] wrapped = readExactly(in, wrappedSize);
+    byte[] noncePrefix = readExactly(in, EnvelopeHeader.NONCE_PREFIX_LENGTH);
 
     int headerLength = 24 + keyIdLength + 2 + wrappedSize + EnvelopeHeader.NONCE_PREFIX_LENGTH;
     return new EnvelopeHeader(

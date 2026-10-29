@@ -116,6 +116,20 @@ class SpringAiAdapterAutoConfigurationTest {
   }
 
   @Test
+  void theHostsObservationRegistryIsAcceptedButNeverRequired() {
+    runner
+        .withBean(
+            io.micrometer.observation.ObservationRegistry.class,
+            io.micrometer.observation.ObservationRegistry::create)
+        .run(
+            context -> {
+              assertThat(context).hasNotFailed();
+              assertThat(context).hasSingleBean(UniversalProxyChatProvider.class);
+            });
+    runner.run(context -> assertThat(context).hasNotFailed());
+  }
+
+  @Test
   void theRoutingClusterBacksOffForTheRouterTheHostBrings() {
     var own = mock(DynamicModelRouter.class);
     runner

@@ -165,7 +165,14 @@ public abstract sealed class AbstractEngine permits Engine {
     if (response != null) {
       for (ToolCall ran : response.executed()) {
         eventPublisher.publish(
-            new ToolExecutedEvent(context.conversationId(), ran.name(), ran.id()));
+            new ToolExecutedEvent(
+                context.conversationId(),
+                ran.name(),
+                ran.id(),
+                request.context().userId(),
+                context.toPrompt().featureKey(),
+                durationMs,
+                ToolExecutedEvent.OUTCOME_OK));
       }
     }
     // Every answer is screened before it leaves — this one and a cached one take the same path.

@@ -5,7 +5,16 @@ import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
 
 /** Test double of the adapter's prompt: the core's tests cannot see the adapter module. */
-public record SpringPreparedPrompt(Prompt prompt) implements PreparedPrompt {
+public record SpringPreparedPrompt(Prompt prompt, String featureKey) implements PreparedPrompt {
+
+  public SpringPreparedPrompt(Prompt prompt) {
+    this(prompt, null);
+  }
+
+  @Override
+  public PreparedPrompt forFeature(String key) {
+    return new SpringPreparedPrompt(prompt, key);
+  }
 
   @Override
   public int messageCount() {
@@ -28,6 +37,7 @@ public record SpringPreparedPrompt(Prompt prompt) implements PreparedPrompt {
                     .model(prompt.getOptions().getModel())
                     .temperature(prompt.getOptions().getTemperature())
                     .maxTokens(prompt.getOptions().getMaxTokens())
-                    .build()));
+                    .build()),
+        featureKey);
   }
 }

@@ -15,6 +15,8 @@ import com.krizaka.orazaka.core.domain.model.chat.ChatRoute;
 import com.krizaka.orazaka.core.domain.model.chat.ClientTool;
 import com.krizaka.orazaka.core.domain.model.chat.PreparedPrompt;
 import com.krizaka.orazaka.core.domain.model.chat.ToolCall;
+import com.krizaka.orazaka.core.domain.model.chat.ToolRoundsExceededException;
+import com.krizaka.orazaka.core.domain.ports.outbound.ToolLoopBounds;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
@@ -25,6 +27,7 @@ import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.model.tool.ToolCallingChatOptions;
+import org.springframework.ai.model.tool.ToolCallingManager;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.definition.ToolDefinition;
 import reactor.core.publisher.Flux;
@@ -185,5 +188,67 @@ class SpringAiChatInvocationTest {
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("tool rounds");
     assertThat(lookup.runs.get()).isEqualTo(SpringAiChatInvocation.DEFAULT_MAX_TOOL_ROUNDS);
+  }
+
+  // ---- the bound is data per feature key (orazaka-ai-engine#169) ----
+
+  private SpringAiChatInvocation boundedBy(ToolLoopBounds bounds) {
+    return new SpringAiChatInvocation(
+        platform, factory, ToolCallingManager.builder().build(), bounds);
+  }
+
+  private static PreparedPrompt forFeature(String key, ToolCallback tool) {
+    return withTools(tool).forFeature(key);
+  }
+
+  @Test
+  void aFeatureBoundedAtOneRefusesTheSecondRoundWithATypedReason() {
+    var lookup = new Lookup();
+    when(platform.call(any(Prompt.class))).thenReturn(asking("lookup"));
+    var bounded = boundedBy(key -> "agent.code.issue-to-pr".equals(key) ? 1 : 8);
+
+    assertThatThrownBy(
+            () -> bounded.call(forFeature("agent.code.issue-to-pr", lookup), ChatRoute.platform()))
+        .isInstanceOfSatisfying(
+            ToolRoundsExceededException.class,
+            e -> {
+              assertThat(e.featureKey()).isEqualTo("agent.code.issue-to-pr");
+              assertThat(e.maxRounds()).isEqualTo(1);
+            });
+    assertThat(lookup.runs.get()).isEqualTo(1);
+  }
+
+  @Test
+  void theStreamedLoopStopsAtTheSameBoundWithTheSameReason() {
+    var lookup = new Lookup();
+    when(platform.stream(any(Prompt.class))).thenReturn(Flux.just(asking("lookup")));
+    var bounded = boundedBy(key -> 1);
+
+    assertThatThrownBy(
+            () ->
+                bounded.stream(forFeature("agent.code.issue-to-pr", lookup), ChatRoute.platform())
+                    .collectList()
+                    .block())
+        .isInstanceOf(ToolRoundsExceededException.class)
+        .hasMessageContaining("1 tool rounds");
+    assertThat(lookup.runs.get()).isEqualTo(1);
+  }
+
+  @Test
+  void aTurnWithoutAFeatureKeyAsksTheBoundForTheDefault() {
+    var lookup = new Lookup();
+    when(platform.call(any(Prompt.class))).thenReturn(asking("lookup"));
+    var asked = new java.util.concurrent.atomic.AtomicReference<String>("unset");
+    var bounded =
+        boundedBy(
+            key -> {
+              asked.set(key);
+              return 2;
+            });
+
+    assertThatThrownBy(() -> bounded.call(withTools(lookup), ChatRoute.platform()))
+        .isInstanceOf(ToolRoundsExceededException.class);
+    assertThat(asked.get()).isNull();
+    assertThat(lookup.runs.get()).isEqualTo(2);
   }
 }

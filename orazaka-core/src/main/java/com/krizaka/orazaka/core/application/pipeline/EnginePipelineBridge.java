@@ -135,7 +135,10 @@ public final class EnginePipelineBridge {
         request.clientToolMode()
             ? toolResolution.resolveClientTools(request)
             : toolResolution.resolve(request);
-    var prompt = promptAssembly.assemble(engineMessages, engineOptions, provider, tools.handles());
+    var prompt =
+        promptAssembly
+            .assemble(engineMessages, engineOptions, provider, tools.handles())
+            .forFeature(request.featureKey());
     String conversationId = request.context().conversationId();
 
     return new EnginePipelineContext(

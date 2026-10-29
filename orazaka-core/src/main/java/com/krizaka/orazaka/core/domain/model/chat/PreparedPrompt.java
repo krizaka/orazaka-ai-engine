@@ -27,4 +27,23 @@ public interface PreparedPrompt {
    * @return the prompt without tools
    */
   PreparedPrompt withoutTools();
+
+  /**
+   * The feature the turn belongs to (ADR-029), which names its tool-round bound.
+   *
+   * @return the feature key, or {@code null} for a turn with none
+   */
+  default String featureKey() {
+    return null;
+  }
+
+  /**
+   * The same prompt, carrying the feature of its turn.
+   *
+   * @param featureKey the feature key, or {@code null}
+   * @return the prompt for that feature
+   */
+  default PreparedPrompt forFeature(String featureKey) {
+    return this;
+  }
 }

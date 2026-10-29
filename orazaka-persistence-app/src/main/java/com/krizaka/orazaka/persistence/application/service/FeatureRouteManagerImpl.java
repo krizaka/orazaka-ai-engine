@@ -3,7 +3,11 @@ package com.krizaka.orazaka.persistence.application.service;
 import com.krizaka.orazaka.persistence.domain.ports.inbound.FeatureRouteManager;
 import com.krizaka.orazaka.persistence.infrastructure.adapter.persistence.entity.FeatureModelEntity;
 import com.krizaka.orazaka.persistence.infrastructure.adapter.persistence.repository.FeatureModelRepository;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,5 +34,20 @@ class FeatureRouteManagerImpl implements FeatureRouteManager {
     return repository.findByFeatureKeyOrderByRankAsc(featureKey).stream()
         .map(FeatureModelEntity::getModelName)
         .toList();
+  }
+
+  @Override
+  public Map<String, List<String>> allRoutes() {
+    Map<String, List<String>> routes = new LinkedHashMap<>();
+    repository.findAll().stream()
+        .sorted(
+            Comparator.comparing(FeatureModelEntity::getFeatureKey)
+                .thenComparingInt(FeatureModelEntity::getRank))
+        .forEach(
+            row ->
+                routes
+                    .computeIfAbsent(row.getFeatureKey(), key -> new ArrayList<>())
+                    .add(row.getModelName()));
+    return routes;
   }
 }

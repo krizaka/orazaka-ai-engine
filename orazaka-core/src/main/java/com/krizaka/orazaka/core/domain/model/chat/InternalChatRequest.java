@@ -23,6 +23,8 @@ import java.util.function.Function;
  *     where the engine runs its own tools. Present (even empty), the turn is in <b>client-executed
  *     mode</b>: the engine offers only these tools, the ones the actor may use, and returns the
  *     model's calls instead of running them.
+ * @param featureKey the feature the turn belongs to (ADR-029), or {@code null}: it names the turn's
+ *     tool-round bound.
  * @see InternalChatResponse
  */
 public record InternalChatRequest(
@@ -31,12 +33,24 @@ public record InternalChatRequest(
     EngineChatOptions options,
     Context context,
     boolean streaming,
-    List<ClientTool> clientTools) {
+    List<ClientTool> clientTools,
+    String featureKey) {
 
   /** Compact constructor — defensively copies the message list and the client tools. */
   public InternalChatRequest {
     messages = messages == null ? List.of() : List.copyOf(messages);
     clientTools = clientTools == null ? null : List.copyOf(clientTools);
+  }
+
+  /** A turn with no feature key. */
+  public InternalChatRequest(
+      String prompt,
+      List<ChatMessage> messages,
+      EngineChatOptions options,
+      Context context,
+      boolean streaming,
+      List<ClientTool> clientTools) {
+    this(prompt, messages, options, context, streaming, clientTools, null);
   }
 
   /** Server-executed tools, the usual mode. */
@@ -57,7 +71,18 @@ public record InternalChatRequest(
   /** The same turn in client-executed mode, offering these tools. */
   public InternalChatRequest withClientTools(List<ClientTool> tools) {
     return new InternalChatRequest(
-        prompt, messages, options, context, streaming, tools == null ? List.of() : tools);
+        prompt,
+        messages,
+        options,
+        context,
+        streaming,
+        tools == null ? List.of() : tools,
+        featureKey);
+  }
+
+  /** The same turn, belonging to this feature (ADR-029). */
+  public InternalChatRequest withFeatureKey(String key) {
+    return new InternalChatRequest(prompt, messages, options, context, streaming, clientTools, key);
   }
 
   /** Backwards compatible constructor defaulting streaming to false. */

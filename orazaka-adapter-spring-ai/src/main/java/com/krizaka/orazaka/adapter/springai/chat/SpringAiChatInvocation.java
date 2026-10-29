@@ -8,7 +8,9 @@ import com.krizaka.orazaka.core.domain.model.chat.ChatRoute;
 import com.krizaka.orazaka.core.domain.model.chat.PreparedPrompt;
 import com.krizaka.orazaka.core.domain.model.chat.TokenUsage;
 import com.krizaka.orazaka.core.domain.model.chat.ToolCall;
+import com.krizaka.orazaka.core.domain.model.chat.ToolRoundsExceededException;
 import com.krizaka.orazaka.core.domain.ports.outbound.ChatInvocation;
+import com.krizaka.orazaka.core.domain.ports.outbound.ToolLoopBounds;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -35,12 +37,12 @@ import reactor.core.publisher.Flux;
 public class SpringAiChatInvocation implements ChatInvocation {
 
   /** Model rounds that may follow a tool call within one turn, unless a bound is given. */
-  public static final int DEFAULT_MAX_TOOL_ROUNDS = 8; // @fixed: the default of the per-turn bound
+  public static final int DEFAULT_MAX_TOOL_ROUNDS = ToolLoopBounds.DEFAULT_MAX_ROUNDS;
 
   private final ChatModel platformModel;
   private final DynamicChatModelFactory<ChatModel> modelFactory;
   private final ToolCallingManager toolManager;
-  private final int maxToolRounds;
+  private final ToolLoopBounds bounds;
 
   /**
    * Creates the invocation.
@@ -60,33 +62,47 @@ public class SpringAiChatInvocation implements ChatInvocation {
    * @param platformModel the platform's own model
    * @param modelFactory builds a model for a user's key
    * @param toolManager runs the tool calls the model asks for
-   * @param maxToolRounds how many tool rounds one turn may take
+   * @param maxToolRounds how many tool rounds one turn may take, the same for every feature
    */
   public SpringAiChatInvocation(
       ChatModel platformModel,
       DynamicChatModelFactory<ChatModel> modelFactory,
       ToolCallingManager toolManager,
       int maxToolRounds) {
+    this(platformModel, modelFactory, toolManager, ToolLoopBounds.fixed(maxToolRounds));
+  }
+
+  /**
+   * Creates the invocation with a tool loop bounded per feature key (#169).
+   *
+   * @param platformModel the platform's own model
+   * @param modelFactory builds a model for a user's key
+   * @param toolManager runs the tool calls the model asks for
+   * @param bounds the most tool rounds a turn of a feature may take (data, edited by an admin)
+   */
+  public SpringAiChatInvocation(
+      ChatModel platformModel,
+      DynamicChatModelFactory<ChatModel> modelFactory,
+      ToolCallingManager toolManager,
+      ToolLoopBounds bounds) {
     this.platformModel = Objects.requireNonNull(platformModel, "ChatModel must not be null");
     this.modelFactory =
         Objects.requireNonNull(modelFactory, "DynamicChatModelFactory must not be null");
     this.toolManager = Objects.requireNonNull(toolManager, "ToolCallingManager must not be null");
-    if (maxToolRounds < 1) {
-      throw new IllegalArgumentException("maxToolRounds must be at least 1");
-    }
-    this.maxToolRounds = maxToolRounds;
+    this.bounds = Objects.requireNonNull(bounds, "ToolLoopBounds must not be null");
   }
 
   @Override
   public ChatCompletion call(PreparedPrompt prompt, ChatRoute route) {
     ChatModel model = modelOf(prompt, route);
     Prompt current = promptOf(prompt);
+    int maxToolRounds = maxRounds(prompt);
     ChatResponse response = model.call(current);
     TokenUsage used = completion(response, false).usage();
     List<ToolCall> ran = new ArrayList<>();
     for (int round = 0; serverToolsAsked(current, response); round++) {
       if (round >= maxToolRounds) {
-        throw tooManyRounds();
+        throw new ToolRoundsExceededException(prompt.featureKey(), maxToolRounds);
       }
       ran.addAll(toolCallsOf(response));
       ToolExecutionResult result = toolManager.executeToolCalls(current, response);
@@ -104,11 +120,13 @@ public class SpringAiChatInvocation implements ChatInvocation {
 
   @Override
   public Flux<ChatCompletion> stream(PreparedPrompt prompt, ChatRoute route) {
-    return streamRound(modelOf(prompt, route), promptOf(prompt), 0);
+    return streamRound(
+        modelOf(prompt, route), promptOf(prompt), 0, prompt.featureKey(), maxRounds(prompt));
   }
 
   /** One streamed model round; when it ended on server tool calls, the next round follows it. */
-  private Flux<ChatCompletion> streamRound(ChatModel model, Prompt current, int round) {
+  private Flux<ChatCompletion> streamRound(
+      ChatModel model, Prompt current, int round, String featureKey, int maxToolRounds) {
     AtomicReference<ChatResponse> asked = new AtomicReference<>();
     return model.stream(current)
         .doOnNext(
@@ -126,7 +144,7 @@ public class SpringAiChatInvocation implements ChatInvocation {
                     return Flux.empty();
                   }
                   if (round >= maxToolRounds) {
-                    return Flux.error(tooManyRounds());
+                    return Flux.error(new ToolRoundsExceededException(featureKey, maxToolRounds));
                   }
                   ChatCompletion ran =
                       new ChatCompletion("", TokenUsage.none(), List.of(), toolCallsOf(response));
@@ -142,7 +160,9 @@ public class SpringAiChatInvocation implements ChatInvocation {
                           streamRound(
                               model,
                               new Prompt(result.conversationHistory(), current.getOptions()),
-                              round + 1));
+                              round + 1,
+                              featureKey,
+                              maxToolRounds));
                 }));
   }
 
@@ -151,11 +171,8 @@ public class SpringAiChatInvocation implements ChatInvocation {
     return new ChatCompletion(all.text(), all.usage(), List.of());
   }
 
-  private IllegalStateException tooManyRounds() {
-    return new IllegalStateException(
-        "The model kept asking for tools after "
-            + maxToolRounds
-            + " tool rounds; the turn is stopped");
+  private int maxRounds(PreparedPrompt prompt) {
+    return Math.max(1, bounds.maxRounds(prompt.featureKey()));
   }
 
   private static TokenUsage sum(TokenUsage a, TokenUsage b) {

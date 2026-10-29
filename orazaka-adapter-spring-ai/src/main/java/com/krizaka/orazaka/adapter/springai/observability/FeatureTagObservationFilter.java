@@ -24,7 +24,7 @@ public class FeatureTagObservationFilter implements ObservationFilter {
   /** The tag value of a call that belongs to no feature. */
   public static final String NONE = "none";
 
-  private static final String TURN = "orazaka.chat.turn";
+  private static final String TURN = "orazaka.turn";
   private static final int MAX_LENGTH = 64;
   private static final String[] OBSERVED = {"gen_ai.", "spring.ai.", "db.vector."};
 

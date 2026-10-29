@@ -66,7 +66,8 @@ class FeatureRouteManagerImplTest {
   void allRoutesGrouped() {
     when(repository.findAll())
         .thenReturn(
-            List.of(row("b.feature", 1, "m3"), row("a.feature", 2, "m2"), row("a.feature", 1, "m1")));
+            List.of(
+                row("b.feature", 1, "m3"), row("a.feature", 2, "m2"), row("a.feature", 1, "m1")));
 
     Map<String, List<String>> routes = manager.allRoutes();
 

@@ -77,7 +77,8 @@ class FeatureToolBoundManagerImplTest {
   @Test
   @DisplayName("all() lists every bound by key, sorted, the default row included")
   void allSorted() {
-    when(repository.findAll()).thenReturn(List.of(row("b.feature", 2), row("*", 8), row("a.feature", 4)));
+    when(repository.findAll())
+        .thenReturn(List.of(row("b.feature", 2), row("*", 8), row("a.feature", 4)));
 
     assertEquals(Map.of("*", 8, "a.feature", 4, "b.feature", 2), manager.all());
     assertEquals(List.of("*", "a.feature", "b.feature"), List.copyOf(manager.all().keySet()));

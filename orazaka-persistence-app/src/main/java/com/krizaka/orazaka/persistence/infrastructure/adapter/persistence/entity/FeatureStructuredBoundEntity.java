@@ -7,7 +7,8 @@ import jakarta.persistence.Table;
 
 /**
  * JPA entity of {@code orazaka_feature_structured_bounds}: the most answers a feature key's
- * structured-output call may ask for. The row {@code *} is the default of every feature without a row.
+ * structured-output call may ask for. The row {@code *} is the default of every feature without a
+ * row.
  */
 @Entity
 @Table(name = "orazaka_feature_structured_bounds")

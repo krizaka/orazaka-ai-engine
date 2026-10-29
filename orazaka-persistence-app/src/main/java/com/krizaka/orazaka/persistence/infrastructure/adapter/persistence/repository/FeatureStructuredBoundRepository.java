@@ -6,4 +6,5 @@ import org.springframework.stereotype.Repository;
 
 /** JPA repository of {@code orazaka_feature_structured_bounds}, by feature key. */
 @Repository
-public interface FeatureStructuredBoundRepository extends JpaRepository<FeatureStructuredBoundEntity, String> {}
+public interface FeatureStructuredBoundRepository
+    extends JpaRepository<FeatureStructuredBoundEntity, String> {}

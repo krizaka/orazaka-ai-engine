@@ -12,8 +12,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Package-private implementation of the {@link FeatureStructuredBoundManager} inbound port. Not cached:
- * the bound is edited by an administrator and the next turn must see it.
+ * Package-private implementation of the {@link FeatureStructuredBoundManager} inbound port. Not
+ * cached: the bound is edited by an administrator and the next turn must see it.
  */
 @Service
 @Transactional(readOnly = true)

@@ -41,7 +41,7 @@ class SpringAiStructuredOutputClientTest {
     }
 
     @Override
-    public ChatOptions getDefaultOptions() {
+    public ChatOptions getOptions() {
       return defaults;
     }
 
@@ -129,7 +129,8 @@ class SpringAiStructuredOutputClientTest {
     assertThatThrownBy(
             () ->
                 client.generate(
-                    new StructuredOutputRequest<>("", "Is it fine?", Verdict.class, "agent.code.review")))
+                    new StructuredOutputRequest<>(
+                        "", "Is it fine?", Verdict.class, "agent.code.review")))
         .isInstanceOfSatisfying(
             StructuredOutputInvalidException.class, e -> assertThat(e.attempts()).isEqualTo(3));
     assertThat(model.prompts).hasSize(3);
@@ -159,7 +160,8 @@ class SpringAiStructuredOutputClientTest {
     var model = new ScriptedModel("{\"label\":\"ok\",\"score\":7}");
 
     assertThat(client(model, 2).generate(ask())).isEqualTo(new Verdict("ok", 7));
-    assertThat(model.prompts.getFirst().getOptions()).isNotInstanceOf(StructuredOutputChatOptions.class);
+    assertThat(model.prompts.getFirst().getOptions())
+        .isNotInstanceOf(StructuredOutputChatOptions.class);
     assertThat(model.prompts.getFirst().getContents()).contains("score");
   }
 }

@@ -12,7 +12,8 @@ import org.junit.jupiter.api.Test;
 class FeatureStructuredBoundsAdapterTest {
 
   private final FeatureStructuredBoundManager manager = mock(FeatureStructuredBoundManager.class);
-  private final FeatureStructuredBoundsAdapter adapter = new FeatureStructuredBoundsAdapter(manager);
+  private final FeatureStructuredBoundsAdapter adapter =
+      new FeatureStructuredBoundsAdapter(manager);
 
   @Test
   void theBoundIsTheManagersAnswer() {

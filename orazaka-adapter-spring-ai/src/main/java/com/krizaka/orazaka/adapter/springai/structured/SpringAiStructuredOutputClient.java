@@ -55,7 +55,7 @@ public class SpringAiStructuredOutputClient implements StructuredOutputClient {
             .defaultAdvisors(validation)
             .build()
             .prompt();
-    if (chatModel.getDefaultOptions() instanceof StructuredOutputChatOptions) {
+    if (chatModel.getOptions() instanceof StructuredOutputChatOptions) {
       // the provider takes a JSON schema: ask for it natively; the advisor still checks the answer
       spec = spec.advisors(AdvisorParams.ENABLE_NATIVE_STRUCTURED_OUTPUT);
     }

@@ -31,4 +31,4 @@ jobs:
       duplication: true
       rewrite: true
       sonar: true            # CI analysis with the verification's JaCoCo reports (krizaka/.github#377); automatic analysis is switched off
-    secrets: inherit
+    secrets: inherit # zizmor: ignore[secrets-inherit] the org's own pinned pipeline; it reads SONAR_TOKEN and nothing else of the repository's secrets

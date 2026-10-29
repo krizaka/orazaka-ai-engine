@@ -2,7 +2,9 @@ package com.krizaka.orazaka.tools.infrastructure.config;
 
 import com.krizaka.billing.domain.port.CreditAuthorizationClient;
 import com.krizaka.orazaka.core.domain.ports.outbound.CheckMeter;
+import com.krizaka.orazaka.tools.application.port.law.ChatTokenMeter;
 import com.krizaka.orazaka.tools.application.port.law.ResearchMeter;
+import com.krizaka.orazaka.tools.infrastructure.adapter.billing.CreditHoldChatTokenMeter;
 import com.krizaka.orazaka.tools.infrastructure.adapter.billing.CreditHoldCheckMeter;
 import com.krizaka.orazaka.tools.infrastructure.adapter.billing.CreditHoldResearchMeter;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -46,5 +48,17 @@ public class CallMeteringAutoConfiguration {
   @ConditionalOnMissingBean(ResearchMeter.class)
   public ResearchMeter creditHoldResearchMeter(CreditAuthorizationClient billing) {
     return new CreditHoldResearchMeter(billing);
+  }
+
+  /**
+   * The meter of the chat tokens of a grounded research call.
+   *
+   * @param billing the credit hold port
+   * @return the meter
+   */
+  @Bean
+  @ConditionalOnMissingBean(ChatTokenMeter.class)
+  public ChatTokenMeter creditHoldChatTokenMeter(CreditAuthorizationClient billing) {
+    return new CreditHoldChatTokenMeter(billing);
   }
 }

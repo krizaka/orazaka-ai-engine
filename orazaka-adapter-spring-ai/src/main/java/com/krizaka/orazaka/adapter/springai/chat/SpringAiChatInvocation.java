@@ -164,8 +164,8 @@ public class SpringAiChatInvocation implements ChatInvocation {
   }
 
   /**
-   * True when the model asked for tools and every one is a server tool the engine offered and runs; a
-   * client tool, or a name nobody offered, means the whole turn goes back to the caller.
+   * True when the model asked for tools and every one is a server tool the engine offered and runs;
+   * a client tool, or a name nobody offered, means the whole turn goes back to the caller.
    */
   private static boolean serverToolsAsked(Prompt prompt, ChatResponse response) {
     if (response == null || !response.hasToolCalls()) {

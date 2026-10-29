@@ -65,6 +65,14 @@ output (`StructuredOutputClient`) and tools (`ToolRegistry`, results cached thro
 `./mvnw -pl orazaka-architecture -am test -Darchitecture.ratchet.update=true` lowers the baseline
 (it never raises it). Every PR of the migration lowers at least one count.
 
+### Tool loop: server tools run inside the engine (ADR-094 §4.1, #169)
+
+Spring AI 2 no longer loops on tool calls inside the model, so `SpringAiChatInvocation` does it with the library's `ToolCallingManager`: when the model asks for tools, the engine runs them (already resolved, authorised and bound to the actor by the tool resolution), sends the results back and calls the model again, until it answers. Streaming does the same round by round; the server tool calls of intermediate rounds are not forwarded to the caller.
+
+- **Client tools are never run here** (ADR-093): if any call of a round names a `ClientToolCallback`, the turn ends and every call goes back to the client.
+- **The loop is bounded.** After `DEFAULT_MAX_TOOL_ROUNDS` (8) rounds of tool calls the turn fails with an `IllegalStateException` instead of looping. The bound is a constructor argument today; reading it per feature key from the database, and a run event per tool call, are tracked on #169.
+- Token usage of all rounds is summed on the returned `ChatCompletion`.
+
 ### Control loop: a failed answer is never served
 
 `ClosedLoopValidationInterceptor` screens every answer before it leaves (`screenResponse`). Each pass

@@ -1,6 +1,7 @@
 package com.krizaka.orazaka.adapter.springai.chat;
 
 import com.krizaka.orazaka.adapter.springai.prompt.SpringPreparedPrompt;
+import com.krizaka.orazaka.adapter.springai.tool.ClientToolCallback;
 import com.krizaka.orazaka.core.application.routing.DynamicChatModelFactory;
 import com.krizaka.orazaka.core.domain.model.chat.ChatCompletion;
 import com.krizaka.orazaka.core.domain.model.chat.ChatRoute;
@@ -8,21 +9,38 @@ import com.krizaka.orazaka.core.domain.model.chat.PreparedPrompt;
 import com.krizaka.orazaka.core.domain.model.chat.TokenUsage;
 import com.krizaka.orazaka.core.domain.model.chat.ToolCall;
 import com.krizaka.orazaka.core.domain.ports.outbound.ChatInvocation;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicReference;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.model.tool.ToolCallingChatOptions;
+import org.springframework.ai.model.tool.ToolCallingManager;
+import org.springframework.ai.model.tool.ToolExecutionResult;
 import reactor.core.publisher.Flux;
 
 /**
  * {@link ChatInvocation} on Spring AI: the platform's {@link ChatModel}, or a model built for the
  * user's own key. The only place the engines' calls meet the library's model, prompt and response.
+ *
+ * <p>Spring AI 2 removed the tool loop from the model, so it runs here with the library's {@link
+ * ToolCallingManager} (ADR-094 §4.1): the tools the model asks for are run (already resolved and
+ * authorised by the tool resolution, bound to the actor), their results go back to the model, until
+ * it answers or the bound of rounds is reached. A call to a client tool ({@link
+ * ClientToolCallback}) is never run: the turn ends and the calls go back to the client, as before
+ * (ADR-093).
  */
 public class SpringAiChatInvocation implements ChatInvocation {
 
+  /** Model rounds that may follow a tool call within one turn, unless a bound is given. */
+  public static final int DEFAULT_MAX_TOOL_ROUNDS = 8; // @fixed: the default of the per-turn bound
+
   private final ChatModel platformModel;
   private final DynamicChatModelFactory<ChatModel> modelFactory;
+  private final ToolCallingManager toolManager;
+  private final int maxToolRounds;
 
   /**
    * Creates the invocation.
@@ -32,19 +50,147 @@ public class SpringAiChatInvocation implements ChatInvocation {
    */
   public SpringAiChatInvocation(
       ChatModel platformModel, DynamicChatModelFactory<ChatModel> modelFactory) {
+    this(
+        platformModel, modelFactory, ToolCallingManager.builder().build(), DEFAULT_MAX_TOOL_ROUNDS);
+  }
+
+  /**
+   * Creates the invocation with its tool loop.
+   *
+   * @param platformModel the platform's own model
+   * @param modelFactory builds a model for a user's key
+   * @param toolManager runs the tool calls the model asks for
+   * @param maxToolRounds how many tool rounds one turn may take
+   */
+  public SpringAiChatInvocation(
+      ChatModel platformModel,
+      DynamicChatModelFactory<ChatModel> modelFactory,
+      ToolCallingManager toolManager,
+      int maxToolRounds) {
     this.platformModel = Objects.requireNonNull(platformModel, "ChatModel must not be null");
     this.modelFactory =
         Objects.requireNonNull(modelFactory, "DynamicChatModelFactory must not be null");
+    this.toolManager = Objects.requireNonNull(toolManager, "ToolCallingManager must not be null");
+    if (maxToolRounds < 1) {
+      throw new IllegalArgumentException("maxToolRounds must be at least 1");
+    }
+    this.maxToolRounds = maxToolRounds;
   }
 
   @Override
   public ChatCompletion call(PreparedPrompt prompt, ChatRoute route) {
-    return completion(modelOf(prompt, route).call(promptOf(prompt)), false);
+    ChatModel model = modelOf(prompt, route);
+    Prompt current = promptOf(prompt);
+    ChatResponse response = model.call(current);
+    TokenUsage used = completion(response, false).usage();
+    List<ToolCall> ran = new ArrayList<>();
+    for (int round = 0; serverToolsAsked(current, response); round++) {
+      if (round >= maxToolRounds) {
+        throw tooManyRounds();
+      }
+      ran.addAll(toolCallsOf(response));
+      ToolExecutionResult result = toolManager.executeToolCalls(current, response);
+      if (result.returnDirect()) {
+        response = new ChatResponse(ToolExecutionResult.buildGenerations(result));
+        break;
+      }
+      current = new Prompt(result.conversationHistory(), current.getOptions());
+      response = model.call(current);
+      used = sum(used, completion(response, false).usage());
+    }
+    ChatCompletion last = completion(response, false);
+    return new ChatCompletion(last.text(), used, last.toolCalls(), ran);
   }
 
   @Override
   public Flux<ChatCompletion> stream(PreparedPrompt prompt, ChatRoute route) {
-    return modelOf(prompt, route).stream(promptOf(prompt)).map(r -> completion(r, true));
+    return streamRound(modelOf(prompt, route), promptOf(prompt), 0);
+  }
+
+  /** One streamed model round; when it ended on server tool calls, the next round follows it. */
+  private Flux<ChatCompletion> streamRound(ChatModel model, Prompt current, int round) {
+    AtomicReference<ChatResponse> asked = new AtomicReference<>();
+    return model.stream(current)
+        .doOnNext(
+            r -> {
+              if (serverToolsAsked(current, r)) {
+                asked.set(r);
+              }
+            })
+        .map(r -> asked.get() == r ? withoutToolCalls(r) : completion(r, true))
+        .concatWith(
+            Flux.defer(
+                () -> {
+                  ChatResponse response = asked.get();
+                  if (response == null) {
+                    return Flux.empty();
+                  }
+                  if (round >= maxToolRounds) {
+                    return Flux.error(tooManyRounds());
+                  }
+                  ChatCompletion ran =
+                      new ChatCompletion("", TokenUsage.none(), List.of(), toolCallsOf(response));
+                  ToolExecutionResult result = toolManager.executeToolCalls(current, response);
+                  if (result.returnDirect()) {
+                    return Flux.just(
+                        ran,
+                        completion(
+                            new ChatResponse(ToolExecutionResult.buildGenerations(result)), true));
+                  }
+                  return Flux.just(ran)
+                      .concatWith(
+                          streamRound(
+                              model,
+                              new Prompt(result.conversationHistory(), current.getOptions()),
+                              round + 1));
+                }));
+  }
+
+  private ChatCompletion withoutToolCalls(ChatResponse response) {
+    ChatCompletion all = completion(response, true);
+    return new ChatCompletion(all.text(), all.usage(), List.of());
+  }
+
+  private IllegalStateException tooManyRounds() {
+    return new IllegalStateException(
+        "The model kept asking for tools after "
+            + maxToolRounds
+            + " tool rounds; the turn is stopped");
+  }
+
+  private static TokenUsage sum(TokenUsage a, TokenUsage b) {
+    if (a == null || a.equals(TokenUsage.none())) {
+      return b;
+    }
+    if (b == null || b.equals(TokenUsage.none())) {
+      return a;
+    }
+    return TokenUsage.reported(
+        a.promptTokens() + b.promptTokens(),
+        a.completionTokens() + b.completionTokens(),
+        a.totalTokens() + b.totalTokens());
+  }
+
+  /**
+   * True when the model asked for tools and every one is a server tool the engine offered and runs;
+   * a client tool, or a name nobody offered, means the whole turn goes back to the caller.
+   */
+  private static boolean serverToolsAsked(Prompt prompt, ChatResponse response) {
+    if (response == null || !response.hasToolCalls()) {
+      return false;
+    }
+    List<org.springframework.ai.tool.ToolCallback> offered =
+        prompt.getOptions() instanceof ToolCallingChatOptions tools
+            ? tools.getToolCallbacks()
+            : List.of();
+    return response.getResult().getOutput().getToolCalls().stream()
+        .allMatch(
+            call ->
+                offered.stream()
+                    .anyMatch(
+                        t ->
+                            !(t instanceof ClientToolCallback)
+                                && t.getToolDefinition().name().equals(call.name())));
   }
 
   private ChatModel modelOf(PreparedPrompt prompt, ChatRoute route) {

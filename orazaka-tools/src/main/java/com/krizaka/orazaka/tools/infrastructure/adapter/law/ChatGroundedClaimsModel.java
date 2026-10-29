@@ -22,7 +22,7 @@ public final class ChatGroundedClaimsModel implements GroundedClaimsModel {
   /**
    * Creates the adapter.
    *
-   * @param chat the engine's chat, which meters the tokens of the call
+   * @param chat the engine's chat, anonymous: the grounded call meters its tokens itself
    */
   public ChatGroundedClaimsModel(AiClient chat) {
     this.chat = Objects.requireNonNull(chat, "AiClient cannot be null");
@@ -30,8 +30,18 @@ public final class ChatGroundedClaimsModel implements GroundedClaimsModel {
 
   @Override
   public GroundedAnswer ask(String question, String language, List<Passage> passages) {
-    return GroundedAnswerJson.read(
-        chat.chat(ChatRequest.simple(prompt(question, language, passages))).content());
+    return askMetered(question, language, passages).answer();
+  }
+
+  /**
+   * The chat is called with an anonymous context on purpose: no turn hold of its own is taken, so
+   * the tokens are billed once, by the {@link
+   * com.krizaka.orazaka.tools.application.port.law.ChatTokenMeter} of the grounded call.
+   */
+  @Override
+  public Reply askMetered(String question, String language, List<Passage> passages) {
+    var response = chat.chat(ChatRequest.simple(prompt(question, language, passages)));
+    return new Reply(GroundedAnswerJson.read(response.content()), response.tokenUsage());
   }
 
   static String prompt(String question, String language, List<Passage> passages) {

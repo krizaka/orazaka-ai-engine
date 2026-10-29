@@ -10,6 +10,15 @@ public interface ResearchMeter {
   /** A call held against the run budget. */
   interface Hold {
 
+    /**
+     * What the ledger reserved for this call, for a cap to be checked against.
+     *
+     * @return the estimate, in credits; 0 when the meter cannot tell
+     */
+    default long estimatedCredits() {
+      return 0L;
+    }
+
     /** Settles the call: it ran, the price of one {@code CALL} is charged. */
     void settle();
 

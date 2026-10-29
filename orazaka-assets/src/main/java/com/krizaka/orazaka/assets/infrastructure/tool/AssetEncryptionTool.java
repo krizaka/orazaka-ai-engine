@@ -11,6 +11,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Stream;
 
 /**
@@ -52,8 +53,14 @@ public final class AssetEncryptionTool {
       return;
     }
     Path keyFile = Path.of(args[1]);
-    switch (args[0]) {
-      case "keygen" -> {
+    Command command = COMMANDS.get(args[0]);
+    if (command == null) {
+      System.err.println("unknown subcommand: " + args[0]);
+      System.exit(2);
+      return;
+    }
+    switch (command) {
+      case KEYGEN -> {
         FileMasterKeyProvider.addKey(keyFile, args[2]);
         System.out.println(
             "Wrote master key '"
@@ -64,14 +71,22 @@ public final class AssetEncryptionTool {
         System.out.println(
             "Every retired key must stay in this file for as long as one asset still names it.");
       }
-      case "migrate" -> report(migrate(keyFile, Path.of(args[2])));
-      case "verify" -> report(verify(keyFile, Path.of(args[2])));
-      default -> {
-        System.err.println("unknown subcommand: " + args[0]);
-        System.exit(2);
-      }
+      case MIGRATE -> report(migrate(keyFile, Path.of(args[2])));
+      case VERIFY -> report(verify(keyFile, Path.of(args[2])));
     }
   }
+
+  private static final String OP_MIGRATE = "migrate";
+  private static final String OP_VERIFY = "verify";
+
+  private enum Command {
+    KEYGEN,
+    MIGRATE,
+    VERIFY
+  }
+
+  private static final Map<String, Command> COMMANDS =
+      Map.of("keygen", Command.KEYGEN, OP_MIGRATE, Command.MIGRATE, OP_VERIFY, Command.VERIFY);
 
   /**
    * Converts every plaintext file under {@code uploadRoot}, skipping what is already done.
@@ -101,7 +116,7 @@ public final class AssetEncryptionTool {
         failed.add(file + " — " + e.getMessage());
       }
     }
-    return new Outcome("migrate", converted, alreadyDone, failed);
+    return new Outcome(OP_MIGRATE, converted, alreadyDone, failed);
   }
 
   /**
@@ -136,7 +151,7 @@ public final class AssetEncryptionTool {
         failed.add(file + " — " + e.getMessage());
       }
     }
-    return new Outcome("verify", verified, stillPlaintext, failed);
+    return new Outcome(OP_VERIFY, verified, stillPlaintext, failed);
   }
 
   private static List<Path> files(Path root) throws IOException {
@@ -176,8 +191,9 @@ public final class AssetEncryptionTool {
 
     /** A line an operator can paste into a change record. */
     public String describe() {
-      String changedLabel = "migrate".equals(operation) ? "converted" : "verified";
-      String unchangedLabel = "migrate".equals(operation) ? "already encrypted" : "still plaintext";
+      String changedLabel = OP_MIGRATE.equals(operation) ? "converted" : "verified";
+      String unchangedLabel =
+          OP_MIGRATE.equals(operation) ? "already encrypted" : "still plaintext";
       return operation
           + ": "
           + changed

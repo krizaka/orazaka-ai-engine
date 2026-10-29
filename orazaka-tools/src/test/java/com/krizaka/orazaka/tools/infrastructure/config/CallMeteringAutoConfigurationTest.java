@@ -5,7 +5,9 @@ import static org.mockito.Mockito.mock;
 
 import com.krizaka.billing.domain.port.CreditAuthorizationClient;
 import com.krizaka.orazaka.core.domain.ports.outbound.CheckMeter;
+import com.krizaka.orazaka.tools.application.port.law.ChatTokenMeter;
 import com.krizaka.orazaka.tools.application.port.law.ResearchMeter;
+import com.krizaka.orazaka.tools.infrastructure.adapter.billing.CreditHoldChatTokenMeter;
 import com.krizaka.orazaka.tools.infrastructure.adapter.billing.CreditHoldCheckMeter;
 import com.krizaka.orazaka.tools.infrastructure.adapter.billing.CreditHoldResearchMeter;
 import java.io.IOException;
@@ -34,6 +36,8 @@ class CallMeteringAutoConfigurationTest {
               assertThat(ctx.getBean(CheckMeter.class)).isInstanceOf(CreditHoldCheckMeter.class);
               assertThat(ctx.getBean(ResearchMeter.class))
                   .isInstanceOf(CreditHoldResearchMeter.class);
+              assertThat(ctx.getBean(ChatTokenMeter.class))
+                  .isInstanceOf(CreditHoldChatTokenMeter.class);
             });
   }
 
@@ -45,6 +49,7 @@ class CallMeteringAutoConfigurationTest {
           assertThat(ctx).hasNotFailed();
           assertThat(ctx).doesNotHaveBean(CheckMeter.class);
           assertThat(ctx).doesNotHaveBean(ResearchMeter.class);
+          assertThat(ctx).doesNotHaveBean(ChatTokenMeter.class);
         });
   }
 

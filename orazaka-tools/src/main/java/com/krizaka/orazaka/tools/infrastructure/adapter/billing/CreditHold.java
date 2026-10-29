@@ -6,7 +6,9 @@ import com.krizaka.billing.domain.model.ConsumptionReport;
 import com.krizaka.billing.domain.model.CreditHoldCommand;
 import com.krizaka.billing.domain.model.CreditHoldResponse;
 import com.krizaka.billing.domain.port.CreditAuthorizationClient;
+import com.krizaka.orazaka.core.domain.model.chat.TokenUsage;
 import com.krizaka.orazaka.core.domain.ports.outbound.CheckMeter;
+import com.krizaka.orazaka.tools.application.port.law.ChatTokenMeter;
 import com.krizaka.orazaka.tools.application.port.law.ResearchMeter;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -23,7 +25,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *
  * <p>It holds no personal data: the hold id and the ledger's key prefix only, and it never logs.
  */
-final class CreditHold implements CheckMeter.Hold, ResearchMeter.Hold {
+final class CreditHold implements CheckMeter.Hold, ResearchMeter.Hold, ChatTokenMeter.Hold {
 
   /** One call: the measurement a settled {@code CALL} reports. */
   private static final ConsumptionReport ONE_CALL =
@@ -33,11 +35,17 @@ final class CreditHold implements CheckMeter.Hold, ResearchMeter.Hold {
   private final String holdId;
   private final String keyPrefix;
   private final boolean metered;
+  private final long estimatedCredits;
   private final AtomicBoolean closed = new AtomicBoolean();
 
   private CreditHold(
-      CreditAuthorizationClient billing, String holdId, String keyPrefix, boolean metered) {
+      CreditAuthorizationClient billing,
+      String holdId,
+      String keyPrefix,
+      boolean metered,
+      long estimatedCredits) {
     this.billing = billing;
+    this.estimatedCredits = estimatedCredits;
     this.holdId = holdId;
     this.keyPrefix = keyPrefix;
     this.metered = metered;
@@ -82,7 +90,9 @@ final class CreditHold implements CheckMeter.Hold, ResearchMeter.Hold {
       }
       return Optional.empty();
     }
-    return Optional.of(new CreditHold(billing, grant.holdId(), keyPrefix, grant.metered()));
+    return Optional.of(
+        new CreditHold(
+            billing, grant.holdId(), keyPrefix, grant.metered(), grant.estimatedCredits()));
   }
 
   @Override
@@ -90,6 +100,40 @@ final class CreditHold implements CheckMeter.Hold, ResearchMeter.Hold {
     if (metered && closed.compareAndSet(false, true)) {
       billing.settleMeasured(holdId, ONE_CALL, keyPrefix + ":" + holdId);
     }
+  }
+
+  /**
+   * Settles the tokens of a chat call as a measurement. Tokens the provider did not report are not
+   * zero: the hold is released instead of billing the estimate.
+   */
+  @Override
+  public void settle(TokenUsage usage) {
+    if (!usage.reported()) {
+      release("no token usage reported");
+      return;
+    }
+    if (metered && closed.compareAndSet(false, true)) {
+      billing.settleMeasured(
+          holdId,
+          new ConsumptionReport(
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              (long) usage.totalTokens(),
+              null),
+          keyPrefix + ":" + holdId);
+    }
+  }
+
+  @Override
+  public long estimatedCredits() {
+    return metered ? estimatedCredits : 0L;
   }
 
   @Override

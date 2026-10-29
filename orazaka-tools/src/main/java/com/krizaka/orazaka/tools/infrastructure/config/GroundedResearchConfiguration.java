@@ -3,6 +3,7 @@ package com.krizaka.orazaka.tools.infrastructure.config;
 import com.krizaka.orazaka.core.domain.ports.inbound.AiClient;
 import com.krizaka.orazaka.core.domain.ports.inbound.CitationVerifier;
 import com.krizaka.orazaka.persistence.domain.ports.inbound.RuntimeConfigProvider;
+import com.krizaka.orazaka.tools.application.port.law.ChatTokenMeter;
 import com.krizaka.orazaka.tools.application.port.law.GroundedClaimsModel;
 import com.krizaka.orazaka.tools.application.port.law.GroundedResearchSettings;
 import com.krizaka.orazaka.tools.application.port.law.LawCorpusStore;
@@ -38,27 +39,54 @@ public class GroundedResearchConfiguration {
   }
 
   @Bean
+  Collaborators groundedCollaborators(
+      ObjectProvider<GroundedClaimsModel> model,
+      AiClient chat,
+      ObjectProvider<ResearchMeter> meter,
+      ObjectProvider<ChatTokenMeter> tokenMeter,
+      LawCorpusStore corpus,
+      ResearchStore research) {
+    return new Collaborators(
+        new LawCorpusResearchService(corpus, research, Clock.systemUTC()),
+        model.getIfAvailable(() -> new ChatGroundedClaimsModel(chat)),
+        meter.getIfAvailable(GroundedResearchConfiguration::noMeter),
+        tokenMeter.getIfAvailable(GroundedResearchConfiguration::noTokenMeter));
+  }
+
+  @Bean
   GroundedResearchService groundedResearchService(
       GroundedResearchSettings settings,
       ResearchStore research,
-      LawCorpusStore corpus,
-      ObjectProvider<GroundedClaimsModel> model,
-      AiClient chat,
       CitationVerifier verifier,
-      ObjectProvider<ResearchMeter> meter) {
+      Collaborators collaborators) {
     return new GroundedResearchService(
         settings,
         research,
-        new LawCorpusResearchService(corpus, research, Clock.systemUTC()),
-        model.getIfAvailable(() -> new ChatGroundedClaimsModel(chat)),
+        collaborators.provider(),
+        collaborators.model(),
         verifier,
-        meter.getIfAvailable(GroundedResearchConfiguration::noMeter));
+        collaborators.meter(),
+        collaborators.tokenMeter());
   }
+
+  /** The corpus provider, the model and the two meters, resolved once (fail closed). */
+  record Collaborators(
+      LawCorpusResearchService provider,
+      GroundedClaimsModel model,
+      ResearchMeter meter,
+      ChatTokenMeter tokenMeter) {}
 
   private static ResearchMeter noMeter() {
     return (runId, actorId, providerKey) -> {
       throw new ResearchMeter.BudgetExceededException(
           "no metering is wired: a grounded call is never made unmetered");
+    };
+  }
+
+  private static ChatTokenMeter noTokenMeter() {
+    return (runId, actorId) -> {
+      throw new ResearchMeter.BudgetExceededException(
+          "no token metering is wired: a grounded call is never made unmetered");
     };
   }
 }

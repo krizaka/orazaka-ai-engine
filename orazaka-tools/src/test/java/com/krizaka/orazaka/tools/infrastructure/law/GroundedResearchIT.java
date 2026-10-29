@@ -180,6 +180,23 @@ class GroundedResearchIT extends AbstractContainerIntegrationTest {
               public void release(String reason) {
                 // nothing to release in this test
               }
+            },
+        (runId, actorId) ->
+            new com.krizaka.orazaka.tools.application.port.law.ChatTokenMeter.Hold() {
+              @Override
+              public long estimatedCredits() {
+                return 0L;
+              }
+
+              @Override
+              public void settle(com.krizaka.orazaka.core.domain.model.chat.TokenUsage usage) {
+                // nothing to settle in this test
+              }
+
+              @Override
+              public void release(String reason) {
+                // nothing to release in this test
+              }
             });
   }
 

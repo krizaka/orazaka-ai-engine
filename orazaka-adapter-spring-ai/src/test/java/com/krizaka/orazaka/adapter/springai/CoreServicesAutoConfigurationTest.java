@@ -161,4 +161,41 @@ class CoreServicesAutoConfigurationTest {
               assertThat(context).getBean(McpService.class).isInstanceOf(DefaultMcpService.class);
             });
   }
+
+  /**
+   * The conversation host's {@code ChatController} takes a {@code ChatMemoryStore} bean: with the
+   * persisted chat memory and the tool-answer codec present, the core exposes it (dev refused to
+   * start, 2026-10-29, "required a bean of type ChatMemoryStore that could not be found").
+   */
+  @Test
+  void theChatMemoryStoreIsABeanWhenTheHostPersistsChatMemory() {
+    runner
+        .withBean(
+            com.krizaka.orazaka.persistence.domain.ports.inbound.ChatMemoryPersistenceProvider
+                .class,
+            () ->
+                mock(
+                    com.krizaka.orazaka.persistence.domain.ports.inbound
+                        .ChatMemoryPersistenceProvider.class))
+        .withBean(
+            com.krizaka.orazaka.core.domain.ports.outbound.ToolAnswerCodec.class,
+            () -> mock(com.krizaka.orazaka.core.domain.ports.outbound.ToolAnswerCodec.class))
+        .run(
+            context -> {
+              assertThat(context).hasNotFailed();
+              assertThat(context)
+                  .getBean(com.krizaka.orazaka.core.domain.ports.outbound.ChatMemoryStore.class)
+                  .isInstanceOf(
+                      com.krizaka.orazaka.adapter.springai.memory.PersistedChatMemoryStore.class);
+            });
+  }
+
+  @Test
+  void withoutPersistedChatMemoryThereIsNoChatMemoryStore() {
+    runner.run(
+        context ->
+            assertThat(context)
+                .doesNotHaveBean(
+                    com.krizaka.orazaka.core.domain.ports.outbound.ChatMemoryStore.class));
+  }
 }

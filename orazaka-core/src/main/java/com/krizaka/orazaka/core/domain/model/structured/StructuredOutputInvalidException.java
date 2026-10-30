@@ -1,5 +1,7 @@
 package com.krizaka.orazaka.core.domain.model.structured;
 
+import java.io.Serial;
+
 /**
  * The model never produced an answer of the requested shape within the attempts allowed (ADR-094
  * §4.6, #172). It is the typed error a caller sees (it feeds the control verdict), never a silent
@@ -7,7 +9,7 @@ package com.krizaka.orazaka.core.domain.model.structured;
  */
 public class StructuredOutputInvalidException extends IllegalStateException {
 
-  private static final long serialVersionUID = 1L;
+  @Serial private static final long serialVersionUID = 1L;
 
   private final String type;
   private final int attempts;

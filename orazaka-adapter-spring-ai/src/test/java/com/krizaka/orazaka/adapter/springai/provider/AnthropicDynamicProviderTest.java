@@ -25,13 +25,13 @@ class AnthropicDynamicProviderTest {
   }
 
   @Test
-  void promptCachingIsOnForTheSystemAndTheTools() {
+  void theModelHasNoDefaultCacheOption_theTurnsPolicyDecidesIt() {
     ChatModel model = new AnthropicDynamicProvider().create("claude-3-5-sonnet", "my-api-key");
 
     var options = (org.springframework.ai.anthropic.AnthropicChatOptions) model.getDefaultOptions();
 
     assertThat(options.getCacheOptions().getStrategy())
-        .isEqualTo(org.springframework.ai.anthropic.AnthropicCacheStrategy.SYSTEM_AND_TOOLS);
+        .isEqualTo(org.springframework.ai.anthropic.AnthropicCacheStrategy.NONE);
   }
 
   @Test

@@ -6,8 +6,10 @@ import com.krizaka.orazaka.core.application.routing.ProviderClassifier;
 import com.krizaka.orazaka.core.domain.model.CachedResponse;
 import com.krizaka.orazaka.core.domain.model.PromptContext;
 import com.krizaka.orazaka.core.domain.model.chat.InternalChatRequest;
+import com.krizaka.orazaka.core.domain.model.chat.PreparedPrompt;
 import com.krizaka.orazaka.core.domain.model.chat.PromptDraft;
 import com.krizaka.orazaka.core.domain.model.chat.ToolCall;
+import com.krizaka.orazaka.core.domain.model.chat.TurnSensitivity;
 import com.krizaka.orazaka.core.domain.ports.outbound.ModelCatalogProvider;
 import com.krizaka.orazaka.core.domain.ports.outbound.PromptAssembly;
 import com.krizaka.orazaka.core.domain.ports.outbound.ToolResolution;
@@ -135,10 +137,13 @@ public final class EnginePipelineBridge {
         request.clientToolMode()
             ? toolResolution.resolveClientTools(request)
             : toolResolution.resolve(request);
-    var prompt =
+    PreparedPrompt prompt =
         promptAssembly
             .assemble(engineMessages, engineOptions, provider, tools.handles())
             .forFeature(request.featureKey());
+    if (pipelineContext != null && TurnSensitivity.of(pipelineContext.userMetadata())) {
+      prompt = prompt.asSensitive();
+    }
     String conversationId = request.context().conversationId();
 
     return new EnginePipelineContext(

@@ -85,6 +85,30 @@ public class SpringAiImageGeneratorClient implements ImageGeneratorClient {
         steps,
         baseUrl);
 
+    if (!request.references().isEmpty()) {
+      // References are pictures, not prompt text: they go in a JSON body (sd-server's sdapi
+      // route), never inside the prompt's extra-args block, whose regex is not made for megabytes.
+      int accepted =
+          ReferenceImages.maxReferences(entry.map(CatalogModelDto::options).orElse(null));
+      ReferenceImages.requireAccepted(activeModel, request.references().size(), accepted);
+      byte[] referenced =
+          ReferenceImages.generate(
+              ReferenceImages.serverRoot(baseUrl),
+              apiKey,
+              request,
+              width,
+              height,
+              steps,
+              Duration.ofMillis(resolveTimeout(false)));
+      requireRealImage(referenced, null);
+      return new ImageResponse(
+          referenced,
+          buildImageDataUrl(referenced),
+          "png",
+          measuredUsage(referenced, steps),
+          ReferenceImages.weightNotice(activeModel, request.references()));
+    }
+
     ImageModel dynamicImageModel = buildImageModel(baseUrl, apiKey, activeModel, height, width);
 
     OpenAiImageOptions executionOptions =

@@ -10,14 +10,30 @@ import java.util.Objects;
  * @param url The public URL of the generated image.
  * @param format The image file format (e.g., "png", "jpg").
  * @param usage What the generation consumed, for settlement (ADR-047); never null.
+ * @param notice What the engine could not honour as asked (e.g. a reference weight a model applies
+ *     at full strength), said with the image; {@code null} when everything was honoured.
  */
-public record ImageResponse(byte[] imageData, String url, String format, ImageUsage usage) {
+public record ImageResponse(
+    byte[] imageData, String url, String format, ImageUsage usage, String notice) {
 
   /**
    * Compact canonical constructor: an absent usage is the "nothing reported" sentinel, not null.
    */
   public ImageResponse {
     usage = usage == null ? ImageUsage.none() : usage;
+    notice = notice == null || notice.isBlank() ? null : notice.strip();
+  }
+
+  /**
+   * A measured image with nothing to report beyond it.
+   *
+   * @param imageData the raw bytes
+   * @param url the public URL
+   * @param format the file format
+   * @param usage what the generation consumed
+   */
+  public ImageResponse(byte[] imageData, String url, String format, ImageUsage usage) {
+    this(imageData, url, format, usage, null);
   }
 
   /**
@@ -32,7 +48,7 @@ public record ImageResponse(byte[] imageData, String url, String format, ImageUs
    * @param format the file format
    */
   public ImageResponse(byte[] imageData, String url, String format) {
-    this(imageData, url, format, ImageUsage.none());
+    this(imageData, url, format, ImageUsage.none(), null);
   }
 
   @Override
@@ -46,13 +62,15 @@ public record ImageResponse(byte[] imageData, String url, String format, ImageUs
             byte[] otherData,
             String otherUrl,
             String otherFormat,
-            ImageUsage otherUsage))) {
+            ImageUsage otherUsage,
+            String otherNotice))) {
       return false;
     }
     return Arrays.equals(imageData, otherData)
         && Objects.equals(url, otherUrl)
         && Objects.equals(format, otherFormat)
-        && Objects.equals(usage, otherUsage);
+        && Objects.equals(usage, otherUsage)
+        && Objects.equals(notice, otherNotice);
   }
 
   @Override
@@ -60,7 +78,8 @@ public record ImageResponse(byte[] imageData, String url, String format, ImageUs
     int result = Arrays.hashCode(imageData);
     result = 31 * result + Objects.hashCode(url);
     result = 31 * result + Objects.hashCode(format);
-    return 31 * result + Objects.hashCode(usage);
+    result = 31 * result + Objects.hashCode(usage);
+    return 31 * result + Objects.hashCode(notice);
   }
 
   @Override
@@ -74,6 +93,8 @@ public record ImageResponse(byte[] imageData, String url, String format, ImageUs
         + format
         + ", usage="
         + usage
+        + ", notice="
+        + notice
         + "]";
   }
 }

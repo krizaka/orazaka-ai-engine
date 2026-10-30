@@ -193,6 +193,7 @@ public class SpringAiAdapterAutoConfiguration {
    * @param bounds the tool-round bound per feature key, when a store is wired (else the default)
    * @param observations the host's registry, so each tool round is observed ({@code
    *     spring.ai.tool})
+   * @param cachePolicy what a provider may cache per feature key, when a store is wired
    * @return the invocation
    */
   @Bean
@@ -201,7 +202,8 @@ public class SpringAiAdapterAutoConfiguration {
       ChatModel chatModel,
       DynamicChatModelFactory<ChatModel> modelFactory,
       ObjectProvider<ToolLoopBounds> bounds,
-      ObjectProvider<ObservationRegistry> observations) {
+      ObjectProvider<ObservationRegistry> observations,
+      ObjectProvider<PromptCachePolicy> cachePolicy) {
     return new SpringAiChatInvocation(
         chatModel,
         modelFactory,
@@ -209,7 +211,9 @@ public class SpringAiAdapterAutoConfiguration {
             .observationRegistry(observations.getIfAvailable(() -> ObservationRegistry.NOOP))
             .build(),
         bounds.getIfAvailable(() -> ToolLoopBounds.fixed(ToolLoopBounds.DEFAULT_MAX_ROUNDS)),
-        observations.getIfAvailable(() -> ObservationRegistry.NOOP));
+        observations.getIfAvailable(() -> ObservationRegistry.NOOP),
+        cachePolicy.getIfAvailable(
+            () -> PromptCachePolicy.fixed(PromptCachePolicy.DEFAULT_STRATEGY)));
   }
 
   /**

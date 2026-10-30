@@ -4,6 +4,7 @@ import com.krizaka.orazaka.adapter.springai.observability.FeatureTagObservationF
 import com.krizaka.orazaka.adapter.springai.prompt.SpringPreparedPrompt;
 import com.krizaka.orazaka.adapter.springai.tool.ClientToolCallback;
 import com.krizaka.orazaka.core.application.routing.DynamicChatModelFactory;
+import com.krizaka.orazaka.core.domain.model.chat.CacheStrategy;
 import com.krizaka.orazaka.core.domain.model.chat.ChatCompletion;
 import com.krizaka.orazaka.core.domain.model.chat.ChatRoute;
 import com.krizaka.orazaka.core.domain.model.chat.PreparedPrompt;
@@ -11,6 +12,7 @@ import com.krizaka.orazaka.core.domain.model.chat.TokenUsage;
 import com.krizaka.orazaka.core.domain.model.chat.ToolCall;
 import com.krizaka.orazaka.core.domain.model.chat.ToolRoundsExceededException;
 import com.krizaka.orazaka.core.domain.ports.outbound.ChatInvocation;
+import com.krizaka.orazaka.core.domain.ports.outbound.PromptCachePolicy;
 import com.krizaka.orazaka.core.domain.ports.outbound.ToolLoopBounds;
 import io.micrometer.observation.Observation;
 import io.micrometer.observation.ObservationRegistry;
@@ -19,8 +21,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
+import org.springframework.ai.anthropic.AnthropicCacheOptions;
+import org.springframework.ai.anthropic.AnthropicCacheStrategy;
+import org.springframework.ai.anthropic.AnthropicChatModel;
+import org.springframework.ai.anthropic.AnthropicChatOptions;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.model.tool.ToolCallingChatOptions;
 import org.springframework.ai.model.tool.ToolCallingManager;
@@ -48,6 +55,7 @@ public class SpringAiChatInvocation implements ChatInvocation {
   private final ToolCallingManager toolManager;
   private final ToolLoopBounds bounds;
   private final ObservationRegistry observations;
+  private final PromptCachePolicy cachePolicy;
 
   /**
    * Creates the invocation.
@@ -110,6 +118,34 @@ public class SpringAiChatInvocation implements ChatInvocation {
       ToolCallingManager toolManager,
       ToolLoopBounds bounds,
       ObservationRegistry observations) {
+    this(
+        platformModel,
+        modelFactory,
+        toolManager,
+        bounds,
+        observations,
+        PromptCachePolicy.fixed(PromptCachePolicy.DEFAULT_STRATEGY));
+  }
+
+  /**
+   * Creates the invocation with the prompt cache decided per feature key (ADR-094 slice 5, #173).
+   *
+   * @param platformModel the platform's own model
+   * @param modelFactory builds a model for a user's key
+   * @param toolManager runs the tool calls the model asks for
+   * @param bounds the most tool rounds a turn of a feature may take
+   * @param observations the host's registry
+   * @param cachePolicy what of a turn's prompt a provider may cache (data, edited by an admin); a
+   *     SENSITIVE turn is never cached whatever it says
+   */
+  public SpringAiChatInvocation(
+      ChatModel platformModel,
+      DynamicChatModelFactory<ChatModel> modelFactory,
+      ToolCallingManager toolManager,
+      ToolLoopBounds bounds,
+      ObservationRegistry observations,
+      PromptCachePolicy cachePolicy) {
+    this.cachePolicy = Objects.requireNonNull(cachePolicy, "PromptCachePolicy must not be null");
     this.observations =
         Objects.requireNonNull(observations, "ObservationRegistry must not be null");
     this.platformModel = Objects.requireNonNull(platformModel, "ChatModel must not be null");
@@ -134,7 +170,7 @@ public class SpringAiChatInvocation implements ChatInvocation {
 
   private ChatCompletion callInTurn(PreparedPrompt prompt, ChatRoute route) {
     ChatModel model = modelOf(prompt, route);
-    Prompt current = promptOf(prompt);
+    Prompt current = cachedAsPolicy(model, prompt, promptOf(prompt));
     int maxToolRounds = maxRounds(prompt);
     ChatResponse response = model.call(current);
     TokenUsage used = completion(response, false).usage();
@@ -160,7 +196,7 @@ public class SpringAiChatInvocation implements ChatInvocation {
   @Override
   public Flux<ChatCompletion> stream(PreparedPrompt prompt, ChatRoute route) {
     ChatModel model = modelOf(prompt, route);
-    Prompt first = promptOf(prompt);
+    Prompt first = cachedAsPolicy(model, prompt, promptOf(prompt));
     int maxToolRounds = maxRounds(prompt);
     return Flux.defer(
         () -> {
@@ -258,6 +294,31 @@ public class SpringAiChatInvocation implements ChatInvocation {
                         t ->
                             !(t instanceof ClientToolCallback)
                                 && t.getToolDefinition().name().equals(call.name())));
+  }
+
+  /**
+   * Applies the feature's cache policy to an Anthropic call (the other providers cache a stable
+   * prefix by themselves and take no option). A SENSITIVE turn is never cached: its options carry
+   * no cache option and the model has no default one, whatever the policy says.
+   */
+  private Prompt cachedAsPolicy(ChatModel model, PreparedPrompt prepared, Prompt prompt) {
+    if (prepared.sensitive() || !(model instanceof AnthropicChatModel)) {
+      return prompt;
+    }
+    CacheStrategy wanted = cachePolicy.strategy(prepared.featureKey());
+    if (wanted == null || wanted == CacheStrategy.NONE || prompt.getOptions() == null) {
+      return prompt;
+    }
+    AnthropicCacheStrategy strategy =
+        wanted == CacheStrategy.SYSTEM_ONLY
+            ? AnthropicCacheStrategy.SYSTEM_ONLY
+            : AnthropicCacheStrategy.SYSTEM_AND_TOOLS;
+    ChatOptions cached =
+        AnthropicChatOptions.builder()
+            .combineWith(prompt.getOptions().mutate())
+            .cacheOptions(AnthropicCacheOptions.builder().strategy(strategy).build())
+            .build();
+    return new Prompt(prompt.getInstructions(), cached);
   }
 
   private ChatModel modelOf(PreparedPrompt prompt, ChatRoute route) {

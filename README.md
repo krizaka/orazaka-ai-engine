@@ -370,6 +370,15 @@ Both are in `RuleProposalRulesTest`, each run on a planted violation (`fixture/P
 - `JpaRuleProposalStoreIT`: conditional decisions, an edit superseding an approval, a failed promotion writing nothing, and four concurrent promotions opening one pull request.
 - `LawReviewReadsIT`: the Corpus and Demand reads.
 
+## Observability: every model call is a `gen_ai` observation (ADR-094 slice 3, #171)
+
+Every model the engine builds carries the host's `ObservationRegistry` (a no-op one without a host): chat models and the tool
+rounds through Spring AI, embeddings and text to speech by the engine with the same keys. `gen_ai.client.operation` and
+`gen_ai.client.token.usage` are tagged with the provider, the model and `orazaka.feature` (the feature key of the turn,
+`none` outside a turn) and **never** carry a prompt, an answer, an input or a tool argument (ADR-064; pinned by
+`ModelObservationsTest`, `EmbeddingAndSpeechObservationsTest`, `FeatureTagObservationsTest`). Money stays on our metering;
+[docs/cost-reconciliation.md](docs/cost-reconciliation.md) has the query that sets the tokens observed against the usage billed.
+
 ## Position in the platform
 
 | | |

@@ -113,7 +113,7 @@ class SpringAiStructuredOutputClientTest {
 
   @Test
   void aBoundOfOneAsksOnce() {
-    var model = new ScriptedModel("{\"label\":1}");
+    var model = new ScriptedModel("not json at all");
 
     assertThatThrownBy(() -> client(model, 1).generate(ask()))
         .isInstanceOf(StructuredOutputInvalidException.class);

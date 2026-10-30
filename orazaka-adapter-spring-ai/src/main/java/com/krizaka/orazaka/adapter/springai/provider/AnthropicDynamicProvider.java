@@ -4,6 +4,8 @@ import com.anthropic.client.AnthropicClient;
 import com.anthropic.client.okhttp.AnthropicOkHttpClient;
 import io.micrometer.observation.ObservationRegistry;
 import java.util.Objects;
+import org.springframework.ai.anthropic.AnthropicCacheOptions;
+import org.springframework.ai.anthropic.AnthropicCacheStrategy;
 import org.springframework.ai.anthropic.AnthropicChatModel;
 import org.springframework.ai.anthropic.AnthropicChatOptions;
 import org.springframework.ai.chat.model.ChatModel;
@@ -39,7 +41,18 @@ public class AnthropicDynamicProvider implements DynamicChatModelProvider {
     AnthropicClient client = AnthropicOkHttpClient.builder().apiKey(apiKey).build();
     return AnthropicChatModel.builder()
         .anthropicClient(client)
-        .options(AnthropicChatOptions.builder().model(modelName).build())
+        .options(
+            AnthropicChatOptions.builder()
+                .model(modelName)
+                // Prompt caching through Spring AI's own option (ADR-094): the system prompt and
+                // the
+                // tool definitions are the stable prefix. Answers are unchanged; the cached share
+                // comes back in Usage and is carried as TokenUsage.cachedReadTokens.
+                .cacheOptions(
+                    AnthropicCacheOptions.builder()
+                        .strategy(AnthropicCacheStrategy.SYSTEM_AND_TOOLS)
+                        .build())
+                .build())
         .observationRegistry(observationRegistry)
         .build();
   }

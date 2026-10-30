@@ -25,6 +25,16 @@ class AnthropicDynamicProviderTest {
   }
 
   @Test
+  void promptCachingIsOnForTheSystemAndTheTools() {
+    ChatModel model = new AnthropicDynamicProvider().create("claude-3-5-sonnet", "my-api-key");
+
+    var options = (org.springframework.ai.anthropic.AnthropicChatOptions) model.getDefaultOptions();
+
+    assertThat(options.getCacheOptions().getStrategy())
+        .isEqualTo(org.springframework.ai.anthropic.AnthropicCacheStrategy.SYSTEM_AND_TOOLS);
+  }
+
+  @Test
   void createInvalid() {
     AnthropicDynamicProvider provider = new AnthropicDynamicProvider();
     assertThatThrownBy(() -> provider.create(null, "my-api-key"))

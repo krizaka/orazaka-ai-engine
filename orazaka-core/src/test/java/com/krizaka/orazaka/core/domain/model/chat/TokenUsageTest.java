@@ -85,4 +85,49 @@ class TokenUsageTest {
     assertFalse(response.tokenUsage().reported());
     assertEquals("ollama", response.metadata().get("provider"));
   }
+
+  @Test
+  @DisplayName("cached tokens are carried beside the total, and the three-argument form has none")
+  void carriesCachedTokens() {
+    TokenUsage usage = TokenUsage.reported(1000, 50, 1050, 800L, 120L);
+
+    assertEquals(800, usage.cachedReadTokens());
+    assertEquals(120, usage.cacheWriteTokens());
+    assertEquals(1050, usage.totalTokens());
+    assertEquals(0, TokenUsage.reported(10, 5, 15).cachedReadTokens());
+    assertEquals(0, new TokenUsage(10, 5, 15).cacheWriteTokens());
+  }
+
+  @Test
+  @DisplayName("cached counts a provider omitted are zero, and billing is unchanged by them")
+  void cachedTokensDoNotChangeWhatIsBilled() {
+    assertEquals(0, TokenUsage.reported(10, 5, 15, null, null).cachedReadTokens());
+    assertEquals(
+        0,
+        TokenUsage.reported(1000, 50, 1050, 800L, 0L)
+            .kilotokens()
+            .compareTo(TokenUsage.reported(1000, 50, 1050).kilotokens()));
+  }
+
+  @Test
+  @DisplayName("an unreported turn reports no cached tokens, and negative counts are refused")
+  void cachedTokensAreCountable() {
+    assertEquals(0, TokenUsage.none().cachedReadTokens());
+    assertThrows(IllegalArgumentException.class, () -> new TokenUsage(1, 1, 2, -1, 0));
+    assertThrows(IllegalArgumentException.class, () -> new TokenUsage(1, 1, 2, 0, -1));
+  }
+
+  @Test
+  @DisplayName("two turns add up their cached tokens as well")
+  void plusAddsCachedTokens() {
+    TokenUsage sum =
+        TokenUsage.reported(10, 5, 15, 4L, 1L).plus(TokenUsage.reported(20, 5, 25, 6L, 2L));
+
+    assertEquals(30, sum.promptTokens());
+    assertEquals(40, sum.totalTokens());
+    assertEquals(10, sum.cachedReadTokens());
+    assertEquals(3, sum.cacheWriteTokens());
+    assertEquals(sum, TokenUsage.none().plus(sum));
+    assertEquals(sum, sum.plus(TokenUsage.none()));
+  }
 }

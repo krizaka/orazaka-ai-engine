@@ -20,8 +20,18 @@ import java.math.MathContext;
  * @param totalTokens the provider's own total, which is not always the sum — some providers count
  *     cached or reasoning tokens that appear in neither half, so it is recorded as reported rather
  *     than re-derived
+ * @param cachedReadTokens the part of the prompt the provider served from its prompt cache (Spring
+ *     AI's {@code Usage#getCacheReadInputTokens}), zero when none or not reported; informational —
+ *     it is already inside {@code promptTokens}/{@code totalTokens}, so it never changes the bill
+ * @param cacheWriteTokens the part of the prompt the provider wrote to its prompt cache (Spring
+ *     AI's {@code Usage#getCacheWriteInputTokens}), zero when none or not reported
  */
-public record TokenUsage(int promptTokens, int completionTokens, int totalTokens) {
+public record TokenUsage(
+    int promptTokens,
+    int completionTokens,
+    int totalTokens,
+    int cachedReadTokens,
+    int cacheWriteTokens) {
 
   private static final BigDecimal TOKENS_PER_KILOTOKEN = new BigDecimal("1000");
 
@@ -31,13 +41,21 @@ public record TokenUsage(int promptTokens, int completionTokens, int totalTokens
    */
   private static final int UNREPORTED = -1;
 
-  private static final TokenUsage NONE = new TokenUsage(UNREPORTED, UNREPORTED, UNREPORTED);
+  private static final TokenUsage NONE = new TokenUsage(UNREPORTED, UNREPORTED, UNREPORTED, 0, 0);
 
   /** Compact canonical constructor enforcing the record's invariants (ERR-106). */
   public TokenUsage {
     requireCountable(promptTokens, "promptTokens");
     requireCountable(completionTokens, "completionTokens");
     requireCountable(totalTokens, "totalTokens");
+    if (cachedReadTokens < 0 || cacheWriteTokens < 0) {
+      throw new IllegalArgumentException("cached token counts must be >= 0");
+    }
+  }
+
+  /** A usage with no cached tokens: what a provider without a prompt cache reports. */
+  public TokenUsage(int promptTokens, int completionTokens, int totalTokens) {
+    this(promptTokens, completionTokens, totalTokens, 0, 0);
   }
 
   private static void requireCountable(int tokens, String field) {
@@ -65,10 +83,55 @@ public record TokenUsage(int promptTokens, int completionTokens, int totalTokens
    */
   public static TokenUsage reported(
       Integer promptTokens, Integer completionTokens, Integer totalTokens) {
+    return reported(promptTokens, completionTokens, totalTokens, null, null);
+  }
+
+  /**
+   * Records what a provider reported, prompt-cache counters included.
+   *
+   * @param cachedReadTokens tokens served from the provider's prompt cache, or {@code null}
+   * @param cacheWriteTokens tokens written to the provider's prompt cache, or {@code null}
+   * @see #reported(Integer, Integer, Integer)
+   */
+  public static TokenUsage reported(
+      Integer promptTokens,
+      Integer completionTokens,
+      Integer totalTokens,
+      Long cachedReadTokens,
+      Long cacheWriteTokens) {
     int prompt = promptTokens == null ? 0 : promptTokens;
     int completion = completionTokens == null ? 0 : completionTokens;
     return new TokenUsage(
-        prompt, completion, totalTokens == null ? prompt + completion : totalTokens);
+        prompt,
+        completion,
+        totalTokens == null ? prompt + completion : totalTokens,
+        clamp(cachedReadTokens),
+        clamp(cacheWriteTokens));
+  }
+
+  private static int clamp(Long tokens) {
+    return tokens == null ? 0 : (int) Math.min(Math.max(tokens, 0L), Integer.MAX_VALUE);
+  }
+
+  /**
+   * This usage and another one, added up (a turn with several model rounds).
+   *
+   * @param other the other usage
+   * @return the sum; an unreported side contributes nothing
+   */
+  public TokenUsage plus(TokenUsage other) {
+    if (other == null || !other.reported()) {
+      return this;
+    }
+    if (!reported()) {
+      return other;
+    }
+    return new TokenUsage(
+        promptTokens + other.promptTokens,
+        completionTokens + other.completionTokens,
+        totalTokens + other.totalTokens,
+        cachedReadTokens + other.cachedReadTokens,
+        cacheWriteTokens + other.cacheWriteTokens);
   }
 
   /**

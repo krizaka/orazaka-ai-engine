@@ -1,5 +1,6 @@
 package com.krizaka.orazaka.adapter.springai.chat;
 
+import com.krizaka.orazaka.adapter.springai.observability.FeatureTagObservationFilter;
 import com.krizaka.orazaka.adapter.springai.prompt.SpringPreparedPrompt;
 import com.krizaka.orazaka.adapter.springai.tool.ClientToolCallback;
 import com.krizaka.orazaka.core.application.routing.DynamicChatModelFactory;
@@ -11,6 +12,9 @@ import com.krizaka.orazaka.core.domain.model.chat.ToolCall;
 import com.krizaka.orazaka.core.domain.model.chat.ToolRoundsExceededException;
 import com.krizaka.orazaka.core.domain.ports.outbound.ChatInvocation;
 import com.krizaka.orazaka.core.domain.ports.outbound.ToolLoopBounds;
+import io.micrometer.observation.Observation;
+import io.micrometer.observation.ObservationRegistry;
+import io.micrometer.observation.contextpropagation.ObservationThreadLocalAccessor;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -43,6 +47,7 @@ public class SpringAiChatInvocation implements ChatInvocation {
   private final DynamicChatModelFactory<ChatModel> modelFactory;
   private final ToolCallingManager toolManager;
   private final ToolLoopBounds bounds;
+  private final ObservationRegistry observations;
 
   /**
    * Creates the invocation.
@@ -85,6 +90,28 @@ public class SpringAiChatInvocation implements ChatInvocation {
       DynamicChatModelFactory<ChatModel> modelFactory,
       ToolCallingManager toolManager,
       ToolLoopBounds bounds) {
+    this(platformModel, modelFactory, toolManager, bounds, ObservationRegistry.NOOP);
+  }
+
+  /**
+   * Creates the invocation with its tool loop bounded per feature key, every turn observed under
+   * its feature key (#171).
+   *
+   * @param platformModel the platform's own model
+   * @param modelFactory builds a model for a user's key
+   * @param toolManager runs the tool calls the model asks for
+   * @param bounds the most tool rounds a turn of a feature may take
+   * @param observations the host's registry: the turn is opened here so the model's and the tools'
+   *     observations wear the feature key
+   */
+  public SpringAiChatInvocation(
+      ChatModel platformModel,
+      DynamicChatModelFactory<ChatModel> modelFactory,
+      ToolCallingManager toolManager,
+      ToolLoopBounds bounds,
+      ObservationRegistry observations) {
+    this.observations =
+        Objects.requireNonNull(observations, "ObservationRegistry must not be null");
     this.platformModel = Objects.requireNonNull(platformModel, "ChatModel must not be null");
     this.modelFactory =
         Objects.requireNonNull(modelFactory, "DynamicChatModelFactory must not be null");
@@ -94,6 +121,18 @@ public class SpringAiChatInvocation implements ChatInvocation {
 
   @Override
   public ChatCompletion call(PreparedPrompt prompt, ChatRoute route) {
+    Observation turn = FeatureTagObservationFilter.openTurn(observations, prompt.featureKey());
+    try (Observation.Scope scope = turn.openScope()) {
+      return callInTurn(prompt, route);
+    } catch (RuntimeException e) {
+      turn.error(e);
+      throw e;
+    } finally {
+      turn.stop();
+    }
+  }
+
+  private ChatCompletion callInTurn(PreparedPrompt prompt, ChatRoute route) {
     ChatModel model = modelOf(prompt, route);
     Prompt current = promptOf(prompt);
     int maxToolRounds = maxRounds(prompt);
@@ -120,13 +159,28 @@ public class SpringAiChatInvocation implements ChatInvocation {
 
   @Override
   public Flux<ChatCompletion> stream(PreparedPrompt prompt, ChatRoute route) {
-    return streamRound(
-        modelOf(prompt, route), promptOf(prompt), 0, prompt.featureKey(), maxRounds(prompt));
+    ChatModel model = modelOf(prompt, route);
+    Prompt first = promptOf(prompt);
+    int maxToolRounds = maxRounds(prompt);
+    return Flux.defer(
+        () -> {
+          Observation turn =
+              FeatureTagObservationFilter.openTurn(observations, prompt.featureKey());
+          return streamRound(model, first, 0, prompt.featureKey(), maxToolRounds, turn)
+              .contextWrite(context -> context.put(ObservationThreadLocalAccessor.KEY, turn))
+              .doOnError(turn::error)
+              .doFinally(signal -> turn.stop());
+        });
   }
 
   /** One streamed model round; when it ended on server tool calls, the next round follows it. */
   private Flux<ChatCompletion> streamRound(
-      ChatModel model, Prompt current, int round, String featureKey, int maxToolRounds) {
+      ChatModel model,
+      Prompt current,
+      int round,
+      String featureKey,
+      int maxToolRounds,
+      Observation turn) {
     AtomicReference<ChatResponse> asked = new AtomicReference<>();
     return model.stream(current)
         .doOnNext(
@@ -148,7 +202,8 @@ public class SpringAiChatInvocation implements ChatInvocation {
                   }
                   ChatCompletion ran =
                       new ChatCompletion("", TokenUsage.none(), List.of(), toolCallsOf(response));
-                  ToolExecutionResult result = toolManager.executeToolCalls(current, response);
+                  ToolExecutionResult result =
+                      turn.scoped(() -> toolManager.executeToolCalls(current, response));
                   if (result.returnDirect()) {
                     return Flux.just(
                         ran,
@@ -162,7 +217,8 @@ public class SpringAiChatInvocation implements ChatInvocation {
                               new Prompt(result.conversationHistory(), current.getOptions()),
                               round + 1,
                               featureKey,
-                              maxToolRounds));
+                              maxToolRounds,
+                              turn));
                 }));
   }
 
@@ -176,16 +232,10 @@ public class SpringAiChatInvocation implements ChatInvocation {
   }
 
   private static TokenUsage sum(TokenUsage a, TokenUsage b) {
-    if (a == null || a.equals(TokenUsage.none())) {
+    if (a == null) {
       return b;
     }
-    if (b == null || b.equals(TokenUsage.none())) {
-      return a;
-    }
-    return TokenUsage.reported(
-        a.promptTokens() + b.promptTokens(),
-        a.completionTokens() + b.completionTokens(),
-        a.totalTokens() + b.totalTokens());
+    return a.plus(b);
   }
 
   /**
@@ -256,7 +306,9 @@ public class SpringAiChatInvocation implements ChatInvocation {
             TokenUsage.reported(
                 reported.getPromptTokens(),
                 reported.getCompletionTokens(),
-                reported.getTotalTokens());
+                reported.getTotalTokens(),
+                reported.getCacheReadInputTokens(),
+                reported.getCacheWriteInputTokens());
       }
     }
     return new ChatCompletion(text, usage, toolCallsOf(response));

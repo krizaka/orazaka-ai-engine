@@ -4,6 +4,8 @@ import com.krizaka.orazaka.core.domain.model.MediaCategory;
 import com.krizaka.orazaka.core.domain.model.ModelEndpoint;
 import com.krizaka.orazaka.core.domain.ports.outbound.ModelEndpointResolver;
 import com.krizaka.orazaka.core.infrastructure.support.CoreException;
+import io.micrometer.observation.Observation;
+import io.micrometer.observation.ObservationRegistry;
 import java.net.ConnectException;
 import java.net.NoRouteToHostException;
 import java.net.UnknownHostException;
@@ -37,13 +39,32 @@ public class RoutedTextToSpeechModel implements TextToSpeechModel {
 
   private final ModelEndpointResolver resolver;
   private final Function<ModelEndpoint, TextToSpeechModel> providers;
+  private final ObservationRegistry observations;
 
   public RoutedTextToSpeechModel(ModelEndpointResolver resolver) {
-    this(resolver, RoutedTextToSpeechModel::openAiCompatible);
+    this(resolver, ObservationRegistry.NOOP);
+  }
+
+  /**
+   * @param observations the host's registry: Spring AI 2.0 has no observation for speech, so each
+   *     provider call is a {@code gen_ai.client.operation} recorded here, with the model and the
+   *     provider — never the text (ADR-064, ADR-094)
+   */
+  public RoutedTextToSpeechModel(ModelEndpointResolver resolver, ObservationRegistry observations) {
+    this(resolver, RoutedTextToSpeechModel::openAiCompatible, observations);
   }
 
   RoutedTextToSpeechModel(
       ModelEndpointResolver resolver, Function<ModelEndpoint, TextToSpeechModel> providers) {
+    this(resolver, providers, ObservationRegistry.NOOP);
+  }
+
+  /** For tests: the provider of each endpoint, and the registry whose observations are read. */
+  public RoutedTextToSpeechModel(
+      ModelEndpointResolver resolver,
+      Function<ModelEndpoint, TextToSpeechModel> providers,
+      ObservationRegistry observations) {
+    this.observations = Objects.requireNonNull(observations, "ObservationRegistry cannot be null");
     this.resolver = Objects.requireNonNull(resolver, "ModelEndpointResolver cannot be null");
     this.providers = Objects.requireNonNull(providers, "providers cannot be null");
   }
@@ -67,7 +88,7 @@ public class RoutedTextToSpeechModel implements TextToSpeechModel {
         requested == null || requested.isBlank() ? Optional.empty() : resolver.resolve(requested);
     if (named.isPresent() && !named.get().equals(fallback)) {
       try {
-        return providers.apply(named.get()).call(retarget(prompt, named.get()));
+        return speak(named.get(), prompt);
       } catch (RuntimeException failure) {
         if (!unreachable(failure)) {
           throw failure;
@@ -79,7 +100,15 @@ public class RoutedTextToSpeechModel implements TextToSpeechModel {
             fallback.modelName());
       }
     }
-    return providers.apply(fallback).call(retarget(prompt, fallback));
+    return speak(fallback, prompt);
+  }
+
+  private TextToSpeechResponse speak(ModelEndpoint endpoint, TextToSpeechPrompt prompt) {
+    return Observation.createNotStarted("gen_ai.client.operation", observations)
+        .lowCardinalityKeyValue("gen_ai.operation.name", "text_to_speech")
+        .lowCardinalityKeyValue("gen_ai.system", endpoint.providerName())
+        .lowCardinalityKeyValue("gen_ai.request.model", endpoint.modelName())
+        .observe(() -> providers.apply(endpoint).call(retarget(prompt, endpoint)));
   }
 
   @Override

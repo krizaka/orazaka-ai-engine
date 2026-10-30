@@ -325,4 +325,109 @@ public class SpringAiImageGeneratorClientTest {
     // The client states the read timeout it applies (the test's configuration says 5000 ms).
     assertThat(headers.get().getFirst("X-Stainless-Read-Timeout")).isEqualTo("5");
   }
+
+  private static CatalogModelDto klein(String options) {
+    return new CatalogModelDto(
+        2,
+        "flux-2-klein-4b",
+        "FLUX.2 [klein] 4B",
+        "image",
+        options,
+        true,
+        "localai-image",
+        4,
+        null,
+        null,
+        null,
+        "local",
+        "available",
+        null,
+        null);
+  }
+
+  private static ImageRequest withReferences(double... weights) throws IOException {
+    java.util.List<com.krizaka.orazaka.core.domain.model.image.ImageReference> references =
+        new java.util.ArrayList<>();
+    for (double weight : weights) {
+      references.add(
+          new com.krizaka.orazaka.core.domain.model.image.ImageReference(
+              Base64.getDecoder().decode(png(64, 64)), "image/png", weight));
+    }
+    return new ImageRequest(
+        "the same owl on a Montreal staircase",
+        1360,
+        768,
+        "flux-2-klein-4b",
+        Map.of(),
+        Context.anonymous(),
+        new ImageDirection(null, 7L, null),
+        references);
+  }
+
+  @Test
+  @DisplayName(
+      "[#158] references go to sd-server's sdapi route as extra_images, in order, with the prompt untouched")
+  void referencesReachTheServerAsExtraImages() throws IOException {
+    String baseUrl = serve("{\"images\":[\"" + png(1360, 768) + "\"]}");
+
+    var response =
+        client(baseUrl, 20, List.of(klein("{\"maxReferences\":4}")))
+            .generateImage(withReferences(1.0, 1.0));
+
+    assertThat(received.get())
+        .contains("\"extra_images\":[\"")
+        .contains("\"seed\":7")
+        .contains("\"steps\":4")
+        .contains("\"width\":1360")
+        .doesNotContain("sd_cpp_extra_args");
+    assertThat(received.get().split("iVBOR", -1)).as("two references sent").hasSize(3);
+    assertThat(response.usage().width()).isEqualTo(1360);
+    assertThat(response.notice()).isNull();
+  }
+
+  @Test
+  @DisplayName(
+      "[#158] a model whose catalogue entry declares no maxReferences refuses them by name")
+  void aModelWithoutReferencesRefusesThem() throws IOException {
+    String baseUrl = serve("{\"images\":[\"" + png(1360, 768) + "\"]}");
+
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () -> client(baseUrl, 20, List.of(klein(null))).generateImage(withReferences(1.0)))
+        .hasMessageContaining("flux-2-klein-4b does not take reference images");
+    assertThat(received.get()).as("nothing sent to the engine").isNull();
+  }
+
+  @Test
+  @DisplayName("[#158] more references than the model takes are refused before the engine")
+  void tooManyReferencesAreRefused() throws IOException {
+    String baseUrl = serve("{\"images\":[\"" + png(1360, 768) + "\"]}");
+
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () ->
+                client(baseUrl, 20, List.of(klein("{\"maxReferences\":1}")))
+                    .generateImage(withReferences(1.0, 1.0)))
+        .hasMessageContaining("takes at most 1 reference images, got 2");
+  }
+
+  @Test
+  @DisplayName(
+      "[#158] a weight the model cannot apply is said with the image, never dropped silently")
+  void anUnappliedWeightIsSaid() throws IOException {
+    String baseUrl = serve("{\"images\":[\"" + png(1360, 768) + "\"]}");
+
+    var response =
+        client(baseUrl, 20, List.of(klein("{\"maxReferences\":4}")))
+            .generateImage(withReferences(0.5));
+
+    assertThat(response.notice()).contains("full strength").contains("not applied");
+  }
+
+  @Test
+  @DisplayName("[#158] the sdapi route hangs off the server root, with or without /v1")
+  void serverRootDropsTheOpenAiSuffix() {
+    assertThat(ReferenceImages.serverRoot("http://h:1/v1/")).isEqualTo("http://h:1");
+    assertThat(ReferenceImages.serverRoot("http://h:1")).isEqualTo("http://h:1");
+    assertThat(ReferenceImages.maxReferences("not json")).isZero();
+    assertThat(ReferenceImages.maxReferences("{\"maxReferences\":3}")).isEqualTo(3);
+  }
 }

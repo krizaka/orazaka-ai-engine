@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.ai.document.Document;
 import org.springframework.ai.evaluation.EvaluationRequest;
 import org.springframework.ai.evaluation.EvaluationResponse;
 import org.springframework.ai.evaluation.Evaluator;
@@ -60,7 +61,7 @@ class SpringAiOutputJudgeTest {
     assertThat(captor.getValue().getUserText()).isEqualTo("Who signed?");
     assertThat(captor.getValue().getResponseContent()).isEqualTo("Alex signed.");
     assertThat(captor.getValue().getDataList())
-        .extracting(d -> d.getText())
+        .extracting(Document::getText)
         .containsExactly("Alex signed the lease on 3 May.");
   }
 

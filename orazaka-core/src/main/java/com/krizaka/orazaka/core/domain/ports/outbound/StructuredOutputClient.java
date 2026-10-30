@@ -15,7 +15,9 @@ public interface StructuredOutputClient {
    * @param request what to ask and the shape of the answer
    * @param <T> the shape
    * @return the answer, never {@code null}
-   * @throws IllegalStateException when the model's answer is not of that shape
+   * @throws com.krizaka.orazaka.core.domain.model.structured.StructuredOutputInvalidException when
+   *     no answer of that shape came within the attempts {@link StructuredOutputBounds} allows (an
+   *     {@link IllegalStateException})
    */
   <T> T generate(StructuredOutputRequest<T> request);
 }

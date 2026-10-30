@@ -29,6 +29,12 @@
         </dependency>
         <!-- Spring AI itself comes through orazaka-core for now (its remaining Spring AI files move here
              slice by slice); declared again here once core drops it. -->
+        <!-- ChatClient and its StructuredOutputValidationAdvisor (JSON-schema validation and
+             self-correction, ADR-094 §4.6); the validator itself (networknt) comes with it. -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-client-chat</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-autoconfigure</artifactId>

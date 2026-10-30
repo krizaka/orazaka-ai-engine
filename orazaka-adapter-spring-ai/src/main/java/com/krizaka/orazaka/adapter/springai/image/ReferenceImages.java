@@ -53,20 +53,23 @@ final class ReferenceImages {
     }
   }
 
+  private static String modelPhrase(String model) {
+    return "the model " + model;
+  }
+
   /**
    * @throws CoreException when the model takes no reference, or fewer than were sent
    */
   static void requireAccepted(String model, int sent, int accepted) {
     if (accepted == 0) {
       throw new CoreException(
-          "the model "
-              + model
+          modelPhrase(model)
               + " does not take reference images: choose a model that does (its catalogue entry"
               + " declares maxReferences), or run without references");
     }
     if (sent > accepted) {
       throw new CoreException(
-          "the model " + model + " takes at most " + accepted + " reference images, got " + sent);
+          modelPhrase(model) + " takes at most " + accepted + " reference images, got " + sent);
     }
   }
 
@@ -78,8 +81,7 @@ final class ReferenceImages {
     if (references.stream().noneMatch(ImageReference::partial)) {
       return null;
     }
-    return "the model "
-        + model
+    return modelPhrase(model)
         + " conditions on reference images at full strength: the weights were recorded with the"
         + " image, not applied";
   }
@@ -130,27 +132,7 @@ final class ReferenceImages {
       int height,
       int steps,
       Duration timeout) {
-    HttpRequest.Builder call =
-        HttpRequest.newBuilder(URI.create(root + "/sdapi/v1/txt2img"))
-            .timeout(timeout)
-            .header("Content-Type", "application/json")
-            .POST(
-                HttpRequest.BodyPublishers.ofString(
-                    JSON.writeValueAsString(body(request, width, height, steps)),
-                    StandardCharsets.UTF_8));
-    if (apiKey != null && !apiKey.isBlank() && !"not-required".equals(apiKey)) {
-      call.header("Authorization", "Bearer " + apiKey);
-    }
-    HttpResponse<String> response;
-    try (HttpClient client = HttpClient.newBuilder().connectTimeout(timeout).build()) {
-      response = client.send(call.build(), HttpResponse.BodyHandlers.ofString());
-    } catch (IOException unreachable) {
-      throw new CoreException(
-          "the image engine could not be reached: " + unreachable.getMessage(), unreachable);
-    } catch (InterruptedException interrupted) {
-      Thread.currentThread().interrupt();
-      throw new CoreException("interrupted while the image engine worked");
-    }
+    HttpResponse<String> response = post(root, apiKey, request, width, height, steps, timeout);
     if (response.statusCode() / 100 != 2) {
       throw new CoreException(
           "the image engine refused the reference images ("
@@ -163,6 +145,36 @@ final class ReferenceImages {
       throw new CoreException("the image engine returned no image");
     }
     return Base64.getDecoder().decode(images.get(0).asString());
+  }
+
+  private static HttpResponse<String> post(
+      String root,
+      String apiKey,
+      ImageRequest request,
+      int width,
+      int height,
+      int steps,
+      Duration timeout) {
+    HttpRequest.Builder call =
+        HttpRequest.newBuilder(URI.create(root + "/sdapi/v1/txt2img"))
+            .timeout(timeout)
+            .header("Content-Type", "application/json")
+            .POST(
+                HttpRequest.BodyPublishers.ofString(
+                    JSON.writeValueAsString(body(request, width, height, steps)),
+                    StandardCharsets.UTF_8));
+    if (apiKey != null && !apiKey.isBlank() && !"not-required".equals(apiKey)) {
+      call.header("Authorization", "Bearer " + apiKey);
+    }
+    try (HttpClient client = HttpClient.newBuilder().connectTimeout(timeout).build()) {
+      return client.send(call.build(), HttpResponse.BodyHandlers.ofString());
+    } catch (IOException unreachable) {
+      throw new CoreException(
+          "the image engine could not be reached: " + unreachable.getMessage(), unreachable);
+    } catch (InterruptedException interrupted) {
+      Thread.currentThread().interrupt();
+      throw new CoreException("interrupted while the image engine worked");
+    }
   }
 
   private static String abbreviate(String body) {

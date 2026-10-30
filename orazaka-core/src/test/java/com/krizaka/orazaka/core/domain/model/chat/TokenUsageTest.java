@@ -130,4 +130,18 @@ class TokenUsageTest {
     assertEquals(sum, TokenUsage.none().plus(sum));
     assertEquals(sum, sum.plus(TokenUsage.none()));
   }
+
+  @Test
+  void cachedTokensAreMeasuredInTheUnitChatIsPricedIn() {
+    TokenUsage usage = TokenUsage.reported(3000, 500, 3500, 2000L, 1000L);
+
+    assertEquals(0, usage.cachedReadKilotokens().compareTo(new BigDecimal("2")));
+    assertEquals(0, usage.cacheWriteKilotokens().compareTo(new BigDecimal("1")));
+    assertEquals(0, usage.kilotokens().compareTo(new BigDecimal("3.5")));
+  }
+
+  @Test
+  void anUnreportedTurnHasNoCachedShare() {
+    assertEquals(0, TokenUsage.none().cachedReadKilotokens().compareTo(BigDecimal.ZERO));
+  }
 }

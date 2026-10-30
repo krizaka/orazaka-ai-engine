@@ -155,4 +155,29 @@ public record TokenUsage(
     }
     return BigDecimal.valueOf(totalTokens).divide(TOKENS_PER_KILOTOKEN, MathContext.DECIMAL64);
   }
+
+  /**
+   * The share of this turn's input served from the provider's cache, in the unit chat is priced in
+   * (ADR-094 slice 5, #173). These tokens are already inside {@link #kilotokens()}: the billed
+   * quantity does not change, this is the part a cheaper cached-read price would apply to.
+   *
+   * @return cache-read tokens as kilotokens, or zero when nothing was reported
+   */
+  public BigDecimal cachedReadKilotokens() {
+    return reported() ? perKilotoken(cachedReadTokens) : BigDecimal.ZERO;
+  }
+
+  /**
+   * The input written to the provider's cache this turn, as kilotokens (a cache write is billed
+   * above the plain input price by some providers).
+   *
+   * @return cache-write tokens as kilotokens, or zero when nothing was reported
+   */
+  public BigDecimal cacheWriteKilotokens() {
+    return reported() ? perKilotoken(cacheWriteTokens) : BigDecimal.ZERO;
+  }
+
+  private static BigDecimal perKilotoken(int tokens) {
+    return BigDecimal.valueOf(tokens).divide(TOKENS_PER_KILOTOKEN, MathContext.DECIMAL64);
+  }
 }

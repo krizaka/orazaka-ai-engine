@@ -10,12 +10,15 @@ import static org.mockito.Mockito.when;
 import com.krizaka.orazaka.adapter.springai.prompt.SpringPreparedPrompt;
 import com.krizaka.orazaka.adapter.springai.tool.ClientToolCallback;
 import com.krizaka.orazaka.core.application.routing.DynamicChatModelFactory;
+import com.krizaka.orazaka.core.domain.model.chat.CacheStrategy;
 import com.krizaka.orazaka.core.domain.model.chat.ChatCompletion;
 import com.krizaka.orazaka.core.domain.model.chat.ChatRoute;
 import com.krizaka.orazaka.core.domain.model.chat.ClientTool;
 import com.krizaka.orazaka.core.domain.model.chat.PreparedPrompt;
 import com.krizaka.orazaka.core.domain.model.chat.ToolCall;
 import com.krizaka.orazaka.core.domain.model.chat.ToolRoundsExceededException;
+import com.krizaka.orazaka.core.domain.model.chat.TurnSensitivity;
+import com.krizaka.orazaka.core.domain.ports.outbound.PromptCachePolicy;
 import com.krizaka.orazaka.core.domain.ports.outbound.ToolLoopBounds;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -267,5 +270,82 @@ class SpringAiChatInvocationTest {
     assertThat(out.usage().cachedReadTokens()).isEqualTo(800);
     assertThat(out.usage().cacheWriteTokens()).isEqualTo(120);
     assertThat(out.usage().totalTokens()).isEqualTo(1050);
+  }
+
+  // ---- the prompt cache is a policy per feature key, and never on a SENSITIVE turn (#173) ----
+
+  private static Prompt toolsPrompt() {
+    return new Prompt(
+        List.of(new UserMessage("hi")),
+        org.springframework.ai.model.tool.ToolCallingChatOptions.builder().model("claude").build());
+  }
+
+  private static org.springframework.ai.anthropic.AnthropicCacheStrategy cacheSentOf(
+      org.springframework.ai.anthropic.AnthropicChatModel anthropic,
+      PromptCachePolicy policy,
+      PreparedPrompt prepared) {
+    when(anthropic.call(any(Prompt.class))).thenReturn(answer("ok"));
+    new SpringAiChatInvocation(
+            anthropic,
+            mock(DynamicChatModelFactory.class),
+            org.springframework.ai.model.tool.ToolCallingManager.builder().build(),
+            ToolLoopBounds.fixed(3),
+            io.micrometer.observation.ObservationRegistry.NOOP,
+            policy)
+        .call(prepared, ChatRoute.platform());
+    var sent = org.mockito.ArgumentCaptor.forClass(Prompt.class);
+    org.mockito.Mockito.verify(anthropic).call(sent.capture());
+    return sent.getValue().getOptions()
+            instanceof org.springframework.ai.anthropic.AnthropicChatOptions options
+        ? options.getCacheOptions().getStrategy()
+        : null;
+  }
+
+  @Test
+  void anAnthropicTurnIsCachedAsItsFeaturesPolicySays() {
+    var anthropic = mock(org.springframework.ai.anthropic.AnthropicChatModel.class);
+    PreparedPrompt prepared = new SpringPreparedPrompt(toolsPrompt(), "chat.support");
+
+    var sent =
+        cacheSentOf(
+            anthropic,
+            key -> "chat.support".equals(key) ? CacheStrategy.SYSTEM_ONLY : CacheStrategy.NONE,
+            prepared);
+
+    assertThat(sent).isEqualTo(org.springframework.ai.anthropic.AnthropicCacheStrategy.SYSTEM_ONLY);
+  }
+
+  @Test
+  void aFeatureWhosePolicyIsNoneIsNeverCached() {
+    var anthropic = mock(org.springframework.ai.anthropic.AnthropicChatModel.class);
+
+    var sent =
+        cacheSentOf(
+            anthropic,
+            PromptCachePolicy.fixed(CacheStrategy.NONE),
+            new SpringPreparedPrompt(toolsPrompt(), "chat.support"));
+
+    assertThat(sent).isNull();
+  }
+
+  @Test
+  void aSensitiveTurnIsNeverSentWithCacheOptionsWhateverThePolicySays() {
+    var anthropic = mock(org.springframework.ai.anthropic.AnthropicChatModel.class);
+
+    var sent =
+        cacheSentOf(
+            anthropic,
+            PromptCachePolicy.fixed(CacheStrategy.SYSTEM_AND_TOOLS),
+            new SpringPreparedPrompt(toolsPrompt(), "chat.support").asSensitive());
+
+    assertThat(sent).isNull();
+  }
+
+  @Test
+  void aTurnWithoutADeclaredControlIsNotSensitiveButOneWithAScopeGuardIs() {
+    assertThat(TurnSensitivity.of(java.util.Map.of())).isFalse();
+    assertThat(TurnSensitivity.of(java.util.Map.of(TurnSensitivity.scopeKey(), "a,b"))).isTrue();
+    assertThat(TurnSensitivity.of(java.util.Map.of(TurnSensitivity.safetyKey(), "x"))).isTrue();
+    assertThat(TurnSensitivity.of(null)).isFalse();
   }
 }

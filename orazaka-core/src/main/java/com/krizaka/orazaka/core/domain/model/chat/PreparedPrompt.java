@@ -46,4 +46,23 @@ public interface PreparedPrompt {
   default PreparedPrompt forFeature(String featureKey) {
     return this;
   }
+
+  /**
+   * Whether the turn is SENSITIVE ({@link TurnSensitivity}): such a prompt is never cached by a
+   * provider.
+   *
+   * @return true for a sensitive turn
+   */
+  default boolean sensitive() {
+    return false;
+  }
+
+  /**
+   * The same prompt, marked as a sensitive turn.
+   *
+   * @return the sensitive prompt
+   */
+  default PreparedPrompt asSensitive() {
+    return this;
+  }
 }

@@ -12,8 +12,15 @@ import org.springframework.ai.openai.OpenAiChatOptions;
  *
  * @param prompt the assembled prompt
  * @param featureKey the feature of the turn, or {@code null}
+ * @param sensitive whether the turn is SENSITIVE: never cached by a provider
  */
-public record SpringPreparedPrompt(Prompt prompt, String featureKey) implements PreparedPrompt {
+public record SpringPreparedPrompt(Prompt prompt, String featureKey, boolean sensitive)
+    implements PreparedPrompt {
+
+  /** A prompt of a turn with a feature key, not sensitive. */
+  public SpringPreparedPrompt(Prompt prompt, String featureKey) {
+    this(prompt, featureKey, false);
+  }
 
   /** A prompt of a turn with no feature key. */
   public SpringPreparedPrompt(Prompt prompt) {
@@ -22,7 +29,12 @@ public record SpringPreparedPrompt(Prompt prompt, String featureKey) implements 
 
   @Override
   public PreparedPrompt forFeature(String key) {
-    return new SpringPreparedPrompt(prompt, key);
+    return new SpringPreparedPrompt(prompt, key, sensitive);
+  }
+
+  @Override
+  public PreparedPrompt asSensitive() {
+    return new SpringPreparedPrompt(prompt, featureKey, true);
   }
 
   @Override
@@ -37,7 +49,7 @@ public record SpringPreparedPrompt(Prompt prompt, String featureKey) implements 
 
   @Override
   public PreparedPrompt withoutTools() {
-    return new SpringPreparedPrompt(removeTools(prompt), featureKey);
+    return new SpringPreparedPrompt(removeTools(prompt), featureKey, sensitive);
   }
 
   /**

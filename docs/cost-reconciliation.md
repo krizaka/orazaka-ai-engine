@@ -17,6 +17,7 @@ a day and a model where they disagree is a missing hook or a billing gap.
   the user id.
 - No prompt, answer, input text or tool argument is a tag or an attribute: the content properties stay `false`
   (ADR-064), pinned by `ModelObservationsTest`, `EmbeddingAndSpeechObservationsTest` and `FeatureTagObservationsTest`.
+- Cached input tokens (`TokenUsage#cachedReadTokens` / `cacheWriteTokens`, filled from Spring AI's `Usage`) are informational: they are already inside the billed input total, so the billed side does not change. Spring AI also records them on the observation as `gen_ai.usage.cache_read.input_tokens` / `cache_creation.input_tokens` (trace attributes, not counter tags); read them next to the `usage_event` to see how much of a day's input was served from the provider's cache.
 - Text to speech has no token: it is billed per character, so it appears in `gen_ai.client.operation` only.
 
 ## The query

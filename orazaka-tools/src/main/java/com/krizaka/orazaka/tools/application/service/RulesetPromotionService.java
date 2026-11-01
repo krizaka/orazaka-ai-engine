@@ -280,6 +280,9 @@ public class RulesetPromotionService {
   }
 
   private static String requireKind(String kindId) {
-    return PackKind.requireKindId(kindId == null ? null : kindId.trim());
+    if (kindId == null) {
+      throw new IllegalArgumentException("a kind id is required");
+    }
+    return PackKind.requireKindId(kindId.trim());
   }
 }

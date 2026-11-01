@@ -47,6 +47,14 @@ class RulesetPromotionServiceTest {
   }
 
   @Test
+  @DisplayName("a missing kind id is refused before anything is read")
+  void a_missing_kind_is_refused() {
+    assertThatThrownBy(() -> promotion.promote(null, List.of(), IN_FORCE, null))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("kind id");
+  }
+
+  @Test
   @DisplayName("approved proposals become one pull request, their law pinned at the in-force day")
   void approved_proposals_open_one_pull_request() {
     List<RuleProposal> approved = law.approvedVisitNotice();

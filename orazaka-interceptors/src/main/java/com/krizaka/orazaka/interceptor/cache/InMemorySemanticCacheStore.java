@@ -2,8 +2,10 @@ package com.krizaka.orazaka.interceptor.cache;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
 
@@ -19,7 +21,40 @@ public final class InMemorySemanticCacheStore implements SemanticCacheStore {
       float[] embedding,
       String signature,
       String response,
-      Instant expiresAt) {}
+      Instant expiresAt) {
+
+    @Override
+    public boolean equals(Object other) {
+      return other instanceof Entry e
+          && partition.equals(e.partition)
+          && exactKey.equals(e.exactKey)
+          && Arrays.equals(embedding, e.embedding)
+          && signature.equals(e.signature)
+          && response.equals(e.response)
+          && expiresAt.equals(e.expiresAt);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(
+          partition, exactKey, Arrays.hashCode(embedding), signature, response, expiresAt);
+    }
+
+    @Override
+    public String toString() {
+      return "Entry[partition="
+          + partition
+          + ", exactKey="
+          + exactKey
+          + ", embedding="
+          + Arrays.toString(embedding)
+          + ", signature="
+          + signature
+          + ", expiresAt="
+          + expiresAt
+          + "]";
+    }
+  }
 
   private final List<Entry> entries = new CopyOnWriteArrayList<>();
   private final int capacity;

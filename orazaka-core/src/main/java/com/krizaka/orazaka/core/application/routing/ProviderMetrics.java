@@ -26,4 +26,29 @@ public record ProviderMetrics(double healthScore, double p95LatencyMs, float[] p
   public float[] providerVector() {
     return providerVector.clone();
   }
+
+  @Override
+  public boolean equals(Object other) {
+    return other instanceof ProviderMetrics m
+        && Double.compare(healthScore, m.healthScore) == 0
+        && Double.compare(p95LatencyMs, m.p95LatencyMs) == 0
+        && java.util.Arrays.equals(providerVector, m.providerVector);
+  }
+
+  @Override
+  public int hashCode() {
+    return java.util.Objects.hash(
+        healthScore, p95LatencyMs, java.util.Arrays.hashCode(providerVector));
+  }
+
+  @Override
+  public String toString() {
+    return "ProviderMetrics[healthScore="
+        + healthScore
+        + ", p95LatencyMs="
+        + p95LatencyMs
+        + ", providerVector="
+        + java.util.Arrays.toString(providerVector)
+        + "]";
+  }
 }

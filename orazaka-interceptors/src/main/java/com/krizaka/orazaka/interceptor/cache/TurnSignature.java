@@ -20,7 +20,7 @@ import java.util.stream.Collectors;
  */
 public final class TurnSignature {
 
-  private static final Pattern NUMBER = Pattern.compile("\\d+(?:[.,]\\d+)*");
+  private static final Pattern NUMBER = Pattern.compile("\\d++(?:[.,]\\d++)*+");
   private static final Pattern WORD = Pattern.compile("[\\p{L}']+");
   private static final Pattern MARKS = Pattern.compile("\\p{M}+");
 
@@ -113,7 +113,7 @@ public final class TurnSignature {
     while (numbers.find()) {
       parts.add("n:" + numbers.group().replace(",", ".").replaceAll("\\.0+$", ""));
     }
-    Matcher words = WORD.matcher(folded.replaceAll("\\d+(?:[.,]\\d+)*", " "));
+    Matcher words = WORD.matcher(folded.replaceAll("\\d++(?:[.,]\\d++)*+", " "));
     while (words.find()) {
       String word = words.group();
       if (word.endsWith("n't")) {

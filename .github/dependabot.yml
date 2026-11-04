@@ -38,3 +38,11 @@ updates:
       prefix-development: "chore(deps-dev)"
     labels: ["area:deps"]
     open-pull-requests-limit: 1
+    ignore:
+      # Anthropic Java SDK 3.x is binary-incompatible with Spring AI 2.0.2 (spring-ai-anthropic calls
+      # ClientOptions.Builder.backend(Backend), gone in 3.x: NoSuchMethodError, #222). Every Spring AI
+      # release on Maven Central (2.0.2, 2.1.0-RC1) still builds on anthropic-java 2.72.0.
+      # Drop this rule in the same PR that moves spring-ai.version (orazaka-build) to the first Spring AI
+      # release whose spring-ai-anthropic depends on anthropic-java 3.x; minor and patch 2.x updates still flow.
+      - dependency-name: "com.anthropic:*"
+        update-types: ["version-update:semver-major"]

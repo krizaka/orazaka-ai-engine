@@ -40,7 +40,14 @@ part of the [Orazaka platform](https://github.com/krizaka/orazaka) by [Krizaka](
 | `orazaka-persistence-app` | Owned | CQRS persistence of the AI state (chat, jobs, models, configs, outbox). |
 | `orazaka-persistence-bridge` | Owned | Adapters from core outbound ports to persistence-app. |
 | `orazaka-assets` | SDK | Envelope encryption of generated assets. |
-| `infra/initdb/60-governance.sql` | — | Interceptor policies (config plane). |
+| `orazaka-persistence-app/src/main/resources/db/governance` | — | Interceptor policies (config plane), Flyway: `V1__governance_baseline.sql`, history table `flyway_history_governance` in the shared `orazaka_db`. |
+| `infra/initdb/60-governance.sql` | — | Local bootstrap pointer only (nothing to create: role and database come from the workspace). |
+
+A host applies the governance schema at startup by setting `orazaka.governance.migrations.enabled: true`: `GovernanceMigrations`
+(`orazaka-persistence-app`) then runs after the host's own Flyway migration, with its migrator connection and settings, and its own
+history table. The files sit in `db/governance`, outside `db/migration`, so the host's scan never sees them (two `V1` would collide).
+Governance baselines at version `0`: on a shared database where another context already created its tables, the default
+`baseline-on-migrate` at 1 would skip V1.
 
 Hosts: [orazaka-conversation-service](https://github.com/krizaka/orazaka-conversation-service) (interactive) and
 [orazaka-job-service](https://github.com/krizaka/orazaka-job-service) (async).

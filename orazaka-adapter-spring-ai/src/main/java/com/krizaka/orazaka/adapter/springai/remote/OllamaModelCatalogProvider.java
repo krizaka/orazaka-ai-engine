@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -23,15 +24,30 @@ public class OllamaModelCatalogProvider implements ModelCatalogProvider {
   private static final Logger log = LoggerFactory.getLogger(OllamaModelCatalogProvider.class);
   private final RestClient restClient;
   private final String activeOllamaModel;
+  private final Supplier<Optional<String>> catalogueDefaultChatModel;
 
   public OllamaModelCatalogProvider(
       RestClient.Builder restClientBuilder,
       @Value("${spring.ai.ollama.base-url}") String ollamaBaseUrl,
       @Value("${ORAZAKA_OLLAMA_MODEL:${spring.ai.ollama.chat.options.model:}}")
           String activeOllamaModel) {
+    this(restClientBuilder, ollamaBaseUrl, activeOllamaModel, Optional::empty);
+  }
+
+  /**
+   * @param catalogueDefaultChatModel the chat model the catalogue ({@code
+   *     orazaka_models.is_default}) marks as default: it wins over Ollama's list order, and only an
+   *     explicit configured model wins over it
+   */
+  public OllamaModelCatalogProvider(
+      RestClient.Builder restClientBuilder,
+      String ollamaBaseUrl,
+      String activeOllamaModel,
+      Supplier<Optional<String>> catalogueDefaultChatModel) {
     Objects.requireNonNull(restClientBuilder, "RestClient.Builder must not be null");
     this.restClient = restClientBuilder.baseUrl(ollamaBaseUrl).build();
     this.activeOllamaModel = activeOllamaModel;
+    this.catalogueDefaultChatModel = catalogueDefaultChatModel;
   }
 
   @Override
@@ -69,6 +85,10 @@ public class OllamaModelCatalogProvider implements ModelCatalogProvider {
   public Optional<String> getActiveChatModel() {
     if (activeOllamaModel != null && !activeOllamaModel.isBlank()) {
       return Optional.of(activeOllamaModel);
+    }
+    Optional<String> catalogueDefault = catalogueDefaultChatModel.get().filter(m -> !m.isBlank());
+    if (catalogueDefault.isPresent()) {
+      return catalogueDefault;
     }
     return getCatalog()
         .flatMap(

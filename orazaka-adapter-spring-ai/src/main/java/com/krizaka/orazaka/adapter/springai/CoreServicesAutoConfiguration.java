@@ -23,6 +23,7 @@ import com.krizaka.orazaka.core.application.service.DefaultCatalogModelService;
 import com.krizaka.orazaka.core.application.service.DefaultChatSessionService;
 import com.krizaka.orazaka.core.application.service.DefaultJobService;
 import com.krizaka.orazaka.core.application.service.DefaultMcpService;
+import com.krizaka.orazaka.core.domain.model.MediaCategory;
 import com.krizaka.orazaka.core.domain.ports.inbound.AiClient;
 import com.krizaka.orazaka.core.domain.ports.inbound.CatalogModelService;
 import com.krizaka.orazaka.core.domain.ports.inbound.ChatSessionService;
@@ -57,6 +58,7 @@ import com.krizaka.orazaka.core.infrastructure.adapter.routing.RuntimeStepRouteP
 import com.krizaka.orazaka.core.infrastructure.config.CoreProperties;
 import com.krizaka.orazaka.core.infrastructure.config.SecurityProperties;
 import com.krizaka.orazaka.core.infrastructure.host.HostCapabilityDetector;
+import com.krizaka.orazaka.persistence.domain.model.CatalogModelDto;
 import com.krizaka.orazaka.persistence.domain.ports.inbound.CatalogModelManager;
 import com.krizaka.orazaka.persistence.domain.ports.inbound.ChatMemoryPersistenceProvider;
 import com.krizaka.orazaka.persistence.domain.ports.inbound.ChatSessionPersistenceProvider;
@@ -64,6 +66,7 @@ import com.krizaka.orazaka.persistence.domain.ports.inbound.JobPersistenceProvid
 import com.krizaka.orazaka.persistence.domain.ports.inbound.RuntimeConfigProvider;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -259,6 +262,7 @@ public class CoreServicesAutoConfiguration {
    * @param builder the REST client builder
    * @param baseUrl the Ollama base URL
    * @param activeModel the model in use, if configured
+   * @param catalog the model catalogue, whose chat default beats Ollama's list order
    * @return the provider
    */
   @Bean
@@ -266,9 +270,16 @@ public class CoreServicesAutoConfiguration {
   public OllamaModelCatalogProvider ollamaModelCatalogProvider(
       RestClient.Builder builder,
       @Value("${spring.ai.ollama.base-url}") String baseUrl,
-      @Value("${ORAZAKA_OLLAMA_MODEL:${spring.ai.ollama.chat.options.model:}}")
-          String activeModel) {
-    return new OllamaModelCatalogProvider(builder, baseUrl, activeModel);
+      @Value("${ORAZAKA_OLLAMA_MODEL:${spring.ai.ollama.chat.options.model:}}") String activeModel,
+      ObjectProvider<CatalogModelManager> catalog) {
+    return new OllamaModelCatalogProvider(
+        builder,
+        baseUrl,
+        activeModel,
+        () ->
+            Optional.ofNullable(catalog.getIfAvailable())
+                .flatMap(c -> c.getDefaultModelByCategory(MediaCategory.CHAT.value()))
+                .map(CatalogModelDto::modelName));
   }
 
   /**

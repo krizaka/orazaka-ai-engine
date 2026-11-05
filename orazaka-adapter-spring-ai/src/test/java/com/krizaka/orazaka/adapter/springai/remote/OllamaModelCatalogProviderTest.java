@@ -186,4 +186,24 @@ class OllamaModelCatalogProviderTest {
     assertThat(catalog).isPresent();
     assertThat(catalog.get().models()).hasSize(1);
   }
+
+  @Test
+  void getActiveChatModel_catalogueDefaultBeatsOllamaListOrder() {
+    var provider =
+        new OllamaModelCatalogProvider(
+            restClientBuilder, "http://localhost:11434", "", () -> Optional.of("mistral-3-14B"));
+    // Ollama is never asked: the catalogue default answers first (restClient is an unstubbed mock)
+    assertThat(provider.getActiveChatModel()).contains("mistral-3-14B");
+  }
+
+  @Test
+  void getActiveChatModel_explicitConfigBeatsCatalogueDefault() {
+    var provider =
+        new OllamaModelCatalogProvider(
+            restClientBuilder,
+            "http://localhost:11434",
+            "llama3",
+            () -> Optional.of("mistral-3-14B"));
+    assertThat(provider.getActiveChatModel()).contains("llama3");
+  }
 }

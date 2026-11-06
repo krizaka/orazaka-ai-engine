@@ -1,6 +1,6 @@
 # Cost reconciliation: tokens observed vs usage billed
 
-ADR-094 slice 3 (ai-engine#171). The cost dashboard of orazaka#323 starts from this query. Money stays on
+ADR-094 slice 3 (ai-engine#171). The cost dashboard of sovkora#323 starts from this query. Money stays on
 our metering (`TokenUsage`, `ChatTokenMeter`, ADR-033, the `usage_event` fact table of the billing service); the
 `gen_ai` meter is the **operations** side and never the source of an invoice. The reconciliation tells the two apart:
 a day and a model where they disagree is a missing hook or a billing gap.

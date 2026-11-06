@@ -2,74 +2,74 @@
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/krizaka/.github/main/profile/assets/orazaka-dark.svg">
-  <img src="https://raw.githubusercontent.com/krizaka/.github/main/profile/assets/orazaka-light.svg" alt="Orazaka" width="96">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/krizaka/.github/main/profile/assets/sovkora-dark.svg">
+  <img src="https://raw.githubusercontent.com/krizaka/.github/main/profile/assets/sovkora-light.svg" alt="Sovkora" width="96">
 </picture>
 
-# Orazaka AI Engine
+# Sovkora AI Engine
 
 **The AI that never leaves home.**
 
-The Orazaka cognitive SDK: AiClient & provider mesh (core), the interceptor pipeline, tools (MCP · RAG · sandbox), use-case orchestration (business), application persistence and asset encryption.
+The Sovkora cognitive SDK: AiClient & provider mesh (core), the interceptor pipeline, tools (MCP · RAG · sandbox), use-case orchestration (business), application persistence and asset encryption.
 
-[![CI](https://github.com/krizaka/orazaka-ai-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/krizaka/orazaka-ai-engine/actions/workflows/ci.yml)
-[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/krizaka/orazaka-ai-engine/badge)](https://scorecard.dev/viewer/?uri=github.com/krizaka/orazaka-ai-engine)
+[![CI](https://github.com/krizaka/sovkora-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/krizaka/sovkora-engine/actions/workflows/ci.yml)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/krizaka/sovkora-engine/badge)](https://scorecard.dev/viewer/?uri=github.com/krizaka/sovkora-engine)
 [![License: FSL-1.1-ALv2](https://img.shields.io/badge/license-FSL--1.1--ALv2-blue.svg)](LICENSE.md)
-[![Orazaka](https://img.shields.io/badge/part%20of-Orazaka-f67e23)](https://github.com/krizaka/orazaka#repositories)
-[![Docs](https://img.shields.io/badge/docs-krizaka.com-f67e23)](https://www.krizaka.com/en/products/orazaka)
+[![Sovkora](https://img.shields.io/badge/part%20of-Sovkora-f67e23)](https://github.com/krizaka/sovkora#repositories)
+[![Docs](https://img.shields.io/badge/docs-krizaka.com-f67e23)](https://www.krizaka.com/en/products/sovkora)
 [![Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=krizaka_orazaka-ai-engine&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=krizaka_orazaka-ai-engine) [![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=krizaka_orazaka-ai-engine&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=krizaka_orazaka-ai-engine) [![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=krizaka_orazaka-ai-engine&metric=reliability_rating)](https://sonarcloud.io/summary/new_code?id=krizaka_orazaka-ai-engine) [![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=krizaka_orazaka-ai-engine&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=krizaka_orazaka-ai-engine) [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=krizaka_orazaka-ai-engine&metric=coverage)](https://sonarcloud.io/summary/new_code?id=krizaka_orazaka-ai-engine)
 
-[Documentation](https://www.krizaka.com/en/products/orazaka) · [Website](https://www.krizaka.com) · [Krizaka on GitHub](https://github.com/krizaka)
+[Documentation](https://www.krizaka.com/en/products/sovkora) · [Website](https://www.krizaka.com) · [Krizaka on GitHub](https://github.com/krizaka)
 
 </div>
 <!-- /krizaka-header -->
 
-**Layer:** Orazaka AI engine · **Version:** `1.0.0-SNAPSHOT` · **License:** FSL-1.1-ALv2 ·
-part of the [Orazaka platform](https://github.com/krizaka/orazaka) by [Krizaka](https://krizaka.com)
+**Layer:** Sovkora AI engine · **Version:** `1.0.0-SNAPSHOT` · **License:** FSL-1.1-ALv2 ·
+part of the [Sovkora platform](https://github.com/krizaka/sovkora) by [Krizaka](https://krizaka.com)
 
 ## What it provides
 
 | Module | Tier | Role |
 |:---|:---|:---|
-| `orazaka-core` | SDK | Cognitive engine: `AiClient`, provider mesh (DB-driven routing), agent loop, interceptor contract. Web/DB-agnostic. |
-| `orazaka-adapter-spring-ai` | SDK | The only module meant to depend on Spring AI (ADR-092 §4): the tool registry and structured-output client on top of it; the other ports follow slice by slice. |
-| `orazaka-architecture` | — | No main code: the boundary rules (no Spring AI outside the adapter, no Spring in `core`/`business`) behind a ratchet, `architecture-ratchet.json`. |
-| `orazaka-interceptors` | SDK | Ordered, short-circuitable pipeline: security, token, context, translation, enrichment, validation, governance. |
-| `orazaka-tools` | SDK | MCP client, RAG, sandbox, law retrieval, the `CALL` meters (research, external checks). |
-| `orazaka-business` | Owned | App factory: `Intention` → `UseCase`, deterministic DAG or saga. |
-| `orazaka-persistence-app` | Owned | CQRS persistence of the AI state (chat, jobs, models, configs, outbox). |
-| `orazaka-persistence-bridge` | Owned | Adapters from core outbound ports to persistence-app. |
-| `orazaka-assets` | SDK | Envelope encryption of generated assets. |
-| `orazaka-persistence-app/src/main/resources/db/governance` | — | Interceptor policies (config plane), Flyway: `V1__governance_baseline.sql`, history table `flyway_history_governance` in the shared `orazaka_db`. |
+| `sovkora-core` | SDK | Cognitive engine: `AiClient`, provider mesh (DB-driven routing), agent loop, interceptor contract. Web/DB-agnostic. |
+| `sovkora-adapter-spring-ai` | SDK | The only module meant to depend on Spring AI (ADR-092 §4): the tool registry and structured-output client on top of it; the other ports follow slice by slice. |
+| `sovkora-architecture` | — | No main code: the boundary rules (no Spring AI outside the adapter, no Spring in `core`/`business`) behind a ratchet, `architecture-ratchet.json`. |
+| `sovkora-interceptors` | SDK | Ordered, short-circuitable pipeline: security, token, context, translation, enrichment, validation, governance. |
+| `sovkora-tools` | SDK | MCP client, RAG, sandbox, law retrieval, the `CALL` meters (research, external checks). |
+| `sovkora-business` | Owned | App factory: `Intention` → `UseCase`, deterministic DAG or saga. |
+| `sovkora-persistence-app` | Owned | CQRS persistence of the AI state (chat, jobs, models, configs, outbox). |
+| `sovkora-persistence-bridge` | Owned | Adapters from core outbound ports to persistence-app. |
+| `sovkora-assets` | SDK | Envelope encryption of generated assets. |
+| `sovkora-persistence-app/src/main/resources/db/governance` | — | Interceptor policies (config plane), Flyway: `V1__governance_baseline.sql`, history table `flyway_history_governance` in the shared `orazaka_db`. |
 | `infra/initdb/60-governance.sql` | — | Local bootstrap pointer only (nothing to create: role and database come from the workspace). |
 
 A host applies the governance schema at startup by setting `orazaka.governance.migrations.enabled: true`: `GovernanceMigrations`
-(`orazaka-persistence-app`) then runs after the host's own Flyway migration, with its migrator connection and settings, and its own
+(`sovkora-persistence-app`) then runs after the host's own Flyway migration, with its migrator connection and settings, and its own
 history table. The files sit in `db/governance`, outside `db/migration`, so the host's scan never sees them (two `V1` would collide).
 Governance baselines at version `0`: on a shared database where another context already created its tables, the default
 `baseline-on-migrate` at 1 would skip V1.
 
-Hosts: [orazaka-conversation-service](https://github.com/krizaka/orazaka-conversation-service) (interactive) and
-[orazaka-job-service](https://github.com/krizaka/orazaka-job-service) (async).
+Hosts: [sovkora-conversation-service](https://github.com/krizaka/sovkora-conversation-service) (interactive) and
+[sovkora-job-service](https://github.com/krizaka/sovkora-job-service) (async).
 
 ## Use it
 
 ```xml
 <dependency>
-    <groupId>com.krizaka.orazaka</groupId>
-    <artifactId>orazaka-core</artifactId>
+    <groupId>com.krizaka.sovkora</groupId>
+    <artifactId>sovkora-core</artifactId>
     <version>1.0.0-SNAPSHOT</version>
 </dependency>
 ```
 
 ### Module boundaries (ADR-092 §4, #112)
 
-The engine's domain is pure Java 21. Spring AI is confined to `orazaka-adapter-spring-ai`, which
+The engine's domain is pure Java 21. Spring AI is confined to `sovkora-adapter-spring-ai`, which
 implements the ports: inference (`ChatGeneratorClient`), embedding (`EmbeddingClient`), structured
 output (`StructuredOutputClient`) and tools (`ToolRegistry`, results cached through `ToolResultCache`).
-`orazaka-architecture` counts the classes that still break the rules and records them in
+`sovkora-architecture` counts the classes that still break the rules and records them in
 `architecture-ratchet.json`: a new violation fails `mvn verify`, a fixed one never does. Fixed some?
-`./mvnw -pl orazaka-architecture -am test -Darchitecture.ratchet.update=true` lowers the baseline
+`./mvnw -pl sovkora-architecture -am test -Darchitecture.ratchet.update=true` lowers the baseline
 (it never raises it). Every PR of the migration lowers at least one count.
 
 ### Structured output: validated against its schema, self-corrected, bounded (ADR-094 §4.6, #172)
@@ -94,7 +94,7 @@ Tier B (`sandbox-enabled`) rejects an unclosed code fence or an invalid `json` b
 `CodeSandboxPort` crash-tests each block. Adjustments and escalations are persisted as
 `(runId, driftReason, humanActorId, timestamp, actionTaken)` through the outbox
 (`ControlVerdictRecorder`, routing key `evt.control.verdict`). Streamed answers are not screened yet
-(orazaka-ai-engine#114).
+(sovkora-engine#114).
 
 ### Route a step by policy
 
@@ -136,7 +136,7 @@ Studio/job execution to this new port belongs to those repositories. Interactive
 is unchanged.
 
 Public routing contracts carry Javadoc for the workspace documentation generator. Regenerate
-the reference inside the assembled workspace with `orazaka docs build` and `orazaka docs sync`;
+the reference inside the assembled workspace with `sovkora docs build` and `sovkora docs sync`;
 the generator and generated documentation are not present in this standalone repository.
 
 ## External content and secrets
@@ -144,23 +144,23 @@ the generator and generated documentation are not present in this standalone rep
 - **Text the engine did not write is data, never an instruction.** What an MCP server returns and what the knowledge
   sources hold reach the model in a delimited user-role block (`ExternalContent`), cleaned of scripts and invisible
   characters, with one fixed rule of our own saying a block cannot change the instructions. No `SystemMessage` is built
-  from external content (orazaka-ai-engine#57, ADR-087).
+  from external content (sovkora-engine#57, ADR-087).
 - **MCP server tokens are sealed** for their owner with the platform's master keyring (`SecretSealer`, ADR-054) before
   they reach `user_mcp_servers` / `platform_mcp_servers`; rows written in clear are sealed at startup, and without a
   keyring a token is refused, never stored in clear (#58).
 - **The subject pepper of the external checks is sealed** the same way, in the setting `checks.subject-pepper` of
   `orazaka_runtime_config` (for its own platform scope), never an environment variable. `SealedCheckSubjectPepperAdapter`
-  (`orazaka-persistence-bridge`) opens it at each check; absent, in clear, unopenable or shorter than 32 bytes, it answers
+  (`sovkora-persistence-bridge`) opens it at each check; absent, in clear, unopenable or shorter than 32 bytes, it answers
   empty and no check runs. It is never logged, thrown or printed (`SealedCheckSubjectPepperAdapterTest`), and only that
   adapter and the sealing tool name the setting (`[CHK-001]`). The operator writes it with
-  `java -cp … com.krizaka.orazaka.assets.infrastructure.tool.CheckSubjectPepperTool seal <keyfile>`, which draws 32 random
-  bytes, seals them and prints the one `INSERT … ON CONFLICT` to run: nobody sees the pepper (krizaka/orazaka-packs#138).
+  `java -cp … com.krizaka.sovkora.assets.infrastructure.tool.CheckSubjectPepperTool seal <keyfile>`, which draws 32 random
+  bytes, seals them and prints the one `INSERT … ON CONFLICT` to run: nobody sees the pepper (krizaka/sovkora-packs#138).
 - **`searchKnowledge`** searches the organisation's knowledge base, not the web (it was called `searchWeb`, #59).
   Searching and reading the web is ADR-087's grounded research.
 
 ## Grounded research: reading a page safely (ADR-087 slice 1)
 
-`PageFetcher` (`orazaka-tools`, `PageFetchService`) reads one page for grounded research through an
+`PageFetcher` (`sovkora-tools`, `PageFetchService`) reads one page for grounded research through an
 administrator-declared `research_source`, with every guard of ADR-087 §4, in order:
 
 1. research on (`research.enabled`) and the source enabled;
@@ -206,18 +206,18 @@ seeded — off means no rewrite. Slice 5's `grounding` flag turns it on.
 
 The corpus is the dated, hashed text of the law the engine derives its checks from. It lives in the
 **job-service tables** (`law_instrument`, `law_article_version`, `law_import`, created by
-[orazaka-job-service](https://github.com/krizaka/orazaka-job-service) `infra/initdb/30-jobs-config.sql`), and the
+[sovkora-job-service](https://github.com/krizaka/sovkora-job-service) `infra/initdb/30-jobs-config.sql`), and the
 engine reads and writes them through Spring Data JPA on its own data source, like the research tables: no second
 connection pool (ADR-083). Nothing here runs while the setting `law.corpus.enabled` is false (the seeded default).
 
 | | |
 |:---|:---|
-| **Importers** | `QuebecOpenDataSource` (the Données Québec statutes zip, conditional on its ETag, SHA-256 of the zip recorded) and `JusticeLawsXmlSource` (Justice Canada's `/eng/XML/<code>.xml` and `/fra/XML/<code>.xml`). Both implement `LawSource`, both use `LawStatuteXmlParser`, both send an honest user agent (`OrazakaLawWatcher/0.1`). Légis Québec and CanLII are not read. |
-| **Watcher** | `LawWatchService` runs weekly (`orazaka.law.watcher.cron`, Monday 06:00 UTC) when `orazaka.law.watcher.enabled=true`: it imports every instrument of `law.import.instruments`, and every difference with the corpus opens one pull request in `krizaka/orazaka-packs` (a review file with the diff, both hashes and the citation). The first import of an instrument and language stores silently; an unchanged article opens nothing; a removed article is flagged. |
+| **Importers** | `QuebecOpenDataSource` (the Données Québec statutes zip, conditional on its ETag, SHA-256 of the zip recorded) and `JusticeLawsXmlSource` (Justice Canada's `/eng/XML/<code>.xml` and `/fra/XML/<code>.xml`). Both implement `LawSource`, both use `LawStatuteXmlParser`, both send an honest user agent (`SovkoraLawWatcher/0.1`). Légis Québec and CanLII are not read. |
+| **Watcher** | `LawWatchService` runs weekly (`orazaka.law.watcher.cron`, Monday 06:00 UTC) when `orazaka.law.watcher.enabled=true`: it imports every instrument of `law.import.instruments`, and every difference with the corpus opens one pull request in `krizaka/sovkora-packs` (a review file with the diff, both hashes and the citation). The first import of an instrument and language stores silently; an unchanged article opens nothing; a removed article is flagged. |
 | **Manual import** | `LawManualImportService.importFile(ManualLawFile)`: the same parser and comparison, `mode = MANUAL`. `imported_by`, the address the file came from and the **SHA-256 of the file** are required (the service refuses the upload, and the table refuses the row, without them). Only an instrument of `law.import.instruments` is stored. The HTTP endpoint (`POST /api/v1/admin/law/imports`) belongs to the host that authenticates the administrator; it calls this service. |
 | **`lookupStatute`** | `LawStatuteLookupService.lookupStatute(jurisdiction, instrument, ref, language, asOf)` returns the version in force on `asOf` (`in_force_from <= asOf < in_force_to`; no day means today) as `{text, contentHash, inForceFrom, officialUrl, importId}`, or `LAW_VERSION_UNKNOWN` (also: the article is unknown, the oldest text we hold took effect after `asOf`, or it was not in force then), or `LAW_CORPUS_DISABLED`. A later text is never read in place of an earlier one. As a model tool (`LookupStatuteTool`, arguments `jurisdiction`, `instrument`, `reference`, `asOf`, `language`) it is registered in the one `ToolRegistry` only with `orazaka.law.lookup.enabled=true`, because a registered tool is attached to every non-streaming request. |
 | **Integrity (#89)** | A version is served only when its text, normalised again by the corpus's own rule (`ContentHash`: NFC, whitespace collapsed; the historical note is never hashed), still gives the `content_hash` recorded with its row. `JpaLawCorpusStore` carries that recorded hash (`LawArticleVersion.recordedHash`), never a recomputed one, and `LawArticleVersion.intact()` compares the two. A mismatch is `LAW_INTEGRITY_ERROR` with no text in `lookupStatute`, and an unknown article in a retrieval (never handed to the model); it is logged with the article's key and both hashes, never the text. ArchUnit `LawCorpusReadRulesTest` holds it: only `LawStatuteLookupService` and `LawCorpusResearchService` read an article by day (`[LAW-001]`), and no store builds a version from its text alone (`[LAW-002]`). |
-| **Read API use case (#89)** | `LawArticleReadService.read(LawArticleQuery, actorId)` is what the host's `GET /api/v1/law/articles` calls (the controller lives in `orazaka-conversation-service`; this library has none). `asOf` is **required** (an ISO day; missing or unreadable is refused, never read from a clock); `language` is `fr` or `en`; an optional `quote` is checked against the article text under the same normalisation (`QuoteCheck`: `VERIFIED` or `NOT_IN_ARTICLE`, no model). Metered as one `RESEARCH` `CALL` on provider `law-corpus` through the `ResearchMeter` port: an invalid question and a switched-off corpus are answered before anything is held; then the call is held, **settled only on `FOUND`** (whatever the quote check), released on `LAW_VERSION_UNKNOWN`, `LAW_INTEGRITY_ERROR` or a failed read. No `ResearchMeter` bean means `LAW_METERING_UNAVAILABLE`: a read is never served unmetered. A budget that cannot hold the call is `LAW_BUDGET_EXCEEDED`. |
+| **Read API use case (#89)** | `LawArticleReadService.read(LawArticleQuery, actorId)` is what the host's `GET /api/v1/law/articles` calls (the controller lives in `sovkora-conversation-service`; this library has none). `asOf` is **required** (an ISO day; missing or unreadable is refused, never read from a clock); `language` is `fr` or `en`; an optional `quote` is checked against the article text under the same normalisation (`QuoteCheck`: `VERIFIED` or `NOT_IN_ARTICLE`, no model). Metered as one `RESEARCH` `CALL` on provider `law-corpus` through the `ResearchMeter` port: an invalid question and a switched-off corpus are answered before anything is held; then the call is held, **settled only on `FOUND`** (whatever the quote check), released on `LAW_VERSION_UNKNOWN`, `LAW_INTEGRITY_ERROR` or a failed read. No `ResearchMeter` bean means `LAW_METERING_UNAVAILABLE`: a read is never served unmetered. A budget that cannot hold the call is `LAW_BUDGET_EXCEEDED`. |
 
 - **Every import is a `law_import` row**: source, `AUTOMATED` or `MANUAL`, dataset address, ETag, SHA-256, the day the
   consolidation is current to, who, start and end, counts (`articles_new`, `articles_changed` (a removal counts here),
@@ -225,7 +225,7 @@ connection pool (ADR-083). Nothing here runs while the setting `law.corpus.enabl
   was refused). A source that cannot be read leaves its `FAILED` row.
 - **A changed text closes the old row (`in_force_to` = the new in-force day) and inserts the new one, in one
   transaction**, with a row lock on the open version: two imports cannot both replace it. A **reverted** text is a new
-  dated row (the key is `(instrument_id, ref, language, in_force_from)`, krizaka/orazaka#401), never the old row
+  dated row (the key is `(instrument_id, ref, language, in_force_from)`, krizaka/sovkora#401), never the old row
   reopened. A text that changes without a later in-force date is refused and opens no request.
 - **A change is applied only once its review request is open** (the watcher), so a failed request is detected again by the
   next run. Without a request port (no watcher), changes are applied directly and the import row is the trace.
@@ -241,7 +241,7 @@ connection pool (ADR-083). Nothing here runs while the setting `law.corpus.enabl
 
 ## Retrieving the law through grounded research, and its cache (ADR-089 §2 and §7, #81)
 
-`LawRetrievalService` (`orazaka-tools`) gives a kind of document the articles it is judged by, as verified claims. The kind's data
+`LawRetrievalService` (`sovkora-tools`) gives a kind of document the articles it is judged by, as verified claims. The kind's data
 names the articles (`targets`, from the pack's `kinds/*.json`) and the question; the engine names none.
 
 1. **Off unless three switches are on**: `law.corpus.enabled`, `research.enabled` and the `law-corpus` research source (all seeded
@@ -268,12 +268,12 @@ names the articles (`targets`, from the pack's `kinds/*.json`) and the question;
 
 The model and the meter come from the grounded-research capability (ADR-087 slice 5, `orazaka.core.research.grounded`) and the run
 budget (ADR-088). Until they are wired the service **fails closed**: no meter means the call is refused (`BUDGET_EXHAUSTED`), no
-model means an error, never an unmetered call. **The meter is `CreditHoldResearchMeter`** (`orazaka-tools`, registered by
+model means an error, never an unmetered call. **The meter is `CreditHoldResearchMeter`** (`sovkora-tools`, registered by
 `CallMeteringAutoConfiguration` wherever a billing `CreditAuthorizationClient` exists): a `RESEARCH` hold priced by the
 pricebook row `(RESEARCH, <provider key>, CALL)`, settled with `calls: 1` under the key `research:<holdId>`, released on a
 failure; insufficient credits are `BUDGET_EXHAUSTED`. The same configuration registers `CreditHoldCheckMeter` for the
 external checks (`EXTERNAL_CHECK`, `model_name` = the connector's provider, key `external-check:<holdId>`). A host without a
-billing client gets neither, and the fallbacks above apply. Only these adapters speak the billing contract in `orazaka-tools`
+billing client gets neither, and the fallbacks above apply. Only these adapters speak the billing contract in `sovkora-tools`
 (`[BILL-001]`), and they never log (`[BILL-002]`). Tests: `LawRetrievalServiceTest` (the golden case: a visit notice brings art. 1931 to
 1933 and no rent article; a cached retrieval makes no model call, asserted on the model port; a changed article recomputes; off by
 default; metering and the budget), `JpaLawRetrievalCacheIT` (JSONB, the stale mark in the same transaction, concurrent saves),
@@ -281,8 +281,8 @@ default; metering and the budget), `JpaLawRetrievalCacheIT` (JSONB, the stale ma
 
 ## Deriving proposed rules from the law: `vet` and `rule_proposal` (ADR-089 §3, #82)
 
-`RuleDerivationService.derive(LawRetrievalRequest)` (`orazaka-tools`) proposes the checks of a kind of document from its law.
-Nothing it proposes judges a document. A proposal becomes a ruleset only through promotion (stage 5, a pull request to orazaka-packs).
+`RuleDerivationService.derive(LawRetrievalRequest)` (`sovkora-tools`) proposes the checks of a kind of document from its law.
+Nothing it proposes judges a document. A proposal becomes a ruleset only through promotion (stage 5, a pull request to sovkora-packs).
 
 1. **`law.derive.max-credits` is 0** (or its row is missing): nothing runs. The result is `DERIVATION_OFF`.
 2. **Retrieval.** The kind's law is retrieved through `LawRetrievalService`, cache first. Only the **`VERIFIED`** claims are used.
@@ -317,14 +317,14 @@ a call is refused.
 lands, a derivation becomes a `rule-derivation` Studio run with `credit_cap = law.derive.max-credits`, and the saga makes
 the same comparison before each step.
 
-**Tests.** The data is mirrored from orazaka-packs `document-validation/derivation/`:
+**Tests.** The data is mirrored from sovkora-packs `document-validation/derivation/`:
 - `RuleProposalVetTest`: each planted proposal is rejected for exactly its reason, and the golden visit-notice rules pass;
 - `RuleDerivationServiceTest`: art. 1931 to 1933 parsed from the official XML, recorded model answers, the cap, the verified-only rule, an article outside the corpus;
 - `JpaRuleProposalStoreIT` (Testcontainers): JSONB, revisions, and eight concurrent derivations giving distinct revisions.
 
 ## The review queue and promotion (ADR-089 §5 and §8, cut 9)
 
-The use cases behind the console's **Law → Proposals** screen. The host (orazaka-conversation-service,
+The use cases behind the console's **Law → Proposals** screen. The host (sovkora-conversation-service,
 `/api/v1/admin/law/**`) authenticates the administrator and audits each write; every rule is enforced here.
 
 | Use case | What it does |
@@ -333,7 +333,7 @@ The use cases behind the console's **Law → Proposals** screen. The host (oraza
 | `RuleProposalService.reject(id, reviewer, reason)` | `PROPOSED` or `APPROVED` (in no pull request yet) → `REJECTED`. The reason is required. |
 | `RuleProposalReviewService.edit(id, rule)` | Writes a new `proposal_revision`, vetted again by `RuleProposalVet` on the day the proposal was vetted. If it passes, it is `PROPOSED` and the `PROPOSED` / `APPROVED` revisions of the rule become `SUPERSEDED`: an edit after approval returns to review. If the vet refuses it, it is `REJECTED_AUTO` and the previous revision is left as it was. |
 | `RulesetPromotionService.promote(kindId, ids, effectiveFrom, note)` | Opens the packs pull request; see below. |
-| `RulesetPromotionService.goldenCases(kindId)` | The kind's golden cases (`worker/fixtures/<kindId>/*.txt` in orazaka-packs) against `law.review.min-golden-cases`. |
+| `RulesetPromotionService.goldenCases(kindId)` | The kind's golden cases (`worker/fixtures/<kindId>/*.txt` in sovkora-packs) against `law.review.min-golden-cases`. |
 | `KindDerivationService.start(jurisdiction, kindId, asOf, language, actor)` | Starts a derivation. The kind's targets and question are read from the pack's `kinds/<kindId>.json`, never typed by the caller. |
 | `LawCorpusCatalogueService` | The Corpus tab: instruments with their counts, imports, and an article by point in time. It returns metadata only. The text leaves only through the metered read. |
 | `KindDemandService` | The Demand tab: `kind_demand`, the most asked first. |
@@ -362,8 +362,8 @@ Properties (`RulesetPromotionProperties`, off by default):
 | Property | Default |
 |:---|:---|
 | `orazaka.law.promotion.enabled` | `false`. When off, promotion and golden reads answer `LAW_PROMOTION_OFF` (503). |
-| `orazaka.law.promotion.app-id`, `installation-id`, `private-key` | required when on (the `krizaka-agents` App: contents and pull requests on orazaka-packs only) |
-| `orazaka.law.promotion.owner` / `repository` / `base-branch` / `api-url` | `krizaka` / `orazaka-packs` / `main` / `https://api.github.com` |
+| `orazaka.law.promotion.app-id`, `installation-id`, `private-key` | required when on (the `krizaka-agents` App: contents and pull requests on sovkora-packs only) |
+| `orazaka.law.promotion.owner` / `repository` / `base-branch` / `api-url` | `krizaka` / `sovkora-packs` / `main` / `https://api.github.com` |
 
 **Rules.**
 - `[LAW-005]`: only `RulesetPromotionService` opens a promotion (`RulesetPromotionPublisher.open`, `RuleProposalService.promote`).
@@ -390,23 +390,23 @@ rounds through Spring AI, embeddings and text to speech by the engine with the s
 
 | | |
 |:---|:---|
-| Depends on | [`orazaka-build`](https://github.com/krizaka/orazaka-build) · [`orazaka-contracts`](https://github.com/krizaka/orazaka-contracts) · [`krizaka-billing`](https://github.com/krizaka/krizaka-build/tree/main/krizaka-billing) · [`orazaka-studio`](https://github.com/krizaka/orazaka-studio) |
-| Used by | [`orazaka-conversation-service`](https://github.com/krizaka/orazaka-conversation-service) · [`orazaka-job-service`](https://github.com/krizaka/orazaka-job-service) |
+| Depends on | [`sovkora-build`](https://github.com/krizaka/sovkora-build) · [`sovkora-contracts`](https://github.com/krizaka/sovkora-contracts) · [`krizaka-billing`](https://github.com/krizaka/krizaka-build/tree/main/krizaka-billing) · [`sovkora-studio-service`](https://github.com/krizaka/sovkora-studio-service) |
+| Used by | [`sovkora-conversation-service`](https://github.com/krizaka/sovkora-conversation-service) · [`sovkora-job-service`](https://github.com/krizaka/sovkora-job-service) |
 | Workspace path | `orazaka-libs/orazaka-ai-engine` |
 
 ## Build
 
-**Inside the Orazaka workspace** (recommended — every dependency is built from source):
+**Inside the Sovkora workspace** (recommended — every dependency is built from source):
 
 ```bash
-git clone https://github.com/krizaka/orazaka.git && cd orazaka
+git clone https://github.com/krizaka/sovkora.git && cd sovkora
 node scripts/workspace.mjs clone          # clones every repository at its workspace path
 ./mvnw -f orazaka-libs/orazaka-ai-engine/pom.xml verify
 ```
 
 **Standalone** — upstream artifacts must be in `~/.m2` (built by the workspace) or resolvable from
 GitHub Packages (`https://maven.pkg.github.com/krizaka/<repository>`, see the
-[workspace README](https://github.com/krizaka/orazaka#consuming-packages)):
+[workspace README](https://github.com/krizaka/sovkora#consuming-packages)):
 
 ```bash
 ./mvnw verify
@@ -416,7 +416,7 @@ Requirements: JDK 21, Docker (Testcontainers integration tests).
 
 ## Governance
 
-This repository follows the Orazaka governance contract — [AGENTS.md](https://github.com/krizaka/orazaka/blob/main/AGENTS.md)
+This repository follows the Sovkora governance contract — [AGENTS.md](https://github.com/krizaka/sovkora/blob/main/AGENTS.md)
 in the workspace is normative; the local [AGENTS.md](AGENTS.md) only scopes it to this repository.
 
 ## License

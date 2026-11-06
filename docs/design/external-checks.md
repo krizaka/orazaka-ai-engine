@@ -1,8 +1,8 @@
-# External checks: the `ExternalCheckConnector` port (orazaka-ai-engine#73)
+# External checks: the `ExternalCheckConnector` port (sovkora-engine#73)
 
 - **Status:** Proposed, for CTO validation before any code beyond the port and the mock
 - **Date:** 2026-10-23
-- **Issue:** [#73](https://github.com/krizaka/orazaka-ai-engine/issues/73) · decision: yomizaka#132
+- **Issue:** [#73](https://github.com/krizaka/sovkora-engine/issues/73) · decision: yomizaka#132
 - **Not in scope:** any live provider call. No real adapter until a pilot customer's go and the provider accounts exist.
 
 ## 1. The port
@@ -16,7 +16,7 @@ public interface ExternalCheckConnector {
 }
 ```
 
-Package: `orazaka-core`, `domain.ports.outbound` (the port) and `domain.model.checks` (the records). The domain stays free of framework.
+Package: `sovkora-core`, `domain.ports.outbound` (the port) and `domain.model.checks` (the records). The domain stays free of framework.
 
 Records:
 
@@ -86,16 +86,16 @@ Routing (proposed, for CTO): a Québec applicant's court records go to SOQUIJ; t
 ## 7. Testing without the network
 
 - `MockConnector` answers from recorded fixtures keyed on the subject: a match per court category (Tremblay `TAL_NON_PAYMENT`, Côté `TAL_OTHER`, Morin `CRIMINAL`, Lavoie `CIVIL`), a no-match (Gagnon), a provider error (Roy) and a timeout (Bouchard). A match answers the fixture's opaque id (`mock-fixture-01`) as `providerRef`, never anything built from the subject (#83). It is the connector of the demo and of CI.
-- **The connector contract** (`ExternalCheckConnectorContract`, test sources of `orazaka-core`): every adapter's test extends it and gives the subjects that reach each of its answers. It asserts that a connector never answers `REFUSED`, names a category only on a match, and that no field of the `CheckResult` nor of the `CheckAudit` the service writes holds the subject's names, date of birth (ISO, basic, dd/MM/yyyy, MM/dd/yyyy) or address (#83).
+- **The connector contract** (`ExternalCheckConnectorContract`, test sources of `sovkora-core`): every adapter's test extends it and gives the subjects that reach each of its answers. It asserts that a connector never answers `REFUSED`, names a category only on a match, and that no field of the `CheckResult` nor of the `CheckAudit` the service writes holds the subject's names, date of birth (ISO, basic, dd/MM/yyyy, MM/dd/yyyy) or address (#83).
 
 ## 7. The checks as engine capabilities (#84)
 
 - `ExternalCheckService` implements the inbound port `ExternalCheckCapability`: a blueprint step names `orazaka.core.checks.courtrecords`, `orazaka.core.checks.credit` or `orazaka.core.checks.identity` (`CheckPurpose.featureKey()`), and reads a `CheckStepResult`: the result and `consumption.calls`.
 - Order of one call: subject reference (HMAC) → consent → key → **one `CALL` held** (`CheckMeter`, ADR-087 unit; the ADR-033 hold until ADR-088 lands) → provider → audit → **settle** on `MATCH` / `NO_MATCH` (`calls: 1`), **release** on `PROVIDER_ERROR` / `TIMEOUT` (`calls: 0`). A refusal takes no hold (`calls: 0`); a budget that cannot hold the call is `REFUSED / BUDGET_EXHAUSTED`, before the provider.
 - `CheckResult.category` is closed: `TAL_NON_PAYMENT`, `TAL_OTHER`, `CRIMINAL`, `CIVIL`, `NONE`. A category other than `NONE` comes only with a match; credit and identity always answer `NONE`. Never free text, never the record's content.
-- The executor that runs these keys in a run (orazaka-job-service) is wired by the host; until then nothing is registered and no check runs.
-- **The meter** (krizaka/orazaka-packs#138) is `CreditHoldCheckMeter` (`orazaka-tools`, `CallMeteringAutoConfiguration`, present only where a billing `CreditAuthorizationClient` is): one `EXTERNAL_CHECK` hold whose `model_name` is the connector's provider (pricebook row `(EXTERNAL_CHECK, mock, CALL)`, krizaka-billing#57), correlated on the run (else the actor), with no job id and the pricebook's estimate. `settle` is `settleMeasured` with `calls: 1` under the key `external-check:<holdId>`; `release` passes the service's reason. A hold closes once. Insufficient credits, a grant that is not granted (released first) or no billable actor are `BudgetExhaustedException`, so `REFUSED / BUDGET_EXHAUSTED` before the provider; a billing outage propagates and no call is made. With billing off the grant reserves nothing and nothing is settled; a shadow grant settles and releases its real hold.
-- **The pepper** is `SealedCheckSubjectPepperAdapter` (`orazaka-persistence-bridge`): the setting `checks.subject-pepper` of `orazaka_runtime_config`, value `v1.<keyId>.<wrapped key>.<nonce>.<ciphertext>` (`SecretSealer`, ADR-054, sealed for the scope `UUID.nameUUIDFromBytes("orazaka:platform:checks.subject-pepper")`), opening to the base64url text of at least 32 random bytes, `value_type` `sealed`. The seed leaves it **absent**: no row, no check. The operator writes it with `CheckSubjectPepperTool seal <keyfile>` (`orazaka-assets`), which prints the upsert and never the pepper. Absent, blank, in clear, unopenable (another scope, another keyring), no keyring in the host, or shorter than 32 bytes: empty, and the service refuses. Read at each check: a new pepper takes effect at once, and changes the references written after it.
+- The executor that runs these keys in a run (sovkora-job-service) is wired by the host; until then nothing is registered and no check runs.
+- **The meter** (krizaka/sovkora-packs#138) is `CreditHoldCheckMeter` (`sovkora-tools`, `CallMeteringAutoConfiguration`, present only where a billing `CreditAuthorizationClient` is): one `EXTERNAL_CHECK` hold whose `model_name` is the connector's provider (pricebook row `(EXTERNAL_CHECK, mock, CALL)`, krizaka-billing#57), correlated on the run (else the actor), with no job id and the pricebook's estimate. `settle` is `settleMeasured` with `calls: 1` under the key `external-check:<holdId>`; `release` passes the service's reason. A hold closes once. Insufficient credits, a grant that is not granted (released first) or no billable actor are `BudgetExhaustedException`, so `REFUSED / BUDGET_EXHAUSTED` before the provider; a billing outage propagates and no call is made. With billing off the grant reserves nothing and nothing is settled; a shadow grant settles and releases its real hold.
+- **The pepper** is `SealedCheckSubjectPepperAdapter` (`sovkora-persistence-bridge`): the setting `checks.subject-pepper` of `orazaka_runtime_config`, value `v1.<keyId>.<wrapped key>.<nonce>.<ciphertext>` (`SecretSealer`, ADR-054, sealed for the scope `UUID.nameUUIDFromBytes("sovkora:platform:checks.subject-pepper")`), opening to the base64url text of at least 32 random bytes, `value_type` `sealed`. The seed leaves it **absent**: no row, no check. The operator writes it with `CheckSubjectPepperTool seal <keyfile>` (`sovkora-assets`), which prints the upsert and never the pepper. Absent, blank, in clear, unopenable (another scope, another keyring), no keyring in the host, or shorter than 32 bytes: empty, and the service refuses. Read at each check: a new pepper takes effect at once, and changes the references written after it.
 - The code PR proves: refusal without consent (no call, one audit line); user key over platform key; platform key when no user key; refusal without any key; a provider error (an exception) and a timeout (an outcome) each audited with no leak; the four fixtures.
 
 ## 7.1 Adapters, routing and deferred answers (#73, slice 2)

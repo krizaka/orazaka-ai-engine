@@ -1,19 +1,19 @@
 # Where the engine runs and what it keeps (data residency)
 
-Read on **2026-10-30** from the infrastructure as deployed (`krizaka-infra` `stacks/dev/orazaka`, the DigitalOcean account) and from the
-code of this repository and `orazaka-packs`. It describes the **dev deployment** (`dev.orazaka.com`, the app `orazaka-dev`); no
-production deployment exists yet, so nothing here is a claim about production. Yomizaka's `docs/privacy/transfers.md` links here
+Read on **2026-10-30** from the infrastructure as deployed (`krizaka-infra` `stacks/dev/sovkora`, the DigitalOcean account) and from the
+code of this repository and `sovkora-packs`. It describes the **dev deployment** (`dev.sovkora.com`, the app `sovkora-dev`); no
+production deployment exists yet, so nothing here is a claim about production. Verikora's `docs/privacy/transfers.md` links here
 (krizaka/yomizaka#102, ADR-0014 slice O7). A change to the infrastructure changes this page in the same pull request.
 
 ## Where it runs
 
 | Part | What | Region | Source |
 | :--- | :--- | :--- | :--- |
-| Edge, services, validation worker | App Platform app `orazaka-dev`: `core` (one image: the JVM services **and** the document-validation worker), `web`, `gpu-relay` | **Toronto (`tor`), Canada** | app spec · `stacks/dev/orazaka/main.tf` (`region = "tor1"`) |
-| Broker | RabbitMQ droplet `orazaka-broker-dev`, private network only (port 5671 from the VPC) | **Toronto (`tor1`), Canada** | `stacks/dev/orazaka/main.tf` · droplet list |
+| Edge, services, validation worker | App Platform app `sovkora-dev`: `core` (one image: the JVM services **and** the document-validation worker), `web`, `gpu-relay` | **Toronto (`tor`), Canada** | app spec · `stacks/dev/sovkora/main.tf` (`region = "tor1"`) |
+| Broker | RabbitMQ droplet `sovkora-broker-dev`, private network only (port 5671 from the VPC) | **Toronto (`tor1`), Canada** | `stacks/dev/sovkora/main.tf` · droplet list |
 | Database | Managed PostgreSQL 18 cluster `krizaka-dev-pg` (runs, jobs, audit) | **Toronto (`tor1`), Canada** | database list |
 | Database backups | Daily backups of that cluster, made by DigitalOcean | **Not set by us.** Taken with the cluster in `tor1`; DigitalOcean's own statement of the backup location is not verified here | database backups list |
-| Job files (outputs, archived `input.json` / input file, `result.json`) | Bunny Storage zone `orazaka-media-dev`, endpoint `ny.storage.bunnycdn.com` | **New York, United States: outside Canada** | app spec (`MEDIA_STORAGE_*`) · `docs/DEPLOY_DEV.md` |
+| Job files (outputs, archived `input.json` / input file, `result.json`) | Bunny Storage zone `sovkora-media-dev`, endpoint `ny.storage.bunnycdn.com` | **New York, United States: outside Canada** | app spec (`MEDIA_STORAGE_*`) · `docs/DEPLOY_DEV.md` |
 | GPU batch (image and video renders) | A RunPod pod, rented for the length of a batch | Any datacentre RunPod offers, not fixed | `scripts/gpu-dev.sh runpod batch` |
 
 A document check (`document-validation`) never uses the GPU batch: its worker is pure Python in `core` (no model, no clock for the
@@ -40,7 +40,7 @@ text of the rules to judge and the quoted passages leave Canada for that provide
 
 ## What is outside Canada, and what that means
 
-1. **Job files in Bunny's New York zone.** For a Canadian-only claim, either Yomizaka's privacy impact assessment (EFVP, Law 25 s. 17)
+1. **Job files in Bunny's New York zone.** For a Canadian-only claim, either Verikora's privacy impact assessment (EFVP, Law 25 s. 17)
    covers this transfer before production, or the zone moves to a Canadian region (the storage zone is configuration:
    `MEDIA_STORAGE_ZONE`, `MEDIA_STORAGE_ENDPOINT`).
 2. **The judgement step's provider**, if a commercial one is routed (see above).

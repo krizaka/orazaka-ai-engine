@@ -9,10 +9,10 @@ import java.util.Locale;
 import org.junit.jupiter.api.Test;
 
 /**
- * The rule behind sovkora-engine#77: a GitHub App installation token lives an hour, so a
- * properties record never takes a GitHub token — it takes the App's id, installation and private
- * key, and the token is minted at run time ({@code GitHubAppInstallationTokens}). A new GitHub
- * integration that adds a {@code token} field fails here instead of an hour after its first start.
+ * The rule behind sovkora-engine#77: a GitHub App installation token lives an hour, so a properties
+ * record never takes a GitHub token — it takes the App's id, installation and private key, and the
+ * token is minted at run time ({@code GitHubAppInstallationTokens}). A new GitHub integration that
+ * adds a {@code token} field fails here instead of an hour after its first start.
  */
 class GitHubCredentialsRuleTest {
 

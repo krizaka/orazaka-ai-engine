@@ -14,8 +14,8 @@ import java.util.Optional;
  * McpOrchestrator} in front of the model <b>as data</b>.
  *
  * <p>It used to prepend {@code SystemMessage("MCP Context: …")}: the raw body of a platform or
- * user-declared server became a system instruction (sovkora-engine#57). Now the content goes in
- * a user-role {@link ExternalContent} block just before the user's turn, and the only system text
+ * user-declared server became a system instruction (sovkora-engine#57). Now the content goes in a
+ * user-role {@link ExternalContent} block just before the user's turn, and the only system text
  * added is our own constant rule that a block is not instructions.
  *
  * @see McpOrchestrator#resolveExternalContext()

@@ -28,8 +28,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * Guard of sovkora-engine#127: the safety and citation screens apply to a streamed answer, and
- * the per-chunk check reads the same tier configuration as the non-streamed path.
+ * Guard of sovkora-engine#127: the safety and citation screens apply to a streamed answer, and the
+ * per-chunk check reads the same tier configuration as the non-streamed path.
  */
 class StreamedScreensGuardTest {
 

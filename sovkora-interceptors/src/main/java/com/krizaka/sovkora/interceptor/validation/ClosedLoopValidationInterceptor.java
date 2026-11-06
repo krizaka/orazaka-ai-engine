@@ -55,14 +55,13 @@ import tools.jackson.databind.ObjectMapper;
  *       Tiers A and B pass, gracefully delegates to Tier C for final arbitration.
  * </ul>
  *
- * <p><strong>Control loop (ADR-092, sovkora-engine#116)</strong>: the interceptor decides in
- * {@link #screenResponse}, before an answer is served. Each pass ends in a typed {@link
- * ControlVerdict}: {@link Validated} serves the text; {@link DriftAdjustment} re-runs the step with
- * the diff of what failed injected (so the next attempt never receives the input the failed one
- * did); once the retries are spent, or when nothing can adjust, {@link HumanEscalation} refuses the
- * turn with a {@link PipelineShortCircuitException} — an output that did not pass is never served.
- * Every adjustment and escalation is recorded through the {@link ControlVerdictRecorder} (the
- * outbox).
+ * <p><strong>Control loop (ADR-092, sovkora-engine#116)</strong>: the interceptor decides in {@link
+ * #screenResponse}, before an answer is served. Each pass ends in a typed {@link ControlVerdict}:
+ * {@link Validated} serves the text; {@link DriftAdjustment} re-runs the step with the diff of what
+ * failed injected (so the next attempt never receives the input the failed one did); once the
+ * retries are spent, or when nothing can adjust, {@link HumanEscalation} refuses the turn with a
+ * {@link PipelineShortCircuitException} — an output that did not pass is never served. Every
+ * adjustment and escalation is recorded through the {@link ControlVerdictRecorder} (the outbox).
  *
  * <p><strong>Fails closed (sovkora-engine#125)</strong>: a streamed answer is screened too, the
  * deterministic checks on the chunks as they arrive ({@link #screenChunk}), every tier on the

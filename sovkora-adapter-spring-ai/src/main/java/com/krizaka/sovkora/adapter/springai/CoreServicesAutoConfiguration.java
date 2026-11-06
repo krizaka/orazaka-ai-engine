@@ -79,8 +79,8 @@ import org.springframework.web.client.RestClient;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * Spring wiring of the core services (ADR-092 §4 rule 1, sovkora-engine#121): the core classes
- * are plain Java, registered here unless the host brings its own bean of the same type.
+ * Spring wiring of the core services (ADR-092 §4 rule 1, sovkora-engine#121): the core classes are
+ * plain Java, registered here unless the host brings its own bean of the same type.
  */
 @AutoConfiguration(after = SpringAiAdapterAutoConfiguration.class)
 @EnableConfigurationProperties(KnowledgeProperties.class)

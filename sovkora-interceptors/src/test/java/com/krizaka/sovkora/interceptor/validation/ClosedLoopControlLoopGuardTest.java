@@ -20,8 +20,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 
 /**
- * Guard of sovkora-engine#116 (ADR-092): the control loop re-runs the step with the drift
- * injected, never serves an output that did not pass, and really evaluates Tier B.
+ * Guard of sovkora-engine#116 (ADR-092): the control loop re-runs the step with the drift injected,
+ * never serves an output that did not pass, and really evaluates Tier B.
  */
 class ClosedLoopControlLoopGuardTest {
 

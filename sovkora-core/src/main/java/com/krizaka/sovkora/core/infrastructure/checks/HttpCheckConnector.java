@@ -13,10 +13,9 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * What the HTTP adapters of the providers share (sovkora-engine#73): fail closed without an
- * HTTPS endpoint or a key, one POST per search, the provider's answer reduced to an outcome, a
- * closed category and an opaque reference, and nothing of the subject or of the provider's message
- * kept.
+ * What the HTTP adapters of the providers share (sovkora-engine#73): fail closed without an HTTPS
+ * endpoint or a key, one POST per search, the provider's answer reduced to an outcome, a closed
+ * category and an opaque reference, and nothing of the subject or of the provider's message kept.
  *
  * <p><b>The wire format is provisional.</b> SOQUIJ, Trustii and Certn publish no API we may rely on
  * (the design note, section 6): the request and answer shapes below are the engine's own neutral

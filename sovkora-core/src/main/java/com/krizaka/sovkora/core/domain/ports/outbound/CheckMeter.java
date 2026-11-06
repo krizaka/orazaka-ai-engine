@@ -4,10 +4,10 @@ import com.krizaka.sovkora.core.domain.model.checks.CheckPurpose;
 import java.util.UUID;
 
 /**
- * Meters an external check (sovkora-engine#84): one {@code EXTERNAL_CHECK} operation of unit
- * {@code CALL} (ADR-087), priced by the pricebook row of the purpose, held against the run budget
- * (ADR-033 hold then settle; the run budget of ADR-088 when it lands). A refused call takes no
- * hold; a call the budget cannot hold is refused before the provider is asked.
+ * Meters an external check (sovkora-engine#84): one {@code EXTERNAL_CHECK} operation of unit {@code
+ * CALL} (ADR-087), priced by the pricebook row of the purpose, held against the run budget (ADR-033
+ * hold then settle; the run budget of ADR-088 when it lands). A refused call takes no hold; a call
+ * the budget cannot hold is refused before the provider is asked.
  */
 public interface CheckMeter {
 

@@ -5,9 +5,9 @@ import com.krizaka.sovkora.core.domain.model.checks.CheckRequest;
 import com.krizaka.sovkora.core.domain.model.checks.CheckResult;
 
 /**
- * An external provider of checks: court records, credit, identity (sovkora-engine#73). A
- * connector only calls its provider with the key it is given. Consent, the choice of key and the
- * audit are the service's, never the connector's.
+ * An external provider of checks: court records, credit, identity (sovkora-engine#73). A connector
+ * only calls its provider with the key it is given. Consent, the choice of key and the audit are
+ * the service's, never the connector's.
  *
  * <p>The keys are read from the encrypted settings by the key store, never from an environment
  * variable.

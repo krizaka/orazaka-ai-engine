@@ -29,8 +29,8 @@ public class DefaultToolCatalogue {
 
   /**
    * Searches the knowledge corpus the knowledge service holds — not the web. It was called {@code
-   * searchWeb}, which told the model it could look things up live (ADR-087, sovkora-engine#59).
-   * The name is also the key of its sources and of its cache settings.
+   * searchWeb}, which told the model it could look things up live (ADR-087, sovkora-engine#59). The
+   * name is also the key of its sources and of its cache settings.
    */
   static final String TOOL_SEARCH_KNOWLEDGE = "searchKnowledge";
 

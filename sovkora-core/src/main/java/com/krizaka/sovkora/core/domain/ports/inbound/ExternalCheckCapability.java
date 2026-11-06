@@ -5,11 +5,11 @@ import com.krizaka.sovkora.core.domain.model.checks.CheckPurpose;
 import com.krizaka.sovkora.core.domain.model.checks.CheckStepResult;
 
 /**
- * The external checks as engine capabilities (sovkora-engine#84): a blueprint step names one by
- * its feature key ({@link CheckPurpose#featureKey()}: {@code orazaka.core.checks.courtrecords},
- * {@code orazaka.core.checks.credit}, {@code orazaka.core.checks.identity}). Every call is
- * consent-gated, metered as one {@code CALL} and held against the run budget; the step reports
- * {@code consumption.calls}.
+ * The external checks as engine capabilities (sovkora-engine#84): a blueprint step names one by its
+ * feature key ({@link CheckPurpose#featureKey()}: {@code orazaka.core.checks.courtrecords}, {@code
+ * orazaka.core.checks.credit}, {@code orazaka.core.checks.identity}). Every call is consent-gated,
+ * metered as one {@code CALL} and held against the run budget; the step reports {@code
+ * consumption.calls}.
  */
 public interface ExternalCheckCapability {
 

@@ -14,11 +14,11 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 
 /**
- * The platform keys of the check providers, sealed in the admin settings (sovkora-engine#73):
- * the setting {@code checks.provider.<name>.key} holds the key sealed with the platform keyring for
- * the scope of that provider ({@link SecretSealer}, ADR-054), never an environment variable. A
- * value in clear, one that does not open, or a host with no keyring is no key: the check fails
- * closed ({@code NO_KEY}). A warning names the setting and the reason, never a value.
+ * The platform keys of the check providers, sealed in the admin settings (sovkora-engine#73): the
+ * setting {@code checks.provider.<name>.key} holds the key sealed with the platform keyring for the
+ * scope of that provider ({@link SecretSealer}, ADR-054), never an environment variable. A value in
+ * clear, one that does not open, or a host with no keyring is no key: the check fails closed
+ * ({@code NO_KEY}). A warning names the setting and the reason, never a value.
  *
  * <p>A user's own key has no store yet: {@link #userKey} answers empty until the user vault lands.
  */

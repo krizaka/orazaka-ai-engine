@@ -4,8 +4,8 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * One provider row, admin data in the database (sovkora-engine#73). The routing is data: the
- * {@code handlerKey} names the adapter, never a class order or a name heuristic.
+ * One provider row, admin data in the database (sovkora-engine#73). The routing is data: the {@code
+ * handlerKey} names the adapter, never a class order or a name heuristic.
  *
  * @param provider the provider's name as the audit, the keys and the pricebook know it
  * @param handlerKey the adapter that serves it: {@code soquij}, {@code trustii}, {@code certn},

@@ -12,8 +12,8 @@ import java.util.Objects;
 
 /**
  * A connector that answers from recorded fixtures, with no network: the demo's and the CI's
- * connector (sovkora-engine#73). The fixture is chosen by the subject's last name, so a test
- * reads as a sentence: the subject {@code Tremblay} has a TAL non-payment file.
+ * connector (sovkora-engine#73). The fixture is chosen by the subject's last name, so a test reads
+ * as a sentence: the subject {@code Tremblay} has a TAL non-payment file.
  *
  * <p>A match answers the fixture's opaque id ({@code mock-fixture-01}) as its provider reference,
  * never anything built from the subject (sovkora-engine#83). Court records answer the fixture's

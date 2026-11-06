@@ -5,8 +5,8 @@ import java.io.Serial;
 
 /**
  * The semantic judge (Tier C / Tier D) could not give a usable answer: a timeout, an outage, an
- * open circuit breaker, an empty or unreadable reply (sovkora-engine#125). It is never a pass
- * and never a neutral score: the control loop applies the {@link JudgeOutagePolicy}.
+ * open circuit breaker, an empty or unreadable reply (sovkora-engine#125). It is never a pass and
+ * never a neutral score: the control loop applies the {@link JudgeOutagePolicy}.
  */
 public class JudgeUnavailableException extends RuntimeException {
 
